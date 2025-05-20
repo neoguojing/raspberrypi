@@ -20,7 +20,7 @@ AUDIO_CHUNK_SIZE = 1024 # 每次读取的帧数
 AUDIO_DEVICE_INDEX = None # 麦克风设备索引，None代表默认。运行 list_audio_devices.py 查找。
 RECORD_SECONDS_AFTER_WAKE = 10 # 唤醒后最长录音时间
 SILENCE_THRESHOLD = 500  # 静音阈值 (需要根据麦克风和环境调整)
-SILENT_CHUNKS_NEEDED = 30 # 连续多少个静音块后判断为静音 (RATE / CHUNK_SIZE * seconds) e.g., 16000/1024 * 1.5 = ~23
+SILENT_CHUNKS_NEEDED = 30 # 连续多少个静音块后判断为静音 (RATE / CHUNK_SIZE * seconds) e.g., 16000/1024 * 1.5 = ~
 
 # 远端LLM API
 REMOTE_LLM_URL = "YOUR_REMOTE_LLM_API_ENDPOINT" # 例如 "http://your-server.com/process-audio"
@@ -31,7 +31,3 @@ REMOTE_LLM_HEADERS = {
 
 # TTS 语言 (用于 gTTS)
 TTS_LANG = 'zh-cn' # 中文
-
-# 提示音 (可选)
-WAKE_SOUND_PATH = "sounds/wake.wav" # 唤醒成功提示音
-END_SOUND_PATH = "sounds/end.wav"   # 录音结束提示音

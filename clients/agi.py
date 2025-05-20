@@ -1,6 +1,6 @@
 import os
 from openai import AsyncOpenAI
-from tools.util import audio_to_base64
+from tools.utils import audio_to_base64
 
 # 初始化异步客户端
 client = AsyncOpenAI(
@@ -8,7 +8,7 @@ client = AsyncOpenAI(
     base_url="http://localhost:8000/v1",
 )
 
-async def audio_wakeup(audio_filepath: str, wake_up_word: str = "你好，小派") -> bool:
+async def audio_wakeup(audio_filepath: str, wake_up_word: str = "你好小派") -> bool:
     """
     使用 Whisper 模型识别音频内容，并判断是否包含唤醒词。
     
@@ -54,7 +54,7 @@ async def send_audio_to_llm(audio_filepath: str):
         stream = await client.chat.completions.create(
             model="agi-model",
             stream=True,
-            extra_body={"need_speech": True, "feature": "speech"},
+            extra_body={"need_speech": True},
             messages=[
                 {
                     "role": "user",
