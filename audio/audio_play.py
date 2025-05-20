@@ -5,6 +5,8 @@ import asyncio
 import aiohttp
 import tempfile
 from pygame import mixer
+from pydub import AudioSegment
+import io
 
 # 初始化 pygame mixer（只需初始化一次）
 mixer.init()
@@ -65,3 +67,21 @@ async def play_sound(source: str):
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+def play_audio_bytes(audio_bytes: bytes):
+    # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="wav")
+
+    p = pyaudio.PyAudio()
+
+    stream = p.open(format=p.get_format_from_width(audio.sample_width),
+                    channels=audio.channels,
+                    rate=audio.frame_rate,
+                    output=True)
+
+    # 播放音频数据
+    stream.write(audio.raw_data)
+
+    stream.stop_stream()
+    stream.close()
+    p.terminate()

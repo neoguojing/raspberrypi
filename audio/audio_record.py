@@ -24,7 +24,7 @@ class ContinuousAudioListener:
         self.device_index = config.AUDIO_DEVICE_INDEX
 
         # 环形缓冲：保存最近 BUFFER_SECONDS 秒的数据
-        max_frames = int(self.rate / self.chunk_size * config.BUFFER_SECONDS)
+        max_frames = int(self.rate / self.chunk_size * config.RECORD_SECONDS_AFTER_WAKE)
         self._buffer: Deque[bytes] = collections.deque(maxlen=max_frames)
 
         self._pa = pyaudio.PyAudio()
@@ -77,13 +77,18 @@ class ContinuousAudioListener:
             # 获取最近一帧
             frame = self._buffer[-1] if self._buffer else b"\x00" * (chunk * 2)
             frames.append(frame)
-            if audioop.rms(frame, 2) < config.SILENCE_THRESHOLD:
+            # 静音帧数超过阈值，则判断用户输入完毕
+            if self.is_silence(frame):
                 silent += 1
                 if silent >= config.SILENT_CHUNKS_NEEDED:
                     break
             else:
                 silent = 0
             await asyncio.sleep(chunk / rate)
+
+        if self.is_silence(frames):
+            print("用户没有输入")
+            return None
 
         # 保存到临时文件
         tmp_path = os.path.join(tempfile.gettempdir(), f"record_{int(time.time())}.wav")
@@ -93,3 +98,8 @@ class ContinuousAudioListener:
             wf.setframerate(rate)
             wf.writeframes(b"".join(frames))
         return tmp_path
+    
+    def is_silence(self,frames):
+        if isinstance(frames,list):
+            frames = b"".join(frames)
+        return audioop.rms(frames, 2) < config.SILENCE_THRESHOLD
