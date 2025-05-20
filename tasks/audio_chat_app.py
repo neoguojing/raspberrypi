@@ -9,7 +9,7 @@ import wave
 import tempfile
 import audioop
 import config
-
+import pyaudio
 
 class VoiceAssistant:
     """事件驱动的唤醒检测与交互管理"""
