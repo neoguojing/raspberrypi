@@ -19,8 +19,13 @@ def main():
     args = parser.parse_args()
     kwargs = parse_key_value_args(args.args)
 
-    task_func = TASKS.get(args.task)
-    if task_func:
-        asyncio.run(task_func(**kwargs))
-    else:
-        print(f"任务 {args.task} 未注册")
+    task = TASKS.get(args.task)
+    try:
+        if task:
+            asyncio.run(task.run(**kwargs))
+        else:
+            print(f"任务 {args.task} 未注册")
+    except KeyboardInterrupt:
+        print("助手终止，清理...")
+        task.stop()
+        

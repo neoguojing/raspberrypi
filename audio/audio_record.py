@@ -2,7 +2,6 @@ import os
 import tempfile
 import threading
 import collections
-import wave
 
 import pyaudio
 import audioop
@@ -11,6 +10,7 @@ import asyncio
 import time
 
 import config
+from tools.utils import pcm_to_wav
 
 
 class ContinuousAudioListener:
@@ -90,14 +90,9 @@ class ContinuousAudioListener:
             print("用户没有输入")
             return None
 
-        # 保存到临时文件
-        tmp_path = os.path.join(tempfile.gettempdir(), f"record_{int(time.time())}.wav")
-        with wave.open(tmp_path, 'wb') as wf:
-            wf.setnchannels(self.channels)
-            wf.setsampwidth(self._pa.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(rate)
-            wf.writeframes(b"".join(frames))
-        return tmp_path
+        audio_byte = pcm_to_wav(frames,channels=self.channels,rate=rate,
+                                     sampwidth=self._pa.get_sample_size(pyaudio.paInt16))
+        return audio_byte
     
     def is_silence(self,frames):
         if isinstance(frames,list):
