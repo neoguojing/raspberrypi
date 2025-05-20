@@ -22,7 +22,6 @@ class VoiceAssistant:
         self.listener = ContinuousAudioListener()
         self.wake_event = asyncio.Event()
         self.cooldown = config.POST_WAKE_COOLDOWN or 180
-        self.is_active = AsyncSafeValue()
         self.interaction_lock = asyncio.Lock()
 
     async def wake_checker(self):
@@ -31,7 +30,7 @@ class VoiceAssistant:
         """
         while True:
             # 处于非激活状态
-            if self.is_active.get() < 0:
+            if not self.wake_event.is_set():
                 # 交互时无需检测
                 async with self.interaction_lock:
                     data = self.listener.get_buffered_data(config.WAKE_CHECK_SECONDS)
@@ -69,9 +68,7 @@ class VoiceAssistant:
         print("助手已启动，持续监听中...")
         while True:
             now = time.time()
-            self.is_active.set(now-last_interaction-self.cooldown)
-
-            if self.is_active.get() >= 0:
+            if now - last_interaction > self.cooldown:
                 # 等待唤醒事件
                 self.wake_event.clear()
                 await self.wake_event.wait()
