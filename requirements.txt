@@ -1,5 +1,6 @@
-pvporcupine
+# pvporcupine
 pyaudio
 requests
 wave
 pygame
+pydub

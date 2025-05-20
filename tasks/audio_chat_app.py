@@ -1,9 +1,9 @@
 
-from audio.audio_play import play_sound
+from audio.audio_play import play_sound,play_audio_bytes
 from audio.audio_record import ContinuousAudioListener
 from clients.agi import audio_wakeup,send_audio_to_llm
 from tools.device import check_audio_devices
-from tools.utils import AsyncSafeValue
+from tools.utils import AsyncSafeValue,pcm_to_wav
 import os
 import time
 import asyncio
@@ -39,14 +39,9 @@ class VoiceAssistant:
                         await asyncio.sleep(config.WAKE_CHECK_STEP)
                         continue
 
-                    # 写入临时文件并检测唤醒
-                    path = os.path.join(tempfile.gettempdir(), f"wake_{int(time.time())}.wav")
-                    with wave.open(path, 'wb') as wf:
-                        wf.setnchannels(self.listener.channels)
-                        wf.setsampwidth(self.listener.pa.get_sample_size(pyaudio.paInt16))
-                        wf.setframerate(self.listener.rate)
-                        wf.writeframes(data)
-
+                    path = pcm_to_wav(data,channels=self.listener.channels,rate=self.listener.rate,
+                                      sampwidth=self.listener.pa.get_sample_size(pyaudio.paInt16),save_to_file=True)
+                    print(path)
                     try:
                         if await audio_wakeup(path):
                             self.wake_event.set()
@@ -62,7 +57,7 @@ class VoiceAssistant:
             if clip:
                 try:
                     async for audio_chunk in send_audio_to_llm(clip):
-                        await play_sound(audio_chunk)
+                        await play_audio_bytes(audio_chunk)
                 finally:
                     os.remove(clip)
 
@@ -93,11 +88,11 @@ class VoiceAssistant:
     def stop(self):
         self.listener.stop()
 
+voice_assistant = VoiceAssistant()
 
 if __name__ == "__main__":
-    va = VoiceAssistant()
     try:
-        asyncio.run(va.run())
+        asyncio.run(voice_assistant.run())
     except KeyboardInterrupt:
         print("助手终止，清理...")
-        va.stop()
+        voice_assistant.stop()

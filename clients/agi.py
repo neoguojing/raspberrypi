@@ -38,19 +38,16 @@ async def audio_wakeup(audio_filepath: str, wake_up_word: str = "你好小派") 
         return False
 
 
-async def send_audio_to_llm(audio_filepath: str):
+async def send_audio_to_llm(audio: any):
     """
     将音频文件发送到远程 LLM API，并打印其响应流。
     
     参数:
-        audio_filepath (str): 音频文件路径
+        audio (any): 音频
     """
-    if not os.path.exists(audio_filepath):
-        print(f"音频文件 {audio_filepath} 未找到。")
-        return
 
     try:
-        audio_base64 = audio_to_base64(audio_filepath)
+        audio_base64 = await audio_to_base64(audio)
         stream = await client.chat.completions.create(
             model="agi-model",
             stream=True,

@@ -2,11 +2,13 @@ import os
 import time
 import base64
 import asyncio
-import aiohttp
+
 import tempfile
 from pygame import mixer
 from pydub import AudioSegment
+import pyaudio
 import io
+from tools.utils import load_wav_data
 
 # 初始化 pygame mixer（只需初始化一次）
 mixer.init()
@@ -16,29 +18,6 @@ async def _wait_for_playback_end():
     while mixer.get_busy():
         await asyncio.sleep(0.1)
 
-async def _download_audio(url: str) -> str:
-    """下载远程音频并保存为临时文件，返回路径"""
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status != 200:
-                raise Exception(f"音频下载失败: {response.status}")
-            data = await response.read()
-    
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-    tmp_file.write(data)
-    tmp_file.close()
-    return tmp_file.name
-
-async def _decode_base64_audio(data: str) -> str:
-    """将 base64 音频数据解码为临时文件"""
-    if data.startswith("data:audio"):
-        header, data = data.split(",", 1)
-    audio_bytes = base64.b64decode(data)
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-    tmp_file.write(audio_bytes)
-    tmp_file.close()
-    return tmp_file.name
-
 async def play_sound(source: str):
     """
     异步播放音频（支持本地文件、远程URL、base64）
@@ -46,20 +25,9 @@ async def play_sound(source: str):
     参数:
         source: 可以是本地路径、远程URL、或base64音频字符串
     """
-    temp_path = None
-    try:
-        if source.startswith("http://") or source.startswith("https://"):
-            temp_path = await _download_audio(source)
-            sound = mixer.Sound(temp_path)
-        elif source.strip().startswith("data:audio") or len(source.strip()) > 100:
-            temp_path = await _decode_base64_audio(source)
-            sound = mixer.Sound(temp_path)
-        elif os.path.exists(source):
-            sound = mixer.Sound(source)
-        else:
-            print(f"无法识别或找到音频源: {source}")
-            return
-        
+    try:     
+        _, temp_path = load_wav_data(source,save_to_file=True)
+        sound = mixer.Sound(temp_path)
         sound.play()
         await _wait_for_playback_end()
     except Exception as e:
@@ -68,12 +36,12 @@ async def play_sound(source: str):
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
 
-def play_audio_bytes(audio_bytes: bytes):
+async def play_audio_bytes(source: str):
     # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
-    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="wav")
+    bio, _ = load_wav_data(source)
+    audio = AudioSegment.from_file(bio, format="wav")
 
     p = pyaudio.PyAudio()
-
     stream = p.open(format=p.get_format_from_width(audio.sample_width),
                     channels=audio.channels,
                     rate=audio.frame_rate,
