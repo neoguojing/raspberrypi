@@ -8,13 +8,13 @@ client = AsyncOpenAI(
     base_url="http://localhost:8000/v1",
 )
 
-async def audio_wakeup(audio_filepath: str, wake_up_word: str = "你好小派") -> bool:
+async def audio_wakeup(audio_filepath: str, wake_up_word: str = "小派") -> bool:
     """
     使用 Whisper 模型识别音频内容，并判断是否包含唤醒词。
     
     参数:
         audio_filepath (str): 音频文件路径
-        wake_up_word (str): 唤醒词，默认值为“你好，小派”
+        wake_up_word (str): 唤醒词，默认值为“小派”
     
     返回:
         bool: 是否检测到唤醒词
