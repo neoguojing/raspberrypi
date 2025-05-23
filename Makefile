@@ -2,7 +2,8 @@
 
 # --- Variables ---
 PYTHON = python3
-VENV_DIR = .venv # 推荐使用 .venv 作为虚拟环境目录名
+# 推荐使用 .venv 作为虚拟环境目录名
+VENV_DIR = .venv
 PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
 
@@ -14,7 +15,6 @@ APT_PACKAGES = \
     python3-venv \
     portaudio19-dev \
     python3-pyaudio \
-    python3-pygame \
     # espeak-ng # 如果你想使用espeak-ng作为本地TTS备选方案
     # mpg123    # 如果你想使用mpg123播放音频（pygame可以处理，但这是另一种选择）
 
@@ -56,7 +56,6 @@ venv:
 		echo "Virtual environment created. Activate with: source $(VENV_DIR)/bin/activate"; \
 	fi
 	@echo "Upgrading pip in venv..."
-	source $(VENV_DIR)/bin/activate
 	$(PIP) install --upgrade pip
 
 # Target to install Python requirements
@@ -69,9 +68,9 @@ requirements: venv # Ensure venv exists
 setup: venv requirements
 
 # Target to run the application
-run: requirements # Ensure requirements are installed
+run: # Ensure requirements are installed
 	@echo "Running the application (main.py)..."
-	$(PYTHON_EXEC) main.py
+	./run.sh
 
 # Target to list audio devices
 list-audio: requirements

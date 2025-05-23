@@ -9,7 +9,15 @@ from typing import Deque
 import asyncio
 import time
 
-import config
+from .config import (
+    AUDIO_RATE,
+    AUDIO_CHANNELS,
+    AUDIO_CHUNK_SIZE,
+    AUDIO_DEVICE_INDEX,
+    RECORD_SECONDS_AFTER_WAKE,
+    SILENT_CHUNKS_NEEDED,
+    SILENCE_THRESHOLD
+)
 from tools.utils import pcm_to_wav
 
 
@@ -18,13 +26,13 @@ class ContinuousAudioListener:
     持续监听麦克风，将音频帧写入环形缓冲，并提供录音方法。
     """
     def __init__(self):
-        self.rate = config.AUDIO_RATE
-        self.channels = config.AUDIO_CHANNELS
-        self.chunk_size = config.AUDIO_CHUNK_SIZE
-        self.device_index = config.AUDIO_DEVICE_INDEX
+        self.rate = AUDIO_RATE
+        self.channels = AUDIO_CHANNELS
+        self.chunk_size = AUDIO_CHUNK_SIZE
+        self.device_index = AUDIO_DEVICE_INDEX
 
         # 环形缓冲：保存最近 BUFFER_SECONDS 秒的数据
-        max_frames = int(self.rate / self.chunk_size * config.RECORD_SECONDS_AFTER_WAKE)
+        max_frames = int(self.rate / self.chunk_size * RECORD_SECONDS_AFTER_WAKE)
         self._buffer: Deque[bytes] = collections.deque(maxlen=max_frames)
 
         self._pa = pyaudio.PyAudio()
@@ -71,7 +79,7 @@ class ContinuousAudioListener:
         rate, chunk = self.rate, self.chunk_size
         silent = 0
         frames = []
-        max_frames = int(rate / chunk * (max_seconds or config.RECORD_SECONDS_AFTER_WAKE))
+        max_frames = int(rate / chunk * (max_seconds or RECORD_SECONDS_AFTER_WAKE))
 
         for _ in range(max_frames):
             # 获取最近一帧
@@ -80,7 +88,7 @@ class ContinuousAudioListener:
             # 静音帧数超过阈值，则判断用户输入完毕
             if self.is_silence(frame):
                 silent += 1
-                if silent >= config.SILENT_CHUNKS_NEEDED:
+                if silent >= SILENT_CHUNKS_NEEDED:
                     break
             else:
                 silent = 0
@@ -97,4 +105,4 @@ class ContinuousAudioListener:
     def is_silence(self,frames):
         if isinstance(frames,list):
             frames = b"".join(frames)
-        return audioop.rms(frames, 2) < config.SILENCE_THRESHOLD
+        return audioop.rms(frames, 2) < SILENCE_THRESHOLD
