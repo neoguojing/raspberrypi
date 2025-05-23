@@ -1,5 +1,5 @@
 
-from audio.audio_play import play_sound,play_audio_bytes
+from audio.audio_play import play_audio_bytes
 from audio.audio_record import ContinuousAudioListener
 from clients.agi import audio_wakeup,send_audio_to_llm
 from tools.device import check_audio_devices
@@ -9,19 +9,15 @@ import time
 import asyncio
 import wave
 import tempfile
-import config
+from .config import POST_WAKE_COOLDOWN,WAKE_CHECK_SECONDS,WAKE_CHECK_STEP,WAKE_SOUND_PATH
 import pyaudio
 
 class VoiceAssistant:
     """事件驱动的唤醒检测与交互管理"""
     def __init__(self):
-        inputs,outpus,_,_ = check_audio_devices()
-        if not inputs or not outpus:
-            raise ValueError("输入或输出设备缺失")
-
         self.listener = ContinuousAudioListener()
         self.wake_event = asyncio.Event()
-        self.cooldown = config.POST_WAKE_COOLDOWN or 180
+        self.cooldown = POST_WAKE_COOLDOWN or 180
         self.interaction_lock = asyncio.Lock()
 
     async def wake_checker(self):
@@ -33,9 +29,9 @@ class VoiceAssistant:
             if not self.wake_event.is_set():
                 # 交互时无需检测
                 async with self.interaction_lock:
-                    data = self.listener.get_buffered_data(config.WAKE_CHECK_SECONDS)
+                    data = self.listener.get_buffered_data(WAKE_CHECK_SECONDS)
                     if self.listener.is_silence(data):
-                        await asyncio.sleep(config.WAKE_CHECK_STEP)
+                        await asyncio.sleep(WAKE_CHECK_STEP)
                         continue
 
                     path = pcm_to_wav(data,channels=self.listener.channels,rate=self.listener.rate,
@@ -47,7 +43,7 @@ class VoiceAssistant:
                     finally:
                         os.remove(path)
 
-            await asyncio.sleep(config.WAKE_CHECK_STEP)
+            await asyncio.sleep(WAKE_CHECK_STEP)
 
     async def single_interaction(self):
         """一次录音-发送-播放交互"""
@@ -61,6 +57,9 @@ class VoiceAssistant:
                     os.remove(clip)
 
     async def run(self):
+        inputs,outpus,_,_ = await check_audio_devices()
+        if not inputs or not outpus:
+            raise ValueError("输入或输出设备缺失")
         # 启动监听与唤醒检测
         self.listener.start()
         asyncio.create_task(self.wake_checker())
@@ -73,8 +72,9 @@ class VoiceAssistant:
                 self.wake_event.clear()
                 await self.wake_event.wait()
                 print("唤醒词检测到，准备交互...")
-                if config.WAKE_SOUND_PATH and os.path.exists(config.WAKE_SOUND_PATH):
-                    await play_sound(config.WAKE_SOUND_PATH)
+                if WAKE_SOUND_PATH and os.path.exists(WAKE_SOUND_PATH):
+                    # await play_sound(WAKE_SOUND_PATH)
+                    await play_audio_bytes(WAKE_SOUND_PATH)
             else:
                 print("冷却期内，直接交互...")
 

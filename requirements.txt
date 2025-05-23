@@ -6,3 +6,5 @@ pygame
 pydub
 pytest 
 pytest-asyncio
+aiohttp
+openai
