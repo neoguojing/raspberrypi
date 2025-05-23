@@ -5,7 +5,7 @@ from tools.utils import audio_to_base64
 # 初始化异步客户端
 client = AsyncOpenAI(
     api_key="123",  # 替换为你的API Key，或读取环境变量
-    base_url="http://localhost:8000/v1",
+    base_url="http://192.168.1.123:8000/v1",
 )
 
 async def audio_wakeup(audio_filepath: str, wake_up_word: str = "小派") -> bool:

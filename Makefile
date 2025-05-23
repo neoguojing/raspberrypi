@@ -56,6 +56,7 @@ venv:
 		echo "Virtual environment created. Activate with: source $(VENV_DIR)/bin/activate"; \
 	fi
 	@echo "Upgrading pip in venv..."
+	source $(VENV_DIR)/bin/activate
 	$(PIP) install --upgrade pip
 
 # Target to install Python requirements
