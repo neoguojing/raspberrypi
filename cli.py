@@ -1,6 +1,6 @@
 import argparse
 import asyncio
-from tasks import TASKS  # 自动收集任务函数
+from tasks.tasks import TASKS  # 自动收集任务函数
 
 def parse_key_value_args(kv_args):
     kwargs = {}
