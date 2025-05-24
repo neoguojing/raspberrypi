@@ -2,7 +2,7 @@
 pyaudio
 requests
 wave
-pygame
+# pygame
 pydub
 pytest 
 pytest-asyncio
