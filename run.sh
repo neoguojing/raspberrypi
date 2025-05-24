@@ -69,4 +69,4 @@
 # pactl info | grep "Default Sink"
 
 # echo "🚀 启动应用..."
-python cli.py task chat # 请替换为你的游戏脚本文件名
+python cli.py chat # 请替换为你的游戏脚本文件名
