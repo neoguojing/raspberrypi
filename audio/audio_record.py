@@ -70,6 +70,9 @@ class ContinuousAudioListener:
         num = int(self.rate / self.chunk_size * seconds)
         frames = list(self._buffer)[-num:]
         return b"".join(frames)
+    
+    def get_sampwidth(self):
+        return self._pa.get_sample_size(pyaudio.paInt16)
 
     async def record(self, max_seconds: int = None) -> str:
         """
@@ -98,7 +101,7 @@ class ContinuousAudioListener:
             print("用户没有输入")
             return None
 
-        audio_byte = pcm_to_wav(frames,channels=self.channels,rate=rate,
+        audio_byte = await pcm_to_wav(frames,channels=self.channels,rate=rate,
                                      sampwidth=self._pa.get_sample_size(pyaudio.paInt16))
         return audio_byte
     

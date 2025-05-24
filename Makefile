@@ -13,8 +13,9 @@ PYTHON_EXEC = $(VENV_DIR)/bin/python
 APT_PACKAGES = \
     python3-pip \
     python3-venv \
-    portaudio19-dev \
     python3-pyaudio \
+    python3-dev \
+	portaudio19-dev \
     # espeak-ng # 如果你想使用espeak-ng作为本地TTS备选方案
     # mpg123    # 如果你想使用mpg123播放音频（pygame可以处理，但这是另一种选择）
 
