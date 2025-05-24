@@ -44,10 +44,9 @@ class VoiceAssistant(BaseTask):
 
             await asyncio.sleep(WAKE_CHECK_STEP)
 
-    async def single_interaction(self):
+    async def single_interaction(self,clip):
         """一次录音-发送-播放交互"""
         async with self.interaction_lock:
-            clip = await self.listener.record()
             if clip:
                 try:
                     async for audio_chunk in send_audio_to_llm(clip):
@@ -77,9 +76,10 @@ class VoiceAssistant(BaseTask):
                     await play_audio_bytes(WAKE_SOUND_PATH)
             else:
                 print("冷却期内，直接交互...")
-
-            await self.single_interaction()
-            last_interaction = time.time()
+            clip = await self.listener.record()
+            if clip:
+                await self.single_interaction(clip)
+                last_interaction = time.time()
             
 
     def _stop(self):
