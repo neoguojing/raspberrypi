@@ -43,22 +43,22 @@ async def check_audio_devices(expected_input=None, expected_output=None):
 
 
 # 示例调用
-async def main():
-    input_devices,output_devices,input_device_found,output_device_found = await check_audio_devices(expected_input="USB", expected_output="HDMI")
-    print("输入设备列表:")
-    for d in input_devices:
-        print(f"  索引 {d['index']}: {d['name']} (声道数: {d['channels']})")
+# async def main():
+#     input_devices,output_devices,input_device_found,output_device_found = await check_audio_devices(expected_input="USB", expected_output="HDMI")
+#     print("输入设备列表:")
+#     for d in input_devices:
+#         print(f"  索引 {d['index']}: {d['name']} (声道数: {d['channels']})")
 
-    print("\n输出设备列表:")
-    for d in output_devices:
-        print(f"  索引 {d['index']}: {d['name']} (声道数: {d['channels']})")
+#     print("\n输出设备列表:")
+#     for d in output_devices:
+#         print(f"  索引 {d['index']}: {d['name']} (声道数: {d['channels']})")
 
-    if input_device_found is not None:
-        print(f"\n是否找到指定输入设备: {'是' if input_device_found else '否'}")
+#     if input_device_found is not None:
+#         print(f"\n是否找到指定输入设备: {'是' if input_device_found else '否'}")
 
-    if output_device_found is not None:
-        print(f"是否找到指定输出设备: {'是' if output_device_found else '否'}")
+#     if output_device_found is not None:
+#         print(f"是否找到指定输出设备: {'是' if output_device_found else '否'}")
 
-# 运行异步函数
-if __name__ == "__main__":
-    asyncio.run(main())
+# # 运行异步函数
+# if __name__ == "__main__":
+#     asyncio.run(main())
