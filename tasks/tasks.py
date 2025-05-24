@@ -1,4 +1,5 @@
-from .audio_chat_app import voice_assistant
+from .audio_chat_app import VoiceAssistant
+
 TASKS = {
-    "chat": voice_assistant,
+    "chat": VoiceAssistant(),
 }

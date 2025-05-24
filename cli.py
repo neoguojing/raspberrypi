@@ -29,3 +29,8 @@ def main():
         print("助手终止，清理...")
         task.stop()
         
+
+if __name__ == "__main__":
+    main()
+    # from tools.utils import calculate_rms_with_audioop
+    # print(calculate_rms_with_audioop("wake_1748071773.wav"))

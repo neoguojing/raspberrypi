@@ -1,4 +1,5 @@
 import os
+import types
 from openai import AsyncOpenAI
 from tools.utils import audio_to_base64
 
@@ -48,9 +49,9 @@ async def send_audio_to_llm(audio: any):
 
     try:
         audio_base64 = await audio_to_base64(audio)
-        stream = await client.chat.completions.create(
+        ret = await client.chat.completions.create(
             model="agi-model",
-            stream=True,
+            stream=False,
             extra_body={"need_speech": True},
             messages=[
                 {
@@ -60,20 +61,35 @@ async def send_audio_to_llm(audio: any):
             ],
             user="raspberrypi",
         )
-
-        async for chunk in stream:
-            print("------", chunk)
-            if chunk.choices and len(chunk.choices) > 0:
-                choice = chunk.choices[0]
-                if choice.finish_reason is None and choice.delta:
-                    print(choice.delta.content, end='', flush=True)
-                    content = choice.delta.content
-                    if content and len(content) > 0:
-                        for item in content:
-                            if item.get("type") == "audio":
-                                audio = item.get("audio")
-                                yield audio
-                elif choice.finish_reason == "stop":
-                    break
+        print("------", ret,type(ret))
+        
+        if isinstance(ret, types.GeneratorType):
+            async for chunk in ret:
+                print("------", chunk)
+                if chunk.choices and len(chunk.choices) > 0:
+                    choice = chunk.choices[0]
+                    if choice.finish_reason is None and choice.delta:
+                        print(choice.delta.content, end='', flush=True)
+                        content = choice.delta.content
+                        if content and len(content) > 0:
+                            for item in content:
+                                if item.get("type") == "audio":
+                                    audio = item.get("audio")
+                                    yield audio
+                    elif choice.finish_reason == "stop":
+                        break
+        else:
+            if ret.choices and len(ret.choices) > 0:
+                if ret.choices[0].message:
+                    if isinstance(ret.choices[0].message.content,list):
+                        content = ret.choices[0].message.content
+                        if content and len(content) > 0:
+                            for item in content:
+                                if item.get("type") == "audio":
+                                    audio = item.get("audio")
+                                    yield audio
+                    else:
+                        print(ret.choices[0].message.content)
+                    
     except Exception as e:
         print(f"发送音频到 LLM 失败: {e}")

@@ -6,14 +6,16 @@ import os
 import tempfile
 import time
 import aiohttp
+import audioop
 
 async def audio_to_base64(source):
     bio = source
     if not isinstance(source,io.BytesIO):
-        bio,_ = load_wav_data(source)
+        bio,_ = await load_wav_data(source)
     encoded_audio = None
     if bio:
         encoded_audio = base64.b64encode(bio.getvalue()).decode('utf-8')
+        encoded_audio = f"data:audio/wav;base64,{encoded_audio}"
     return encoded_audio
 
 async def decode_base64_audio(data: str) -> str:
@@ -123,3 +125,20 @@ async def save_to_tmp(audio_bytes):
     tmp_file.write(audio_bytes)
     tmp_file.close()
     return tmp_file.name
+
+def calculate_rms_with_audioop(wav_file):
+    # 打开 WAV 文件
+    with wave.open(wav_file, 'rb') as wf:
+        # 读取音频文件的参数
+        sample_width = wf.getsampwidth()  # 每个样本的字节数
+        num_channels = wf.getnchannels()  # 声道数
+        frame_rate = wf.getframerate()  # 采样率
+        num_frames = wf.getnframes()  # 总帧数
+        
+        # 读取音频样本数据
+        audio_data = wf.readframes(num_frames)
+
+        # 计算 RMS 值
+        rms_value = audioop.rms(audio_data, sample_width)
+    
+    return rms_value

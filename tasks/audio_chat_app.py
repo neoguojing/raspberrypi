@@ -3,18 +3,17 @@ from audio.audio_play import play_audio_bytes
 from audio.audio_record import ContinuousAudioListener
 from clients.agi import audio_wakeup,send_audio_to_llm
 from tools.device import check_audio_devices
-from tools.utils import AsyncSafeValue,pcm_to_wav
+from tools.utils import pcm_to_wav
 import os
 import time
 import asyncio
-import wave
-import tempfile
 from .config import POST_WAKE_COOLDOWN,WAKE_CHECK_SECONDS,WAKE_CHECK_STEP,WAKE_SOUND_PATH
-import pyaudio
+from .base import BaseTask
 
-class VoiceAssistant:
+class VoiceAssistant(BaseTask):
     """事件驱动的唤醒检测与交互管理"""
     def __init__(self):
+        super().__init__() 
         self.listener = ContinuousAudioListener()
         self.wake_event = asyncio.Event()
         self.cooldown = POST_WAKE_COOLDOWN or 180
@@ -34,8 +33,8 @@ class VoiceAssistant:
                         await asyncio.sleep(WAKE_CHECK_STEP)
                         continue
 
-                    path = pcm_to_wav(data,channels=self.listener.channels,rate=self.listener.rate,
-                                      sampwidth=self.listener.pa.get_sample_size(pyaudio.paInt16),save_to_file=True)
+                    path = await pcm_to_wav(data,channels=self.listener.channels,rate=self.listener.rate,
+                                      sampwidth=self.listener.get_sampwidth(),save_to_file=True)
                     print(path)
                     try:
                         if await audio_wakeup(path):
@@ -54,9 +53,10 @@ class VoiceAssistant:
                     async for audio_chunk in send_audio_to_llm(clip):
                         await play_audio_bytes(audio_chunk)
                 finally:
-                    os.remove(clip)
+                    if isinstance(clip,str):
+                        os.remove(clip)
 
-    async def run(self):
+    async def _run(self):
         inputs,outpus,_,_ = await check_audio_devices()
         if not inputs or not outpus:
             raise ValueError("输入或输出设备缺失")
@@ -82,14 +82,7 @@ class VoiceAssistant:
             last_interaction = time.time()
             
 
-    def stop(self):
+    def _stop(self):
         self.listener.stop()
 
-voice_assistant = VoiceAssistant()
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(voice_assistant.run())
-    except KeyboardInterrupt:
-        print("助手终止，清理...")
-        voice_assistant.stop()
