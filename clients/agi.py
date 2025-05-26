@@ -39,7 +39,7 @@ async def audio_wakeup(audio_filepath: str, wake_up_word: str = "小派") -> boo
         return False
 
 
-async def send_audio_to_llm(audio: any):
+async def send_audio_to_llm(audio: any,feature=""):
     """
     将音频文件发送到远程 LLM API，并打印其响应流。
     
@@ -52,7 +52,7 @@ async def send_audio_to_llm(audio: any):
         ret = await client.chat.completions.create(
             model="agi-model",
             stream=False,
-            extra_body={"need_speech": True},
+            extra_body={"need_speech": True,"feature":"voice_chat"},
             messages=[
                 {
                     "role": "user",

@@ -7,7 +7,7 @@ from tools.utils import pcm_to_wav
 import os
 import time
 import asyncio
-from .config import POST_WAKE_COOLDOWN,WAKE_CHECK_SECONDS,WAKE_CHECK_STEP,WAKE_SOUND_PATH
+from .config import POST_WAKE_COOLDOWN,WAKE_CHECK_SECONDS,WAKE_CHECK_STEP,WAKE_SOUND_PATH,AUDIO_FEATURE_TYPE
 from .base import BaseTask
 
 class VoiceAssistant(BaseTask):
@@ -49,7 +49,7 @@ class VoiceAssistant(BaseTask):
         async with self.interaction_lock:
             if clip:
                 try:
-                    async for audio_chunk in send_audio_to_llm(clip):
+                    async for audio_chunk in send_audio_to_llm(clip,feature=AUDIO_FEATURE_TYPE):
                         await play_audio_bytes(audio_chunk)
                 finally:
                     if isinstance(clip,str):
