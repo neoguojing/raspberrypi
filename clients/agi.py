@@ -52,7 +52,7 @@ async def send_audio_to_llm(audio: any,feature=""):
         ret = await client.chat.completions.create(
             model="agi-model",
             stream=False,
-            extra_body={"need_speech": True,"feature":"voice_chat"},
+            extra_body={"need_speech": True,"feature":feature},
             messages=[
                 {
                     "role": "user",
