@@ -7,6 +7,7 @@ import tempfile
 import time
 import aiohttp
 import audioop
+import traceback
 
 async def audio_to_base64(source):
     bio = source
@@ -84,21 +85,26 @@ async def load_wav_data(source:str,save_to_file=False):
     audio_data = None
     file_path = None
     is_file = True
-    if source.startswith("http://") or source.startswith("https://"):
-        audio_data = await download_audio(source)
-        is_file = False
-    elif source.strip().startswith("data:audio") or len(source.strip()) > 100:
-        audio_data = await decode_base64_audio(source)
-        is_file = False
-    elif os.path.exists(source):
-        with open(source, 'rb') as f:
-            audio_data = f.read()
-        file_path = source
-    
-    if save_to_file and not is_file:
-        file_path = save_to_tmp(audio_data)
+    try:
+        if source.startswith("http://") or source.startswith("https://"):
+            audio_data = await download_audio(source)
+            is_file = False
+        elif source.strip().startswith("data:audio") or len(source.strip()) > 100:
+            audio_data = await decode_base64_audio(source)
+            is_file = False
+        elif os.path.exists(source):
+            with open(source, 'rb') as f:
+                audio_data = f.read()
+            file_path = source
         
-    return io.BytesIO(audio_data),file_path
+        if save_to_file and not is_file:
+            file_path = save_to_tmp(audio_data)
+            
+        return io.BytesIO(audio_data),file_path
+    except Exception as e:
+        print(f"Error during load_wav_data: {e}")
+        print(traceback.format_exc())
+    
         
 
 async def wav_to_bytesio(file_path: str) -> io.BytesIO:
