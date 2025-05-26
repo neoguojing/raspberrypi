@@ -11,6 +11,8 @@ from tools.utils import load_wav_data
 async def play_audio_bytes(source: str):
     # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
     bio, _ = await load_wav_data(source)
+    if bio is None:
+        return
     audio = AudioSegment.from_file(bio, format="wav")
 
     p = pyaudio.PyAudio()
