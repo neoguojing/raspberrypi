@@ -7,5 +7,5 @@ POST_WAKE_COOLDOWN = 180 #唤醒后激活的保持时间 秒
 
 
 # voice_chat 直接和语音模型对话，否则speech to text -> llm -> tts
-# AUDIO_FEATURE_TYPE = os.getenv("AUDIO_FEATURE_TYPE", "voice_chat")
-AUDIO_FEATURE_TYPE = os.getenv("AUDIO_FEATURE_TYPE", "")
+AUDIO_FEATURE_TYPE = os.getenv("AUDIO_FEATURE_TYPE", "voice_chat")
+# AUDIO_FEATURE_TYPE = os.getenv("AUDIO_FEATURE_TYPE", "")
