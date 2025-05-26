@@ -104,6 +104,7 @@ async def load_wav_data(source:str,save_to_file=False):
     except Exception as e:
         print(f"Error during load_wav_data: {e}")
         print(traceback.format_exc())
+        return None,""
     
         
 
