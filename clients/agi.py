@@ -46,12 +46,14 @@ async def send_audio_to_llm(audio: any,feature=""):
     参数:
         audio (any): 音频
     """
-
+    stream = False
+    if feature != "voice_chat":
+        stream = True
     try:
         audio_base64 = await audio_to_base64(audio)
         ret = await client.chat.completions.create(
             model="agi-model",
-            stream=False,
+            stream=stream,
             extra_body={"need_speech": True,"feature":feature},
             messages=[
                 {
