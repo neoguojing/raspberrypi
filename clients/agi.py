@@ -73,7 +73,7 @@ async def send_audio_to_llm(audio: any,feature=""):
                     if choice.finish_reason is None and choice.delta:
                         print(choice.delta.content, end='', flush=True)
                         content = choice.delta.content
-                        if content and len(content) > 0:
+                        if content and isinstance(content,list) and len(content) > 0:
                             for item in content:
                                 if item.get("type") == "audio":
                                     audio = item.get("audio")
