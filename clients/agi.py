@@ -1,6 +1,6 @@
 import os
 import types
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI,AsyncStream
 from tools.utils import audio_to_base64
 
 # 初始化异步客户端
@@ -65,7 +65,7 @@ async def send_audio_to_llm(audio: any,feature=""):
         )
         print("------", ret,type(ret))
         
-        if isinstance(ret, types.GeneratorType):
+        if isinstance(ret, types.GeneratorType) or isinstance(ret, AsyncStream) :
             async for chunk in ret:
                 print("------", chunk)
                 if chunk.choices and len(chunk.choices) > 0:
