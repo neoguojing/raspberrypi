@@ -1,6 +1,6 @@
 import os
 import types
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI,AsyncStream
 from tools.utils import audio_to_base64
 
 # 初始化异步客户端
@@ -46,13 +46,15 @@ async def send_audio_to_llm(audio: any,feature=""):
     参数:
         audio (any): 音频
     """
-
+    stream = False
+    if feature != "voice_chat":
+        stream = True
     try:
         audio_base64 = await audio_to_base64(audio)
         ret = await client.chat.completions.create(
             model="agi-model",
-            stream=False,
-            extra_body={"need_speech": True,"feature":"voice_chat"},
+            stream=stream,
+            extra_body={"need_speech": True,"feature":feature},
             messages=[
                 {
                     "role": "user",
@@ -63,7 +65,7 @@ async def send_audio_to_llm(audio: any,feature=""):
         )
         print("------", ret,type(ret))
         
-        if isinstance(ret, types.GeneratorType):
+        if isinstance(ret, types.GeneratorType) or isinstance(ret, AsyncStream) :
             async for chunk in ret:
                 print("------", chunk)
                 if chunk.choices and len(chunk.choices) > 0:
@@ -71,7 +73,7 @@ async def send_audio_to_llm(audio: any,feature=""):
                     if choice.finish_reason is None and choice.delta:
                         print(choice.delta.content, end='', flush=True)
                         content = choice.delta.content
-                        if content and len(content) > 0:
+                        if content and isinstance(content,list) and len(content) > 0:
                             for item in content:
                                 if item.get("type") == "audio":
                                     audio = item.get("audio")
