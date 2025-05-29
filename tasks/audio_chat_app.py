@@ -74,6 +74,7 @@ class VoiceAssistant(BaseTask):
                 if WAKE_SOUND_PATH and os.path.exists(WAKE_SOUND_PATH):
                     # await play_sound(WAKE_SOUND_PATH)
                     await play_audio_bytes(WAKE_SOUND_PATH)
+                    last_interaction = time.time()
             else:
                 print("冷却期内，直接交互...")
             clip = await self.listener.record()
