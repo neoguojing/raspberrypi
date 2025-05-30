@@ -8,6 +8,10 @@ import pyaudio
 import io
 from tools.utils import load_wav_data
 import requests
+import aiohttp
+import logging
+
+log = logging.getLogger(__name__)
 
 async def play_audio_bytes(source: str):
     # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
@@ -38,8 +42,9 @@ class AudioPlayer:
 
         self.pyaudio_instance = pyaudio.PyAudio()
         self.stream = None
+        self.running = False
 
-    def open_stream(self, format=None, channels=None, rate=None):
+    def open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
             fmt = format if format is not None else self.format
             ch = channels if channels is not None else self.channels
@@ -59,45 +64,41 @@ class AudioPlayer:
             self.stream = None
 
     def terminate(self):
+        self.running = False
         self.close_stream()
         if self.pyaudio_instance is not None:
             self.pyaudio_instance.terminate()
             self.pyaudio_instance = None
 
-    async def play_pcm_stream(self, url):
+    async def play(self, url, retry_delay=5):
+        self.running = True
         self.open_stream()
-        with requests.get(url, stream=True) as resp:
-            resp.raise_for_status()
-            for chunk in resp.iter_content(chunk_size=self.chunk_size * 2):
-                if chunk:
-                    self.stream.write(chunk)
 
-    async def play(self, source: str):
-        # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
-        bio, _ = await load_wav_data(source)
-        audio = AudioSegment.from_file(bio, format="wav")
-        self.open_stream()
-        # 播放音频数据
-        self.stream.write(audio.raw_data)
+        while self.running:
+            try:
+                log.info(f"Connecting to {url} for PCM streaming...")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            raise Exception(f"HTTP error: {resp.status}")
+
+                        while self.running:
+                            chunk = await resp.content.read(self.chunk_size * 2)
+                            if not chunk:
+                                log.warning("No more data. Stream ended.")
+                                break  # 跳出内层循环后自动 retry
+                            self.stream.write(chunk)
+
+            except Exception as e:
+                log.error(f"Error in PCM stream: {e}")
+
+            if self.running:
+                log.info(f"Retrying connection in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+
+        self.close_stream()
 
     def __del__(self):
         self.terminate()
 
-
-# if __name__ == '__main__':
-#     player = AudioPlayer()
-#     try:
-#         # 播放本地音频文件（wav/mp3等）
-#         player.play("test.wav")
-
-#         # 播放PCM流
-#         # player.play_pcm_stream('http://localhost:5000/audio_stream')
-
-#         # 播放内存PCM数据
-#         # with open("sample.pcm", "rb") as f:
-#         #     pcm_data = f.read()
-#         # player.play_pcm_data(pcm_data)
-
-#     finally:
-#         player.terminate()
 
