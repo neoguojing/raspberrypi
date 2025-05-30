@@ -88,6 +88,7 @@ class AudioPlayer:
                                 log.warning("No more data. Stream ended.")
                                 time.sleep(0.1)
                                 continue
+                            print(f"play:{len(chunk)}")
                             self.stream.write(chunk)
 
             except Exception as e:
