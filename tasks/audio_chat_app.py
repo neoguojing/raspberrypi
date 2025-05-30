@@ -31,7 +31,7 @@ class VoiceAssistant(BaseTask):
         self.interaction_lock = asyncio.Lock()
 
     async def player_loop(self):
-        url = urljoin(AGI_URL,"/audio_stream")
+        url = urljoin(AGI_URL,"/audio_stream/raspberrypi")
         await self.player.play(url)
 
     async def wake_checker(self):
