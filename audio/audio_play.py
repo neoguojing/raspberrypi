@@ -86,7 +86,8 @@ class AudioPlayer:
                             chunk = await resp.content.read(self.chunk_size * 2)
                             if not chunk:
                                 log.warning("No more data. Stream ended.")
-                                break  # 跳出内层循环后自动 retry
+                                time.sleep(0.1)
+                                continue
                             self.stream.write(chunk)
 
             except Exception as e:
