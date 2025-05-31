@@ -1,5 +1,3 @@
-import os
-import tempfile
 import threading
 import collections
 
@@ -7,7 +5,7 @@ import pyaudio
 import audioop
 from typing import Deque
 import asyncio
-import time
+import webrtcvad
 
 from .config import (
     AUDIO_RATE,
@@ -38,6 +36,11 @@ class ContinuousAudioListener:
         self._pa = pyaudio.PyAudio()
         self._stream = None
         self._stop_flag = threading.Event()
+        
+        self.vad_frame_duration_ms = 30
+        self.vad_frame_bytes = int(self.rate * self.vad_frame_duration_ms / 1000) * 2
+        self.vad = webrtcvad.Vad()
+        self.vad.set_mode(2)
 
     def _audio_callback(self, in_data, frame_count, time_info, status):
         # 写入环形缓冲
@@ -83,21 +86,29 @@ class ContinuousAudioListener:
         silent = 0
         frames = []
         max_frames = int(rate / chunk * (max_seconds or RECORD_SECONDS_AFTER_WAKE))
-
+        last_frame = None  # 防止重复帧（可选）
         for _ in range(max_frames):
-            # 获取最近一帧
-            frame = self._buffer[-1] if self._buffer else b"\x00" * (chunk * 2)
-            frames.append(frame)
-            # 静音帧数超过阈值，则判断用户输入完毕
+            if not self._buffer:
+                await asyncio.sleep(chunk / rate)
+                continue
+            # 获取最近一帧，1024 / 16000 * 1000 = 64 ms
+            frame = self._buffer[-1]
+            if frame == last_frame:
+                await asyncio.sleep(chunk / rate)
+                continue
+            last_frame = frame
+            
+            # 过滤静音帧
             if self.is_silence(frame):
                 silent += 1
                 if silent >= SILENT_CHUNKS_NEEDED:
                     break
             else:
                 silent = 0
+                frames.append(frame)
             await asyncio.sleep(chunk / rate)
 
-        if self.is_silence(frames):
+        if not frames:
             print("用户没有输入")
             return None
 
@@ -105,7 +116,23 @@ class ContinuousAudioListener:
                                      sampwidth=self._pa.get_sample_size(pyaudio.paInt16))
         return audio_byte
     
-    def is_silence(self,frames):
-        if isinstance(frames,list):
-            frames = b"".join(frames)
-        return audioop.rms(frames, 2) < SILENCE_THRESHOLD
+    def is_silence(self,frame: bytes):
+        if isinstance(frame,list):
+            frame = b"".join(frame)
+        
+        # 先计算RMS能量，过低直接认为静音
+        rms = audioop.rms(frame, 2)  # 2 bytes per sample (16bit PCM)
+        if rms < SILENCE_THRESHOLD:
+            return True
+        
+        # webrtcvad 仅支持 10/20/30ms 长度的帧
+        # 例如 16000Hz，10ms = 160 samples = 320 bytes
+        # 细分成30ms小帧用VAD判定
+        # vad_frame_bytes = int(self.rate * 0.03) * 2  # 320 bytes for 10ms@16kHz
+        num_subframes = len(frame) // self.vad_frame_bytes
+        print(f"30ms:{self.vad_frame_bytes/1024},frame:{len(frame)/1024}")
+        for i in range(num_subframes):
+            subframe = frame[i * self.vad_frame_bytes:(i + 1) * self.vad_frame_bytes]
+            if self.vad.is_speech(subframe, sample_rate=self.rate):
+                return False  # 有语音，不是静音
+        return True  # 所有子帧都没语音，判定静音         
