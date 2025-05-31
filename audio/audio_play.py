@@ -82,6 +82,7 @@ class AudioPlayer:
                         if resp.status != 200:
                             raise Exception(f"HTTP error: {resp.status}")
                         buffer = b''
+                        frame_duration = self.chunk_size / self.rate 
                         while self.running:
                             chunk = await resp.content.read(self.chunk_size * 2)
                             if not chunk:
@@ -95,6 +96,8 @@ class AudioPlayer:
                                 frame = buffer[:self.chunk_size * 2]
                                 buffer = buffer[self.chunk_size * 2:]
                                 self.stream.write(frame)
+                                # 控制播放速率，防止播放过快
+                                await asyncio.sleep(frame_duration)
 
             except Exception as e:
                 log.error(f"Error in PCM stream: {e}")
