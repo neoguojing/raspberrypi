@@ -69,4 +69,5 @@
 # pactl info | grep "Default Sink"
 
 # echo "🚀 启动应用..."
+source .venv/bin/activate
 python cli.py chat # 请替换为你的游戏脚本文件名
