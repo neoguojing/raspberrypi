@@ -9,3 +9,4 @@ pytest-asyncio
 aiohttp
 openai
 dotenv
+webrtcvad

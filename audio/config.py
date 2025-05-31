@@ -1,5 +1,9 @@
 # config.py
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)  # 加载 .env 文件中的环境变量
 # Picovoice Porcupine AccessKey (从 Picovoice Console 获取)
 PICOVOICE_ACCESS_KEY = "YOUR_PICOVOICE_ACCESS_KEY"
 
@@ -19,7 +23,7 @@ AUDIO_RATE = 16000 # 采样率，Hz
 AUDIO_CHUNK_SIZE = 1024 # 每次读取的帧数
 AUDIO_DEVICE_INDEX = None # 麦克风设备索引，None代表默认。运行 list_audio_devices.py 查找。
 RECORD_SECONDS_AFTER_WAKE = 10 # 唤醒后最长录音时间
-SILENCE_THRESHOLD = 500  # 静音阈值 (需要根据麦克风和环境调整)
+SILENCE_THRESHOLD = os.getenv("SILENCE_THRESHOLD", 500)  # 静音阈值 (需要根据麦克风和环境调整)
 SILENT_CHUNKS_NEEDED = 30 # 连续多少个静音块后判断为静音 (RATE / CHUNK_SIZE * seconds) e.g., 16000/1024 * 1.5 = ~
 
 # 远端LLM API
