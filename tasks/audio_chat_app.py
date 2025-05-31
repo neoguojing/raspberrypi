@@ -64,9 +64,11 @@ class VoiceAssistant(BaseTask):
         """一次录音-发送-播放交互"""
         async with self.interaction_lock:
             if clip:
+                ret = ""
                 try:
                     async for content in self.client.send_audio_to_llm(clip,feature=AUDIO_FEATURE_TYPE):
-                        print(content)
+                        ret+=content
+                        print(ret)
                 finally:
                     if isinstance(clip,str):
                         os.remove(clip)
