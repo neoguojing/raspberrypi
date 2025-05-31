@@ -81,15 +81,21 @@ class AudioPlayer:
                     async with session.get(url) as resp:
                         if resp.status != 200:
                             raise Exception(f"HTTP error: {resp.status}")
-
+                        buffer = b''
                         while self.running:
                             chunk = await resp.content.read(self.chunk_size * 2)
                             if not chunk:
                                 log.warning("No more data. Stream ended.")
                                 time.sleep(0.1)
                                 continue
+                            
                             print(f"play:{len(chunk)}")
-                            self.stream.write(chunk)
+                            # 保证帧对其
+                            buffer += chunk
+                            while len(buffer) >= self.chunk_size * 2:
+                                frame = buffer[:self.chunk_size * 2]
+                                buffer = buffer[self.chunk_size * 2:]
+                                self.stream.write(frame)
 
             except Exception as e:
                 log.error(f"Error in PCM stream: {e}")
