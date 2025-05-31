@@ -69,9 +69,9 @@ requirements: venv # Ensure venv exists
 setup: venv requirements
 
 # Target to run the application
-run: # Ensure requirements are installed
+run: venv# Ensure requirements are installed
 	@echo "Running the application (main.py)..."
-	./run.sh
+	$(PYTHON_EXEC) cli.py chat 
 
 # Target to list audio devices
 list-audio: requirements
