@@ -54,7 +54,7 @@ class AudioPlayer:
                 channels=ch,
                 rate=rt,
                 output=True,
-                frames_per_buffer=self.chunk_size
+                frames_per_buffer=self.chunk_size*2
             )
 
     def close_stream(self):
