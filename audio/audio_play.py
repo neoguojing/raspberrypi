@@ -43,6 +43,8 @@ class AudioPlayer:
         self.pyaudio_instance = pyaudio.PyAudio()
         self.stream = None
         self.running = False
+        
+        self.queue = asyncio.Queue(maxsize=500)  # 防止爆内存
 
     def open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
@@ -70,10 +72,19 @@ class AudioPlayer:
             self.pyaudio_instance.terminate()
             self.pyaudio_instance = None
 
-    async def play(self, url, retry_delay=5):
-        self.running = True
-        self.open_stream()
+    async def consumer(self):
+        """从队列读取 PCM 数据并播放，节奏控制在客户端"""
+        frame_duration = self.chunk_size / self.rate  # seconds per frame
+        while self.running:
+            try:
+                frame = await self.queue.get()
+                self.stream.write(frame)
+                await asyncio.sleep(frame_duration)  # 控制播放节奏
+            except Exception as e:
+                log.error(f"Consumer error: {e}")
+                break
 
+    async def producer(self, url, retry_delay=5):
         while self.running:
             try:
                 log.info(f"Connecting to {url} for PCM streaming...")
@@ -95,19 +106,33 @@ class AudioPlayer:
                             while len(buffer) >= self.chunk_size * 2:
                                 frame = buffer[:self.chunk_size * 2]
                                 buffer = buffer[self.chunk_size * 2:]
-                                self.stream.write(frame)
-                                # 控制播放速率，防止播放过快
-                                await asyncio.sleep(frame_duration)
+                                try:
+                                    await self.queue.put(frame)
+                                except asyncio.QueueFull:
+                                    log.warning("Playback queue full, dropping frame")
 
             except Exception as e:
-                log.error(f"Error in PCM stream: {e}")
+                log.error(f"Producer: {e}")
 
             if self.running:
                 log.info(f"Retrying connection in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
+        
+    async def play(self, url):
+        """启动播放主逻辑"""
+        self.running = True
+        self.open_stream()
+        producer_task = asyncio.create_task(self.producer(url))
+        consumer_task = asyncio.create_task(self.consumer())
 
-        self.close_stream()
-
+        try:
+            await asyncio.gather(producer_task, consumer_task)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.running = False
+            self.close_stream()
+            
     def __del__(self):
         self.terminate()
 
