@@ -94,7 +94,6 @@ class AudioPlayer:
                             while len(buffer) >= self.chunk_size * 2:
                                 frame = buffer[:self.chunk_size * 2]
                                 buffer = buffer[self.chunk_size * 2:]
-                                print(f"play:{len(frame)}")
                                 self.stream.write(frame)
 
             except Exception as e:
