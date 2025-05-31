@@ -76,8 +76,6 @@ class AudioPlayer:
         """从队列读取 PCM 数据并播放，节奏控制在客户端"""
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         while self.running:
-            while self.queue.qsize() < 10:
-                await asyncio.sleep(0.01)
             try:
                 # 等待足够的帧
                 while self.queue.qsize() < 10:
