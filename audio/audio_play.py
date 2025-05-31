@@ -12,7 +12,7 @@ import aiohttp
 import logging
 
 log = logging.getLogger(__name__)
-
+END_TAG = b'\x00' * 8192
 async def play_audio_bytes(source: str):
     # 通过 BytesIO 读取音频数据（假设是 WAV 格式）
     bio, _ = await load_wav_data(source)
@@ -71,17 +71,19 @@ class AudioPlayer:
         if self.pyaudio_instance is not None:
             self.pyaudio_instance.terminate()
             self.pyaudio_instance = None
-
+        
     async def consumer(self):
         """从队列读取 PCM 数据并播放，节奏控制在客户端"""
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         while self.running:
             try:
                 # 等待足够的帧
-                while self.queue.qsize() < 10:
-                    await asyncio.sleep(0.01)
-                    
+                # while self.queue.qsize() < 10:
+                #     await asyncio.sleep(0.01)
                 frame = await self.queue.get()
+                if frame == END_TAG:
+                    await asyncio.sleep(1) 
+                    continue
                 self.stream.write(frame)
                 await asyncio.sleep(frame_duration)  # 控制播放节奏
             except Exception as e:
@@ -97,7 +99,6 @@ class AudioPlayer:
                         if resp.status != 200:
                             raise Exception(f"HTTP error: {resp.status}")
                         buffer = b''
-                        frame_duration = self.chunk_size / self.rate 
                         while self.running:
                             chunk = await resp.content.read(self.chunk_size * 2)
                             if not chunk:
