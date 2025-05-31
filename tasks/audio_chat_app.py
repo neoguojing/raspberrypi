@@ -32,6 +32,7 @@ class VoiceAssistant(BaseTask):
 
     async def player_loop(self):
         url = urljoin(AGI_URL,"/audio_stream/raspberrypi")
+        print(url)
         await self.player.play(url)
 
     async def wake_checker(self):
