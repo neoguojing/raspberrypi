@@ -74,37 +74,41 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """从队列读取 PCM 数据并播放，节奏控制在客户端"""        
-        frame_duration = self.chunk_size / self.rate  # seconds per frame
-        last_play_time = time.time()
+        """从队列读取 PCM 数据并播放，稳定控制在指定节奏"""
+        frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
         self.open_stream()
+        
+        # 播放前预缓冲几帧
+        prebuffer_frames = 3
+        for _ in range(prebuffer_frames):
+            frame = await self.queue.get()
+            self.stream.write(frame)
+            time.sleep(frame_duration)
+
+        expected_next_time = time.time()
+
         while self.running:
             try:
-                # 等待self.stream 初始化
-                if not self.stream:
-                    time.sleep(frame_duration)
-                    continue
-                    
-                start_time = time.time()
                 frame = await self.queue.get()
                 self.stream.write(frame)
-                
-                # 控制频率：保证下一帧在正确时间发送
-                
-                interval = start_time - last_play_time
-                last_play_time = start_time
-                if interval > frame_duration+0.005 or interval < frame_duration-0.005 :
-                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes, 间隔 {interval:.4f}s")
-                elapsed = time.time() - start_time
-                sleep_time = frame_duration - elapsed
+
+                now = time.time()
+                drift = now - expected_next_time
+                if abs(drift) > 0.005:
+                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes, 抖动 {drift:+.4f}s")
+
+                sleep_time = expected_next_time + frame_duration - time.time()
                 if sleep_time > 0:
                     time.sleep(sleep_time)
                 else:
-                    log.debug(f"Processing lagging behind by {-sleep_time:.4f}s")
-                
+                    log.debug(f"[客户端] 滞后 {-sleep_time:.4f}s")
+
+                expected_next_time += frame_duration
+
             except Exception as e:
                 log.error(f"Consumer error: {e}")
                 break
+
 
     async def producer(self, url, retry_delay=5):
         while self.running:
