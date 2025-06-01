@@ -34,7 +34,7 @@ async def play_audio_bytes(source: str):
     p.terminate()
 
 class AudioPlayer:
-    def __init__(self, format=pyaudio.paInt16, channels=1, rate=24000, chunk_size=1024):
+    def __init__(self, format=pyaudio.paInt16, channels=1, rate=24000, chunk_size=480):
         self.format = format
         self.channels = channels
         self.rate = rate
@@ -78,6 +78,7 @@ class AudioPlayer:
         self.open_stream()
         
         frame_duration = self.chunk_size / self.rate  # seconds per frame
+        last_play_time = time.time()
         while self.running:
             try:
                 start_time = time.time()
@@ -85,12 +86,17 @@ class AudioPlayer:
                 self.stream.write(frame)
                 
                 # 控制频率：保证下一帧在正确时间发送
+                
+                interval = start_time - last_play_time
+                last_play_time = start_time
+                log.info(f"[客户端] 播放一帧 {len(frame)} bytes, 间隔 {interval:.4f}s")
                 elapsed = time.time() - start_time
                 sleep_time = frame_duration - elapsed
                 if sleep_time > 0:
                     time.sleep(sleep_time)
                 else:
                     log.debug(f"Processing lagging behind by {-sleep_time:.4f}s")
+                
             except Exception as e:
                 log.error(f"Consumer error: {e}")
                 break

@@ -131,7 +131,7 @@ class ContinuousAudioListener:
         # 细分成30ms小帧用VAD判定
         # vad_frame_bytes = int(self.rate * 0.03) * 2  # 320 bytes for 10ms@16kHz
         num_subframes = len(frame) // self.vad_frame_bytes
-        print(f"30ms:{self.vad_frame_bytes/1024},frame:{len(frame)/1024}")
+        print(f"30ms:{self.vad_frame_bytes/AUDIO_CHUNK_SIZE},frame:{len(frame)/AUDIO_CHUNK_SIZE}")
         for i in range(num_subframes):
             subframe = frame[i * self.vad_frame_bytes:(i + 1) * self.vad_frame_bytes]
             if self.vad.is_speech(subframe, sample_rate=self.rate):
