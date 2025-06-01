@@ -77,18 +77,23 @@ class AudioPlayer:
         """从队列读取 PCM 数据并播放，稳定控制在指定节奏"""
         frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
         self.open_stream()
-        
-        # 播放前预缓冲几帧
-        prebuffer_frames = 3
-        for _ in range(prebuffer_frames):
-            frame = await self.queue.get()
-            self.stream.write(frame)
-            time.sleep(frame_duration)
+        LOW_WATERMARK = 3
+        HIGH_WATERMARK = 5
 
         expected_next_time = time.time()
 
         while self.running:
             try:
+                
+                # 判断缓冲是否太低，暂停播放
+                if self.queue.qsize() < LOW_WATERMARK:
+                    log.warning("缓冲过低，暂停播放等待填充...")
+                    while self.queue.qsize() < HIGH_WATERMARK:
+                        await asyncio.sleep(frame_duration)
+                    # 重置节奏时间
+                    expected_next_time = time.time()
+                    log.info("缓冲恢复，继续播放")
+                
                 frame = await self.queue.get()
                 self.stream.write(frame)
 
