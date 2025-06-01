@@ -88,7 +88,7 @@ class AudioPlayer:
 
                 # 若 get 等待太久，说明队列无数据，重置节奏
                 if wait_time > frame_duration * 2:
-                    expected_next_time = end_wait
+                    expected_next_time = expected_next_time + (end_wait - expected_next_time) * 0.5
                     log.warning(f"[客户端] 播放阻塞 {wait_time:.4f}s，重置播放节奏")
 
                 self.stream.write(frame)
