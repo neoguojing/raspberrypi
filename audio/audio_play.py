@@ -77,14 +77,20 @@ class AudioPlayer:
         """从队列读取 PCM 数据并播放，稳定控制在指定节奏"""
         frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
         self.open_stream()
-        LOW_WATERMARK = 3
-        HIGH_WATERMARK = 5
-
         expected_next_time = time.time()
 
         while self.running:
             try:
+                start_wait = time.time()
                 frame = await self.queue.get()
+                end_wait = time.time()
+                wait_time = end_wait - start_wait
+
+                # 若 get 等待太久，说明队列无数据，重置节奏
+                if wait_time > frame_duration * 2:
+                    expected_next_time = end_wait
+                    log.warning(f"[客户端] 播放阻塞 {wait_time:.4f}s，重置播放节奏")
+
                 self.stream.write(frame)
 
                 now = time.time()
