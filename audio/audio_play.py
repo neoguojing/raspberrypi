@@ -47,7 +47,7 @@ class AudioPlayer:
         
         self.queue = asyncio.Queue(maxsize=1000)  # 防止爆内存
 
-    def _open_stream(self, format=None, channels=None, rate=None,):
+    def open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
             fmt = format if format is not None else self.format
             ch = channels if channels is not None else self.channels
@@ -77,6 +77,7 @@ class AudioPlayer:
         """从队列读取 PCM 数据并播放，节奏控制在客户端"""        
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         last_play_time = time.time()
+        self.open_stream()
         while self.running:
             try:
                 # 等待self.stream 初始化
@@ -125,8 +126,7 @@ class AudioPlayer:
                             self.rate  = 24000
                             self.channels = 1
                             self.chunk_size = 480
-                            
-                        self._open_stream()
+                        
                         print(f"[客户端] 采样率: {self.rate}, 通道数: {self.channels}")
                         
                         buffer = b''

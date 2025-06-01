@@ -84,14 +84,14 @@ class VoiceAssistant(BaseTask):
         asyncio.create_task(self.audio_ctl.run(audio_player_url))
         asyncio.create_task(self.wake_checker())
         last_interaction = 0
-        log.debug("助手已启动，持续监听中...")
+        log.info("助手已启动，持续监听中...")
         while True:
             now = time.time()
             if now - last_interaction > self.cooldown:
                 # 等待唤醒事件
                 self.wake_event.clear()
                 await self.wake_event.wait()
-                log.debug("唤醒词检测到，准备交互...")
+                log.info("唤醒词检测到，准备交互...")
                 if WAKE_SOUND_PATH and os.path.exists(WAKE_SOUND_PATH):
                     # await play_sound(WAKE_SOUND_PATH)
                     await play_audio_bytes(WAKE_SOUND_PATH)
