@@ -74,59 +74,39 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """
-        从队列读取 PCM 数据并播放，稳定控制在指定节奏。
-        使用帧计数器控制节奏，防止累积时间漂移。
-        """
-        frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
+        """从队列读取 PCM 数据并播放，跟随 PyAudio 播放节奏并记录实际间隔偏差"""
         self.open_stream()
-
-        start_time = time.time()
-        frame_index = 0
+        frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
+        last_play_time = time.time()
 
         while self.running:
             try:
-                # 获取数据
-                get_start = time.time()
+                # 从队列中取出一帧
+                wait_start = time.time()
                 frame = await self.queue.get()
-                get_end = time.time()
-                wait_time = get_end - get_start
-                # 检查是否等待过久
+                wait_end = time.time()
+                wait_time = wait_end - wait_start
+
                 if wait_time > frame_duration * 2:
-                    log.warning(f"[客户端] 播放阻塞 {wait_time:.4f}s，重置播放起点")
-                    start_time = time.time()
-                    frame_index = 0
+                    log.warning(f"[客户端] 播放等待时间过长 {wait_time:.4f}s，队列可能断流，重置计时参考")
+                    last_play_time = time.time()  # 重置时间基准
+                    continue  # 跳过本帧播放，防止节奏错误
 
-                # 写入音频流
-                write_start = time.time()
+                # 播放音频帧（阻塞，PyAudio 自控播放速率）
                 self.stream.write(frame)
-                write_end = time.time()
 
-                write_cost = write_end - write_start
-                if write_cost > frame_duration:
-                    log.warning(f"[客户端] stream.write 耗时过长: {write_cost:.4f}s")
-
-                # 计算目标时间和当前漂移
-                expected_time = start_time + frame_index * frame_duration
+                # 计算实际播放间隔和漂移
                 now = time.time()
-                drift = now - expected_time
+                play_interval = now - last_play_time
+                drift = play_interval - frame_duration
+                last_play_time = now
 
                 if abs(drift) > 0.005:
-                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes，时间漂移 {drift:+.4f}s")
-
-                # 控制节奏
-                sleep_time = expected_time + frame_duration - time.time()
-                if sleep_time > 0:
-                    await asyncio.sleep(sleep_time)
-                else:
-                    log.debug(f"[客户端] 播放滞后 {-sleep_time:.4f}s，跳过 sleep")
-
-                frame_index += 1
+                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes，间隔偏差 {drift:+.4f}s")
 
             except Exception as e:
                 log.error(f"[客户端] 播放异常: {e}", exc_info=True)
                 break
-
 
 
     async def producer(self, url, retry_delay=5):
