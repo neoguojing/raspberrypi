@@ -17,7 +17,7 @@ class OpenAIClient:
     async def audio_wakeup(self, audio_filepath: str, wake_up_word: str = "小派") -> bool:
         """使用 Whisper 识别音频内容，判断是否包含唤醒词"""
         if not os.path.exists(audio_filepath):
-            print(f"音频文件 {audio_filepath} 未找到。")
+            log.error(f"音频文件 {audio_filepath} 未找到。")
             return False
 
         try:
@@ -28,10 +28,10 @@ class OpenAIClient:
                     response_format="json",
                     language="zh",
                 )
-            log.info("转录结果:", response.text)
+            log.info(f"转录结果: {response.text}")
             return wake_up_word in response.text
         except Exception as e:
-            print(f"音频唤醒失败: {e}")
+            log.error(f"音频唤醒失败: {e}")
             return False
 
     async def send_audio_to_llm(self, audio: any, feature: str = ""):
