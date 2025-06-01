@@ -74,38 +74,40 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """从队列读取 PCM 数据并播放，跟随 PyAudio 播放节奏并记录实际间隔偏差"""
-        self.open_stream()
+        """从队列读取 PCM 数据并播放，稳定控制在指定节奏"""
         frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
-        last_play_time = time.time()
+        self.open_stream()
+        expected_next_time = time.time()
 
         while self.running:
             try:
-                # 从队列中取出一帧
-                wait_start = time.time()
+                start_wait = time.time()
                 frame = await self.queue.get()
-                wait_end = time.time()
-                wait_time = wait_end - wait_start
+                end_wait = time.time()
+                wait_time = end_wait - start_wait
 
+                # 若 get 等待太久，说明队列无数据，重置节奏
                 if wait_time > frame_duration * 2:
-                    log.warning(f"[客户端] 播放等待时间过长 {wait_time:.4f}s，队列可能断流，重置计时参考")
-                    last_play_time = time.time()  # 重置时间基准
-                    continue  # 跳过本帧播放，防止节奏错误
+                    expected_next_time = expected_next_time + (end_wait - expected_next_time) * 0.5
+                    log.warning(f"[客户端] 播放阻塞 {wait_time:.4f}s，重置播放节奏")
 
-                # 播放音频帧（阻塞，PyAudio 自控播放速率）
                 self.stream.write(frame)
 
-                # 计算实际播放间隔和漂移
                 now = time.time()
-                play_interval = now - last_play_time
-                drift = play_interval - frame_duration
-                last_play_time = now
-
+                drift = now - expected_next_time
                 if abs(drift) > 0.005:
-                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes，间隔偏差 {drift:+.4f}s")
+                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes, 抖动 {drift:+.4f}s")
+
+                sleep_time = expected_next_time + frame_duration - time.time()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                else:
+                    log.debug(f"[客户端] 滞后 {-sleep_time:.4f}s")
+
+                expected_next_time += frame_duration
 
             except Exception as e:
-                log.error(f"[客户端] 播放异常: {e}", exc_info=True)
+                log.error(f"Consumer error: {e}")
                 break
 
 
