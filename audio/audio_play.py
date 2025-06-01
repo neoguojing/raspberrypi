@@ -10,6 +10,7 @@ from tools.utils import load_wav_data
 import requests
 import aiohttp
 import logging
+import re
 
 log = logging.getLogger(__name__)
 END_TAG = b'\x00' * 8192
@@ -42,11 +43,11 @@ class AudioPlayer:
 
         self.pyaudio_instance = pyaudio.PyAudio()
         self.stream = None
-        self.running = False
+        self.running = True
         
         self.queue = asyncio.Queue(maxsize=1000)  # 防止爆内存
 
-    def open_stream(self, format=None, channels=None, rate=None,):
+    def _open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
             fmt = format if format is not None else self.format
             ch = channels if channels is not None else self.channels
@@ -73,14 +74,16 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """从队列读取 PCM 数据并播放，节奏控制在客户端"""
-        self.running = True
-        self.open_stream()
-        
+        """从队列读取 PCM 数据并播放，节奏控制在客户端"""        
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         last_play_time = time.time()
         while self.running:
             try:
+                # 等待self.stream 初始化
+                if not self.stream:
+                    time.sleep(frame_duration)
+                    continue
+                    
                 start_time = time.time()
                 frame = await self.queue.get()
                 self.stream.write(frame)
@@ -109,6 +112,23 @@ class AudioPlayer:
                     async with session.get(url) as resp:
                         if resp.status != 200:
                             raise Exception(f"HTTP error: {resp.status}")
+                        
+                        # ✅ 解析 Content-Type
+                        content_type = resp.headers.get('Content-Type', '')
+                        match = re.search(r"rate=(\d+);.*channels=(\d+)", content_type)
+                        if match:
+                            self.rate = int(match.group(1))
+                            self.channels  = int(match.group(2))
+                            if self.rate == 16000:
+                                self.chunk_size = 320
+                        else:
+                            self.rate  = 24000
+                            self.channels = 1
+                            self.chunk_size = 480
+                            
+                        self._open_stream()
+                        print(f"[客户端] 采样率: {self.rate}, 通道数: {self.channels}")
+                        
                         buffer = b''
                         while self.running:
                             chunk = await resp.content.read(self.chunk_size * 2)
