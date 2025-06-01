@@ -105,6 +105,7 @@ class AudioPlayer:
                     buffer = b''
                     while self.running:
                         chunk = await resp.content.read(self.chunk_size * 2)
+                        print(f"************{len(chunk)}")
                         if not chunk:
                             log.warning("empty data")
                             time.sleep(0.1)
