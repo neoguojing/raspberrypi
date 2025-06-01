@@ -93,7 +93,8 @@ class AudioPlayer:
                 
                 interval = start_time - last_play_time
                 last_play_time = start_time
-                log.info(f"[客户端] 播放一帧 {len(frame)} bytes, 间隔 {interval:.4f}s")
+                if interval > frame_duration+0.005:
+                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes, 间隔 {interval:.4f}s")
                 elapsed = time.time() - start_time
                 sleep_time = frame_duration - elapsed
                 if sleep_time > 0:

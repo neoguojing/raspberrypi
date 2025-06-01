@@ -68,9 +68,9 @@ class VoiceAssistant(BaseTask):
                     async for content in self.client.send_audio_to_llm(clip,feature=AUDIO_FEATURE_TYPE):
                         if isinstance(content,str):
                             ret += content
-                            log.debug(ret)
+                            log.info(ret)
                         else:
-                            log.debug(content)
+                            log.info(content)
                 finally:
                     if isinstance(clip,str):
                         os.remove(clip)
