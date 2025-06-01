@@ -10,7 +10,7 @@ class AudioControllerAsync:
         self.player = AudioPlayer()
     
     async def run(self):
-        asyncio.create_task(self.player.consumer())
+        asyncio.create_task(self.player.play())
         
     async def record(self):
         async with self.lock:
