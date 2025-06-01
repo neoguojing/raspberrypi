@@ -44,7 +44,7 @@ class AudioPlayer:
         self.stream = None
         self.running = False
         
-        self.queue = asyncio.Queue(maxsize=500)  # 防止爆内存
+        self.queue = asyncio.Queue(maxsize=1000)  # 防止爆内存
 
     def open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
@@ -80,12 +80,17 @@ class AudioPlayer:
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         while self.running:
             try:
-                # 等待足够的帧
-                # while self.queue.qsize() < 10:
-                #     await asyncio.sleep(0.01)
+                start_time = time.time()
                 frame = await self.queue.get()
                 self.stream.write(frame)
-                await asyncio.sleep(frame_duration)  # 控制播放节奏
+                
+                # 控制频率：保证下一帧在正确时间发送
+                elapsed = time.time() - start_time
+                sleep_time = frame_duration - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                else:
+                    log.debug(f"Processing lagging behind by {-sleep_time:.4f}s")
             except Exception as e:
                 log.error(f"Consumer error: {e}")
                 break
