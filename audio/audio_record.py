@@ -6,7 +6,8 @@ import audioop
 from typing import Deque
 import asyncio
 import webrtcvad
-
+import logging
+log = logging.getLogger(__name__)
 from .config import (
     AUDIO_RATE,
     AUDIO_CHANNELS,
@@ -109,7 +110,7 @@ class ContinuousAudioListener:
             await asyncio.sleep(chunk / rate)
 
         if not frames:
-            print("用户没有输入")
+            log.debug("用户没有输入")
             return None
 
         audio_byte = await pcm_to_wav(frames,channels=self.channels,rate=rate,

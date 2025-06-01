@@ -2,7 +2,8 @@ import os
 import types
 from openai import AsyncOpenAI,AsyncStream
 from tools.utils import audio_to_base64
-
+import logging
+log = logging.getLogger(__name__)
 class OpenAIClient:
     """
     集成 AsyncOpenAI 客户端管理和音频处理功能（唤醒词检测和发送音频到LLM）
@@ -27,7 +28,7 @@ class OpenAIClient:
                     response_format="json",
                     language="zh",
                 )
-            print("转录结果:", response.text)
+            log.info("转录结果:", response.text)
             return wake_up_word in response.text
         except Exception as e:
             print(f"音频唤醒失败: {e}")
@@ -58,7 +59,7 @@ class OpenAIClient:
                 yield content
 
         except Exception as e:
-            print(f"发送音频到 LLM 失败: {e}")
+            log.error(f"发送音频到 LLM 失败: {e}")
 
     async def _parse_llm_response(self, response):
         """统一解析流式或非流式 LLM 返回"""

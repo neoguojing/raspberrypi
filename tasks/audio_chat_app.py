@@ -18,7 +18,8 @@ from .config import (
     AGI_API_KEY
     )
 from .base import BaseTask
-
+import logging
+log = logging.getLogger(__name__)
 class VoiceAssistant(BaseTask):
     """事件驱动的唤醒检测与交互管理"""
     def __init__(self):
@@ -47,7 +48,7 @@ class VoiceAssistant(BaseTask):
                     channels,rate,sampwidth = self.audio_ctl.get_recorder_param()
                     path = await pcm_to_wav(data,channels=channels,rate=rate,
                                       sampwidth=sampwidth,save_to_file=True)
-                    print(path)
+                    log.debug(path)
                     try:
                         if await self.client.audio_wakeup(path):
                             self.wake_event.set()
@@ -65,9 +66,9 @@ class VoiceAssistant(BaseTask):
                     async for content in self.client.send_audio_to_llm(clip,feature=AUDIO_FEATURE_TYPE):
                         if isinstance(content,str):
                             ret += content
-                            print(ret)
+                            log.debug(ret)
                         else:
-                            print(content)
+                            log.debug(content)
                 finally:
                     if isinstance(clip,str):
                         os.remove(clip)
@@ -81,20 +82,20 @@ class VoiceAssistant(BaseTask):
         asyncio.create_task(self.wake_checker())
         audio_player_url = f"{AGI_URL}/audio_stream/raspberrypi"
         last_interaction = 0
-        print("助手已启动，持续监听中...")
+        log.debug("助手已启动，持续监听中...")
         while True:
             now = time.time()
             if now - last_interaction > self.cooldown:
                 # 等待唤醒事件
                 self.wake_event.clear()
                 await self.wake_event.wait()
-                print("唤醒词检测到，准备交互...")
+                log.debug("唤醒词检测到，准备交互...")
                 if WAKE_SOUND_PATH and os.path.exists(WAKE_SOUND_PATH):
                     # await play_sound(WAKE_SOUND_PATH)
                     await play_audio_bytes(WAKE_SOUND_PATH)
                     last_interaction = time.time()
             else:
-                print("冷却期内，直接交互...")
+                log.debug("冷却期内，直接交互...")
             clip = await self.audio_ctl.record()
             if clip:
                 await asyncio.gather(self.single_interaction(clip), 
