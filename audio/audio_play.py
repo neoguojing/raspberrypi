@@ -84,16 +84,6 @@ class AudioPlayer:
 
         while self.running:
             try:
-                
-                # 判断缓冲是否太低，暂停播放
-                if self.queue.qsize() < LOW_WATERMARK:
-                    log.warning("缓冲过低，暂停播放等待填充...")
-                    while self.queue.qsize() < HIGH_WATERMARK:
-                        await asyncio.sleep(frame_duration)
-                    # 重置节奏时间
-                    expected_next_time = time.time()
-                    log.info("缓冲恢复，继续播放")
-                
                 frame = await self.queue.get()
                 self.stream.write(frame)
 
