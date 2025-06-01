@@ -74,40 +74,43 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """从队列读取 PCM 数据并播放，稳定控制在指定节奏"""
-        frame_duration = self.chunk_size / self.rate  # e.g., 320 / 16000 = 0.02s
+        """完全阻塞队列版本的音频播放控制"""
+        frame_duration = self.chunk_size / self.rate
         self.open_stream()
-        expected_next_time = time.time()
+        expected_next_time = time.perf_counter()
+        drift_history = []
 
         while self.running:
             try:
-                start_wait = time.time()
+                # 完全阻塞获取帧数据
                 frame = await self.queue.get()
-                end_wait = time.time()
-                wait_time = end_wait - start_wait
-
-                # 若 get 等待太久，说明队列无数据，重置节奏
-                if wait_time > frame_duration * 2:
-                    expected_next_time = expected_next_time + (end_wait - expected_next_time) * 0.5
-                    log.warning(f"[客户端] 播放阻塞 {wait_time:.4f}s，重置播放节奏")
-
+                
+                # 写入音频设备
                 self.stream.write(frame)
 
-                now = time.time()
+                # 计算时间抖动
+                now = time.perf_counter()
                 drift = now - expected_next_time
-                if abs(drift) > 0.005:
-                    log.warning(f"[客户端] 播放一帧 {len(frame)} bytes, 抖动 {drift:+.4f}s")
+                drift_history.append(drift)
+                
+                # 动态调整：平滑处理连续抖动
+                if len(drift_history) >= 3:
+                    avg_drift = sum(drift_history[-3:]) / 3
+                    if abs(avg_drift) > 0.003:
+                        expected_next_time += avg_drift * 0.2
+                        drift_history.clear()
 
-                sleep_time = expected_next_time + frame_duration - time.time()
-                if sleep_time > 0:
+                # 精确睡眠控制
+                sleep_time = expected_next_time + frame_duration - time.perf_counter()
+                if sleep_time > 0.001:
                     await asyncio.sleep(sleep_time)
-                else:
-                    log.debug(f"[客户端] 滞后 {-sleep_time:.4f}s")
+                elif sleep_time < -0.01:
+                    log.debug(f"[播放器] 滞后 {-sleep_time:.4f}s")
 
                 expected_next_time += frame_duration
 
             except Exception as e:
-                log.error(f"Consumer error: {e}")
+                log.error(f"播放错误: {e}")
                 break
 
 
