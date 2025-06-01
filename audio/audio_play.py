@@ -100,7 +100,7 @@ class AudioPlayer:
 
                 sleep_time = expected_next_time + frame_duration - time.time()
                 if sleep_time > 0:
-                    time.sleep(sleep_time)
+                    await asyncio.sleep(sleep_time)
                 else:
                     log.debug(f"[客户端] 滞后 {-sleep_time:.4f}s")
 
