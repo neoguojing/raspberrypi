@@ -72,8 +72,11 @@ class AudioPlayer:
             self.pyaudio_instance.terminate()
             self.pyaudio_instance = None
         
-    async def consumer(self):
+    async def play(self):
         """从队列读取 PCM 数据并播放，节奏控制在客户端"""
+        self.running = True
+        self.open_stream()
+        
         frame_duration = self.chunk_size / self.rate  # seconds per frame
         while self.running:
             try:
@@ -81,9 +84,6 @@ class AudioPlayer:
                 # while self.queue.qsize() < 10:
                 #     await asyncio.sleep(0.01)
                 frame = await self.queue.get()
-                if frame == END_TAG:
-                    await asyncio.sleep(1) 
-                    continue
                 self.stream.write(frame)
                 await asyncio.sleep(frame_duration)  # 控制播放节奏
             except Exception as e:
@@ -91,52 +91,37 @@ class AudioPlayer:
                 break
 
     async def producer(self, url, retry_delay=5):
-        while self.running:
-            try:
-                log.info(f"Connecting to {url} for PCM streaming...")
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
-                        if resp.status != 200:
-                            raise Exception(f"HTTP error: {resp.status}")
-                        buffer = b''
-                        while self.running:
-                            chunk = await resp.content.read(self.chunk_size * 2)
-                            if not chunk:
-                                log.warning("No more data. Stream ended.")
-                                time.sleep(0.1)
-                                continue
-                            
-                            # 保证帧对其
-                            buffer += chunk
-                            while len(buffer) >= self.chunk_size * 2:
-                                frame = buffer[:self.chunk_size * 2]
-                                buffer = buffer[self.chunk_size * 2:]
-                                try:
-                                    await self.queue.put(frame)
-                                except asyncio.QueueFull:
-                                    log.warning("Playback queue full, dropping frame")
-
-            except Exception as e:
-                log.error(f"Producer: {e}")
-
-            if self.running:
-                log.info(f"Retrying connection in {retry_delay} seconds...")
-                await asyncio.sleep(retry_delay)
-        
-    async def play(self, url):
-        """启动播放主逻辑"""
-        self.running = True
-        self.open_stream()
-        producer_task = asyncio.create_task(self.producer(url))
-        consumer_task = asyncio.create_task(self.consumer())
-
         try:
-            await asyncio.gather(producer_task, consumer_task)
-        except asyncio.CancelledError:
-            pass
-        finally:
-            self.running = False
-            self.close_stream()
+            log.info(f"Connecting to {url} for PCM streaming...")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"HTTP error: {resp.status}")
+                    buffer = b''
+                    while self.running:
+                        chunk = await resp.content.read(self.chunk_size * 2)
+                        if not chunk:
+                            log.warning("empty data")
+                            time.sleep(0.1)
+                            continue
+                        
+                        if chunk == END_TAG:
+                            log.warning("No more data. Stream ended.")
+                            break
+                        
+                        # 保证帧对其
+                        buffer += chunk
+                        while len(buffer) >= self.chunk_size * 2:
+                            frame = buffer[:self.chunk_size * 2]
+                            buffer = buffer[self.chunk_size * 2:]
+                            try:
+                                await self.queue.put(frame)
+                            except asyncio.QueueFull:
+                                log.warning("Playback queue full, dropping frame")
+
+        except Exception as e:
+            log.error(f"Producer: {e}")
+        
             
     def __del__(self):
         self.terminate()
