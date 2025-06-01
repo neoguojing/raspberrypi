@@ -80,9 +80,9 @@ class VoiceAssistant(BaseTask):
         if not inputs or not outpus:
             raise ValueError("输入或输出设备缺失")
         # 启动监听与唤醒检测
-        asyncio.create_task(self.audio_ctl.run())
-        asyncio.create_task(self.wake_checker())
         audio_player_url = f"{AGI_URL}/audio_stream/raspberrypi"
+        asyncio.create_task(self.audio_ctl.run(audio_player_url))
+        asyncio.create_task(self.wake_checker())
         last_interaction = 0
         log.debug("助手已启动，持续监听中...")
         while True:
@@ -100,8 +100,7 @@ class VoiceAssistant(BaseTask):
                 log.debug("冷却期内，直接交互...")
             clip = await self.audio_ctl.record()
             if clip:
-                await asyncio.gather(self.single_interaction(clip), 
-                                     self.audio_ctl.play(audio_player_url))
+                await self.single_interaction(clip)
                 # await self.single_interaction(clip)
                 last_interaction = time.time()
             
