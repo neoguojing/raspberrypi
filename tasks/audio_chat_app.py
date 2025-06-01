@@ -19,7 +19,9 @@ from .config import (
     )
 from .base import BaseTask
 import logging
+logging.basicConfig(level=logging.INFO) 
 log = logging.getLogger(__name__)
+
 class VoiceAssistant(BaseTask):
     """事件驱动的唤醒检测与交互管理"""
     def __init__(self):
