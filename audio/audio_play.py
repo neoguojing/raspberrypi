@@ -96,38 +96,41 @@ class AudioPlayer:
                 break
 
     async def producer(self, url, retry_delay=5):
-        try:
-            log.info(f"Connecting to {url} for PCM streaming...")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"HTTP error: {resp.status}")
-                    buffer = b''
-                    while self.running:
-                        chunk = await resp.content.read(self.chunk_size * 2)
-                        print(f"************{len(chunk)}")
-                        if not chunk:
-                            log.warning("empty data")
-                            time.sleep(0.1)
-                            continue
-                        
-                        if chunk == END_TAG:
-                            log.warning("No more data. Stream ended.")
-                            break
-                        
-                        # 保证帧对其
-                        buffer += chunk
-                        while len(buffer) >= self.chunk_size * 2:
-                            frame = buffer[:self.chunk_size * 2]
-                            buffer = buffer[self.chunk_size * 2:]
-                            try:
-                                await self.queue.put(frame)
-                            except asyncio.QueueFull:
-                                log.warning("Playback queue full, dropping frame")
+        while self.running:
+            try:
+                log.info(f"Connecting to {url} for PCM streaming...")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            raise Exception(f"HTTP error: {resp.status}")
+                        buffer = b''
+                        while self.running:
+                            chunk = await resp.content.read(self.chunk_size * 2)
+                            if not chunk:
+                                log.warning("empty data")
+                                time.sleep(0.1)
+                                continue
+                            
+                            if chunk == END_TAG:
+                                log.warning("No more data. Stream ended.")
+                                continue
+                            
+                            # 保证帧对其
+                            buffer += chunk
+                            while len(buffer) >= self.chunk_size * 2:
+                                frame = buffer[:self.chunk_size * 2]
+                                buffer = buffer[self.chunk_size * 2:]
+                                try:
+                                    await self.queue.put(frame)
+                                except asyncio.QueueFull:
+                                    log.warning("Playback queue full, dropping frame")
 
-        except Exception as e:
-            log.error(f"Producer: {e}")
-        
+            except Exception as e:
+                log.error(f"Producer: {e}")
+
+            if self.running:
+                log.info(f"Retrying connection in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
             
     def __del__(self):
         self.terminate()
