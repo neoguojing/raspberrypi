@@ -89,25 +89,25 @@ class AudioPlayer:
                 self.stream.write(frame)
 
                 # 计算时间抖动
-                # now = time.perf_counter()
-                # drift = now - expected_next_time
-                # drift_history.append(drift)
+                now = time.perf_counter()
+                drift = now - expected_next_time
+                drift_history.append(drift)
                 
-                # # 动态调整：平滑处理连续抖动
-                # if len(drift_history) >= 3:
-                #     avg_drift = sum(drift_history[-3:]) / 3
-                #     if abs(avg_drift) > 0.003:
-                #         expected_next_time += avg_drift * 0.2
-                #         drift_history.clear()
+                # 动态调整：平滑处理连续抖动
+                if len(drift_history) >= 3:
+                    avg_drift = sum(drift_history[-3:]) / 3
+                    if abs(avg_drift) > 0.003:
+                        expected_next_time += avg_drift * 0.2
+                        drift_history.clear()
 
-                # # 精确睡眠控制
-                # sleep_time = expected_next_time + frame_duration - time.perf_counter()
-                # if sleep_time > 0.001:
-                #     await asyncio.sleep(sleep_time)
-                # elif sleep_time < -0.01:
-                #     log.debug(f"[播放器] 滞后 {-sleep_time:.4f}s")
+                # 精确睡眠控制
+                sleep_time = expected_next_time + frame_duration - time.perf_counter()
+                if sleep_time > 0.001:
+                    await asyncio.sleep(sleep_time)
+                elif sleep_time < -0.01:
+                    log.debug(f"[播放器] 滞后 {-sleep_time:.4f}s")
 
-                # expected_next_time += frame_duration
+                expected_next_time += frame_duration
 
             except Exception as e:
                 log.error(f"播放错误: {e}")
