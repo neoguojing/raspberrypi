@@ -10,3 +10,4 @@ aiohttp
 openai
 dotenv
 webrtcvad
+samplerate
