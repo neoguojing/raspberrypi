@@ -7,7 +7,7 @@ import aiohttp
 import logging
 import re
 import samplerate
-
+import numpy as np
 
 log = logging.getLogger(__name__)
 END_TAG = b'\x00' * 8192
@@ -95,29 +95,41 @@ class AudioPlayer:
     async def play(self):
         """完全阻塞队列版本的音频播放控制"""
         self.open_stream()
-
         buffer_ctrl = AudioBufferController()
         pid = PIDController()
-        resampler = samplerate.Resampler('sinc_fastest') 
+        resampler = samplerate.Resampler('sinc_fastest')
+        
         while self.running:
             try:
-                # 完全阻塞获取帧数据
                 frame = await self.queue.get()
+                
+                # 转换为float32并归一化
+                if isinstance(frame, bytes):
+                    frame = np.frombuffer(frame, dtype=np.int16)
+                if frame.dtype == np.int16:
+                    frame = frame.astype(np.float32) / 32768.0
+                elif frame.dtype != np.float32:
+                    raise ValueError("不支持的音频格式")
+                
+                # 确保数据是C连续的
+                frame = np.ascontiguousarray(frame)
                 
                 # 计算缓冲区状态
                 fill_ratio = buffer_ctrl.update(self.queue.qsize())
-                # 获取速率调整因子 (0.9~1.1范围)
-                speed_factor = pid.adjust(1.0 - fill_ratio)  
+                speed_factor = max(0.9, min(1.1, pid.adjust(1.0 - fill_ratio)))
+                
                 # 动态重采样
                 adjusted_frame = resampler.process(frame, speed_factor)
-                self.stream.write(adjusted_frame)
-                # 写入音频设备
-                # self.stream.write(frame)
+                
+                # 转换回原始格式
+                if hasattr(self.stream, 'dtype') and self.stream.dtype == np.int16:
+                    adjusted_frame = (adjusted_frame * 32767.0).astype(np.int16)
+                
+                self.stream.write(adjusted_frame.tobytes())
 
             except Exception as e:
                 log.error(f"播放错误: {e}")
                 break
-
 
     async def producer(self, url, retry_delay=5):
         while self.running:

@@ -16,6 +16,8 @@ APT_PACKAGES = \
     python3-pyaudio \
     python3-dev \
 	portaudio19-dev \
+	libsamplerate0-dev \
+	cmake \
     # espeak-ng # 如果你想使用espeak-ng作为本地TTS备选方案
     # mpg123    # 如果你想使用mpg123播放音频（pygame可以处理，但这是另一种选择）
 
