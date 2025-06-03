@@ -6,8 +6,6 @@ from tools.utils import load_wav_data
 import aiohttp
 import logging
 import re
-import samplerate
-import numpy as np
 
 log = logging.getLogger(__name__)
 END_TAG = b'\x00' * 8192
@@ -31,27 +29,32 @@ async def play_audio_bytes(source: str):
     stream.close()
     p.terminate()
 
-class AudioBufferController:
-    def __init__(self, target_buffer=1024):  # 目标缓冲区大小（采样点）
-        self.target = target_buffer
-        self.current = 0
-    
-    def update(self, queue_size):
-        self.current = queue_size
-        return self.current / self.target 
-    
 class PIDController:
-    def __init__(self, kp=0.8, ki=0.01, kd=0.05):
-        self.kp, self.ki, self.kd = kp, ki, kd
+    def __init__(self, kp, ki, kd, setpoint):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.setpoint = setpoint  # 目标间隔时间，比如 0.02 秒
         self.prev_error = 0
         self.integral = 0
-    
-    def adjust(self, error):
-        self.integral += error
-        derivative = error - self.prev_error
+        self.last_time = time.time()
+
+    def compute(self, current_time):
+        dt = current_time - self.last_time
+        if dt <= 0:
+            return 0
+        
+        error = self.setpoint - dt
+        self.integral += error * dt
+        derivative = (error - self.prev_error) / dt
+
         output = self.kp * error + self.ki * self.integral + self.kd * derivative
+
         self.prev_error = error
-        return 1.0 + output  # 输出速度调整因子
+        self.last_time = current_time
+
+        return output
+
 
 class AudioPlayer:
     def __init__(self, format=pyaudio.paInt16, channels=1, rate=24000, chunk_size=480):
@@ -93,44 +96,35 @@ class AudioPlayer:
             self.pyaudio_instance = None
         
     async def play(self):
-        """完全阻塞队列版本的音频播放控制"""
+        """使用 PID 控制播放节奏，处理 await 阻塞的影响"""
         self.open_stream()
-        buffer_ctrl = AudioBufferController()
-        pid = PIDController()
-        resampler = samplerate.Resampler('sinc_fastest')
-        
+
+        pid = PIDController(kp=0.05, ki=0.005, kd=0.001, setpoint=0.02)  # 假设 20ms 一帧
+        expected_play_time = time.time()
+
         while self.running:
             try:
-                frame = await self.queue.get()
-                
-                # 转换为float32并归一化
-                if isinstance(frame, bytes):
-                    frame = np.frombuffer(frame, dtype=np.int16)
-                if frame.dtype == np.int16:
-                    frame = frame.astype(np.float32) / 32768.0
-                elif frame.dtype != np.float32:
-                    raise ValueError("不支持的音频格式")
-                
-                # 确保数据是C连续的
-                frame = np.ascontiguousarray(frame)
-                
-                # 计算缓冲区状态
-                fill_ratio = buffer_ctrl.update(self.queue.qsize())
-                speed_factor = max(0.9, min(1.1, pid.adjust(1.0 - fill_ratio)))
-                
-                # 动态重采样
-                adjusted_frame = resampler.process(frame, speed_factor)
-                
-                # 转换回原始格式
-                if hasattr(self.stream, 'dtype') and self.stream.dtype == np.int16:
-                    adjusted_frame = (adjusted_frame * 32767.0).astype(np.int16)
-                
-                self.stream.write(adjusted_frame.tobytes())
+                frame = await self.queue.get()  # 这可能会阻塞
+
+                current_time = time.time()
+                adjustment = pid.compute(current_time)
+                wait_time = max(0, pid.setpoint + adjustment)
+
+                # 距离期望播放时间还有多久
+                sleep_duration = expected_play_time - current_time
+
+                if sleep_duration > 0:
+                    await asyncio.sleep(sleep_duration)
+
+                self.stream.write(frame)
+
+                # 更新下一个预期播放时间
+                expected_play_time += wait_time
 
             except Exception as e:
                 log.error(f"播放错误: {e}")
                 break
-
+            
     async def producer(self, url, retry_delay=5):
         while self.running:
             try:
