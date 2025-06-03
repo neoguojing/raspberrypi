@@ -99,27 +99,11 @@ class AudioPlayer:
         """使用 PID 控制播放节奏，处理 await 阻塞的影响"""
         self.open_stream()
 
-        pid = PIDController(kp=0.05, ki=0.005, kd=0.001, setpoint=0.02)  # 假设 20ms 一帧
-        expected_play_time = time.time()
-
         while self.running:
             try:
                 frame = await self.queue.get()  # 这可能会阻塞
 
-                current_time = time.time()
-                adjustment = pid.compute(current_time)
-                wait_time = max(0, pid.setpoint + adjustment)
-
-                # 距离期望播放时间还有多久
-                sleep_duration = expected_play_time - current_time
-
-                if sleep_duration > 0:
-                    await asyncio.sleep(sleep_duration)
-
                 self.stream.write(frame)
-
-                # 更新下一个预期播放时间
-                expected_play_time += wait_time
 
             except Exception as e:
                 log.error(f"播放错误: {e}")
