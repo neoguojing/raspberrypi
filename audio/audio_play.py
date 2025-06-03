@@ -1,16 +1,13 @@
-import os
 import time
-import base64
 import asyncio
-import tempfile
 from pydub import AudioSegment
 import pyaudio
-import io
 from tools.utils import load_wav_data
-import requests
 import aiohttp
 import logging
 import re
+import samplerate
+
 
 log = logging.getLogger(__name__)
 END_TAG = b'\x00' * 8192
@@ -33,6 +30,28 @@ async def play_audio_bytes(source: str):
     stream.stop_stream()
     stream.close()
     p.terminate()
+
+class AudioBufferController:
+    def __init__(self, target_buffer=1024):  # 目标缓冲区大小（采样点）
+        self.target = target_buffer
+        self.current = 0
+    
+    def update(self, queue_size):
+        self.current = queue_size
+        return self.current / self.target 
+    
+class PIDController:
+    def __init__(self, kp=0.8, ki=0.01, kd=0.05):
+        self.kp, self.ki, self.kd = kp, ki, kd
+        self.prev_error = 0
+        self.integral = 0
+    
+    def adjust(self, error):
+        self.integral += error
+        derivative = error - self.prev_error
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.prev_error = error
+        return 1.0 + output  # 输出速度调整因子
 
 class AudioPlayer:
     def __init__(self, format=pyaudio.paInt16, channels=1, rate=24000, chunk_size=480):
@@ -75,39 +94,25 @@ class AudioPlayer:
         
     async def play(self):
         """完全阻塞队列版本的音频播放控制"""
-        frame_duration = self.chunk_size / self.rate
         self.open_stream()
-        expected_next_time = time.perf_counter()
-        drift_history = []
 
+        buffer_ctrl = AudioBufferController()
+        pid = PIDController()
+        resampler = samplerate.Resampler('sinc_fastest') 
         while self.running:
             try:
                 # 完全阻塞获取帧数据
                 frame = await self.queue.get()
                 
+                # 计算缓冲区状态
+                fill_ratio = buffer_ctrl.update(self.queue.qsize())
+                # 获取速率调整因子 (0.9~1.1范围)
+                speed_factor = pid.adjust(1.0 - fill_ratio)  
+                # 动态重采样
+                adjusted_frame = resampler.process(frame, speed_factor)
+                self.stream.write(adjusted_frame)
                 # 写入音频设备
-                self.stream.write(frame)
-
-                # 计算时间抖动
-                now = time.perf_counter()
-                drift = now - expected_next_time
-                drift_history.append(drift)
-                
-                # 动态调整：平滑处理连续抖动
-                if len(drift_history) >= 3:
-                    avg_drift = sum(drift_history[-3:]) / 3
-                    if abs(avg_drift) > 0.003:
-                        expected_next_time += avg_drift * 0.2
-                        drift_history.clear()
-
-                # 精确睡眠控制
-                sleep_time = expected_next_time + frame_duration - time.perf_counter()
-                if sleep_time > 0.001:
-                    await asyncio.sleep(sleep_time)
-                elif sleep_time < -0.01:
-                    log.debug(f"[播放器] 滞后 {-sleep_time:.4f}s")
-
-                expected_next_time += frame_duration
+                # self.stream.write(frame)
 
             except Exception as e:
                 log.error(f"播放错误: {e}")
