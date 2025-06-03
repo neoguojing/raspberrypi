@@ -90,6 +90,7 @@ class AudioPlayer:
 
     def terminate(self):
         self.running = False
+        self.session.close()
         self.close_stream()
         if self.pyaudio_instance is not None:
             self.pyaudio_instance.terminate()
@@ -161,7 +162,45 @@ class AudioPlayer:
             if self.running:
                 log.info(f"Retrying connection in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
-            
+    
+    async def producerws(self,ws_url:str, retry_delay=5):
+        self.session = aiohttp.ClientSession()
+        while self.running:
+            try:
+                logging.info(f"Connecting to {ws_url}")
+                async with self.session.ws_connect(ws_url) as ws:
+                    # 首次连接时发送音频参数请求
+                    await ws.send_json({
+                        "type": "config_request",
+                        "supported_rates": [16000, 24000],
+                        "supported_channels": [1, 2]
+                    })
+                    
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            if msg.data.startswith("config:"):
+                                # 解析服务器返回的音频配置
+                                config = msg.json()
+                                self.rate = config.get("rate", 16000)
+                                self.channels = config.get("channels", 1)
+                                self.chunk_size = 320 if self.rate == 16000 else 480
+                                logging.info(f"Audio config: rate={self.rate}, channels={self.channels}")
+                                
+                        elif msg.type == aiohttp.WSMsgType.BINARY:
+                            try:
+                                await self.queue.put(msg.data)
+                            except asyncio.QueueFull:
+                                logging.warning("Queue full, dropping frame")
+                                
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            break
+                            
+            except Exception as e:
+                logging.error(f"WebSocket error: {e}")
+                if self.running:
+                    logging.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                        
     def __del__(self):
         self.terminate()
 
