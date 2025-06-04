@@ -71,7 +71,8 @@ class AudioPlayer:
         self.queue = asyncio.Queue(maxsize=1000)  # 防止爆内存
         self.session = aiohttp.ClientSession()
 
-    def open_stream(self, format=None, channels=None, rate=None,):
+    async def open_stream(self, format=None, channels=None, rate=None,):
+        self.session = aiohttp.ClientSession()
         if self.stream is None:
             fmt = format if format is not None else self.format
             ch = channels if channels is not None else self.channels
@@ -101,7 +102,7 @@ class AudioPlayer:
         
     async def play(self):
         """使用 PID 控制播放节奏，处理 await 阻塞的影响"""
-        self.open_stream()
+        await self.open_stream()
 
         while self.running:
             try:
