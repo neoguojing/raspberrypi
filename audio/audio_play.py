@@ -115,8 +115,8 @@ class AudioPlayer:
                 break
             
     async def producer(self,ws_url:str, retry_delay=5):
-        frame_duration = self.chunk_size / self.rate  # 每帧持续时间(秒)
-        last_frame_time = time.monotonic()  # 使用单调时钟避免时间回退
+        # frame_duration = self.chunk_size / self.rate  # 每帧持续时间(秒)
+        # last_frame_time = time.monotonic()  # 使用单调时钟避免时间回退
         while self.running:
             try:
                 logging.info(f"Connecting to {ws_url}")
@@ -137,21 +137,21 @@ class AudioPlayer:
                                     self.channels = config.get("channels", 1)
                                     self.chunk_size = 320 if self.rate == 16000 else 480
                                     log.info(f"Audio config: rate={self.rate}, channels={self.channels}")
-                                elif config.get("type") == "event":
-                                    if config.get("data") == "empty":
-                                        last_frame_time = time.monotonic()
+                                # elif config.get("type") == "event":
+                                #     if config.get("data") == "empty":
+                                #         last_frame_time = time.monotonic()
                             except Exception as e:
                                 log.warning(f"Failed to parse config: {e}")
                                 
                         elif msg.type == aiohttp.WSMsgType.BINARY:
-                            elapsed = time.monotonic() - last_frame_time
-                            sleep_time = frame_duration - elapsed
-                            if sleep_time > 0.001:
-                                await asyncio.sleep(sleep_time)
+                            # elapsed = time.monotonic() - last_frame_time
+                            # sleep_time = frame_duration - elapsed
+                            # if sleep_time > 0.001:
+                            #     await asyncio.sleep(sleep_time)
                                 
                             await self.queue.put(msg.data)
                             
-                            last_frame_time = time.monotonic()
+                            # last_frame_time = time.monotonic()
                             
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             await asyncio.sleep(retry_delay)
