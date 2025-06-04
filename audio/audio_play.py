@@ -114,61 +114,9 @@ class AudioPlayer:
                 log.error(f"播放错误: {e}")
                 break
             
-    async def producer(self, url, retry_delay=5):
-        while self.running:
-            try:
-                log.info(f"Connecting to {url} for PCM streaming...")
-                async with self.session as session:
-                    async with session.get(url) as resp:
-                        if resp.status != 200:
-                            raise Exception(f"HTTP error: {resp.status}")
-                        
-                        # ✅ 解析 Content-Type
-                        content_type = resp.headers.get('Content-Type', '')
-                        match = re.search(r"rate=(\d+);.*channels=(\d+)", content_type)
-                        if match:
-                            self.rate = int(match.group(1))
-                            self.channels  = int(match.group(2))
-                            if self.rate == 16000:
-                                self.chunk_size = 320
-                        else:
-                            self.rate  = 24000
-                            self.channels = 1
-                            self.chunk_size = 480
-                        
-                        print(f"[客户端] 采样率: {self.rate}, 通道数: {self.channels}")
-                        
-                        buffer = b''
-                        while self.running:
-                            chunk = await resp.content.read(self.chunk_size * 2)
-                            if not chunk:
-                                log.warning("empty data")
-                                time.sleep(0.1)
-                                continue
-                            
-                            if chunk == END_TAG:
-                                log.warning("No more data. Stream ended.")
-                                continue
-                            
-                            # 保证帧对其
-                            buffer += chunk
-                            while len(buffer) >= self.chunk_size * 2:
-                                frame = buffer[:self.chunk_size * 2]
-                                buffer = buffer[self.chunk_size * 2:]
-                                try:
-                                    await self.queue.put(frame)
-                                except asyncio.QueueFull:
-                                    log.warning("Playback queue full, dropping frame")
-
-            except Exception as e:
-                log.error(f"Producer: {e}")
-
-            if self.running:
-                log.info(f"Retrying connection in {retry_delay} seconds...")
-                await asyncio.sleep(retry_delay)
-    
-    async def producer_ws(self,ws_url:str, retry_delay=5):
-
+    async def producer(self,ws_url:str, retry_delay=5):
+        frame_duration = self.chunk_size / self.rate  # 每帧持续时间(秒)
+        last_frame_time = time.monotonic()  # 使用单调时钟避免时间回退
         while self.running:
             try:
                 logging.info(f"Connecting to {ws_url}")
@@ -189,14 +137,24 @@ class AudioPlayer:
                                     self.channels = config.get("channels", 1)
                                     self.chunk_size = 320 if self.rate == 16000 else 480
                                     log.info(f"Audio config: rate={self.rate}, channels={self.channels}")
+                                elif config.get("type") == "event":
+                                    if config.get("data") == "empty":
+                                        last_frame_time = time.monotonic()
                             except Exception as e:
                                 log.warning(f"Failed to parse config: {e}")
                                 
                         elif msg.type == aiohttp.WSMsgType.BINARY:
+                            elapsed = time.monotonic() - last_frame_time
+                            sleep_time = frame_duration - elapsed
+                            if sleep_time > 0.001:
+                                await asyncio.sleep(sleep_time)
+                                
                             await self.queue.put(msg.data)
-
+                            
+                            last_frame_time = time.monotonic()
+                            
                         elif msg.type == aiohttp.WSMsgType.ERROR:
-                            asyncio.sleep(retry_delay)
+                            await asyncio.sleep(retry_delay)
                             
             except Exception as e:
                 logging.error(f"WebSocket error: {e}")
