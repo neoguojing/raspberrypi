@@ -6,6 +6,7 @@ from tools.utils import load_wav_data
 import aiohttp
 import logging
 import re
+import json
 
 log = logging.getLogger(__name__)
 END_TAG = b'\x00' * 8192
@@ -68,6 +69,7 @@ class AudioPlayer:
         self.running = True
         
         self.queue = asyncio.Queue(maxsize=1000)  # 防止爆内存
+        self.session = aiohttp.ClientSession()
 
     def open_stream(self, format=None, channels=None, rate=None,):
         if self.stream is None:
@@ -114,7 +116,7 @@ class AudioPlayer:
         while self.running:
             try:
                 log.info(f"Connecting to {url} for PCM streaming...")
-                async with aiohttp.ClientSession() as session:
+                async with self.session as session:
                     async with session.get(url) as resp:
                         if resp.status != 200:
                             raise Exception(f"HTTP error: {resp.status}")
@@ -163,8 +165,8 @@ class AudioPlayer:
                 log.info(f"Retrying connection in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
     
-    async def producerws(self,ws_url:str, retry_delay=5):
-        self.session = aiohttp.ClientSession()
+    async def producer_ws(self,ws_url:str, retry_delay=5):
+
         while self.running:
             try:
                 logging.info(f"Connecting to {ws_url}")
@@ -178,13 +180,15 @@ class AudioPlayer:
                     
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
-                            if msg.data.startswith("config:"):
-                                # 解析服务器返回的音频配置
-                                config = msg.json()
-                                self.rate = config.get("rate", 16000)
-                                self.channels = config.get("channels", 1)
-                                self.chunk_size = 320 if self.rate == 16000 else 480
-                                logging.info(f"Audio config: rate={self.rate}, channels={self.channels}")
+                            try:
+                                config = json.loads(msg.data)
+                                if config.get("type") == "config":
+                                    self.rate = config.get("rate", 16000)
+                                    self.channels = config.get("channels", 1)
+                                    self.chunk_size = 320 if self.rate == 16000 else 480
+                                    log.info(f"Audio config: rate={self.rate}, channels={self.channels}")
+                            except Exception as e:
+                                log.warning(f"Failed to parse config: {e}")
                                 
                         elif msg.type == aiohttp.WSMsgType.BINARY:
                             try:
@@ -193,7 +197,7 @@ class AudioPlayer:
                                 logging.warning("Queue full, dropping frame")
                                 
                         elif msg.type == aiohttp.WSMsgType.ERROR:
-                            break
+                            asyncio.sleep(retry_delay)
                             
             except Exception as e:
                 logging.error(f"WebSocket error: {e}")
