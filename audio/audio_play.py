@@ -72,7 +72,7 @@ class AudioPlayer:
         self.session = aiohttp.ClientSession()
 
     async def open_stream(self, format=None, channels=None, rate=None,):
-        self.session = aiohttp.ClientSession()
+        self.session = await aiohttp.ClientSession()
         if self.stream is None:
             fmt = format if format is not None else self.format
             ch = channels if channels is not None else self.channels
