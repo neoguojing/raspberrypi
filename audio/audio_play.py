@@ -191,11 +191,8 @@ class AudioPlayer:
                                 log.warning(f"Failed to parse config: {e}")
                                 
                         elif msg.type == aiohttp.WSMsgType.BINARY:
-                            try:
-                                await self.queue.put(msg.data)
-                            except asyncio.QueueFull:
-                                logging.warning("Queue full, dropping frame")
-                                
+                            await self.queue.put(msg.data)
+
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             asyncio.sleep(retry_delay)
                             
