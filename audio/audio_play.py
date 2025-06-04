@@ -92,7 +92,8 @@ class AudioPlayer:
 
     def terminate(self):
         self.running = False
-        self.session.close()
+        if self.session:
+            self.session.close()
         self.close_stream()
         if self.pyaudio_instance is not None:
             self.pyaudio_instance.terminate()
