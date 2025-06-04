@@ -10,8 +10,9 @@ class AudioControllerAsync:
         self.player = AudioPlayer()
     
     async def run(self,url: str):
-        asyncio.gather(self.player.play(),self.player.producer(url))
-        
+        # asyncio.gather(self.player.play(),self.player.producer(url))
+        asyncio.gather(self.player.play(),self.player.producer_ws(url))
+
     async def record(self):
         # 不用锁，改为检查播放队列状态
         wait_count = 0
