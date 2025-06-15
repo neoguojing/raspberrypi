@@ -76,9 +76,11 @@ class VoiceAssistant(BaseTask):
                         os.remove(clip)
 
     async def _run(self):
-        inputs,outpus,_,_ = await check_audio_devices()
-        if not inputs or not outpus:
+        inputs,outputs,_,_ = await check_audio_devices()
+        if not inputs or not outputs:
             raise ValueError("输入或输出设备缺失")
+        print(f"输入设备：{inputs}")
+        print(f"输出设备：{outputs}")
         # 启动监听与唤醒检测
         audio_player_url = f"{AGI_URL}/ws/audio_stream/raspberrypi"
         asyncio.create_task(self.audio_ctl.run(audio_player_url))

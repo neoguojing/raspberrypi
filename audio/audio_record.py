@@ -49,17 +49,28 @@ class ContinuousAudioListener:
         return (None, pyaudio.paContinue)
 
     def start(self):
-        """启动持续监听音频流"""
-        self._stream = self._pa.open(
-            rate=self.rate,
-            channels=self.channels,
-            format=pyaudio.paInt16,
-            input=True,
-            frames_per_buffer=self.chunk_size,
-            input_device_index=self.device_index,
-            stream_callback=self._audio_callback
-        )
-        self._stream.start_stream()
+        """启动持续监听音频流，带异常处理"""
+        try:
+            self._stream = self._pa.open(
+                rate=self.rate,
+                channels=self.channels,
+                format=pyaudio.paInt16,
+                input=True,
+                frames_per_buffer=self.chunk_size,
+                input_device_index=self.device_index,
+                stream_callback=self._audio_callback
+            )
+            self._stream.start_stream()
+            print(f"[INFO] Audio stream started: rate={self.rate}, device={self.device_index}")
+        except OSError as e:
+            print(f"[ERROR] Failed to start audio stream: {e}")
+            if "Invalid sample rate" in str(e):
+                print(f"[SUGGESTION] 尝试检查你的麦克风是否支持该采样率，或者换成 44100Hz 或 48000Hz {self.rate}")
+            # 可选：记录错误日志或触发重试逻辑
+        except Exception as e:
+            print(f"[FATAL] Unexpected error while starting audio stream: {e}")
+            # 可根据需要决定是否重新抛出异常或退出
+
 
     def stop(self):
         """停止监听并释放资源"""
