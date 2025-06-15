@@ -8,6 +8,7 @@ import asyncio
 import webrtcvad
 import logging
 log = logging.getLogger(__name__)
+from tools.device import find_usb_microphone_index
 from .config import (
     AUDIO_RATE,
     AUDIO_CHANNELS,
@@ -28,7 +29,7 @@ class ContinuousAudioListener:
         self.rate = AUDIO_RATE
         self.channels = AUDIO_CHANNELS
         self.chunk_size = AUDIO_CHUNK_SIZE
-        self.device_index = AUDIO_DEVICE_INDEX
+        self.device_index = AUDIO_DEVICE_INDEX or find_usb_microphone_index()
 
         # 环形缓冲：保存最近 BUFFER_SECONDS 秒的数据
         max_frames = int(self.rate / self.chunk_size * RECORD_SECONDS_AFTER_WAKE)

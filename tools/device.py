@@ -42,6 +42,17 @@ async def check_audio_devices(expected_input=None, expected_output=None):
     return input_devices,output_devices,input_found if expected_input else None,output_found if expected_output else None
 
 
+def find_usb_microphone_index():
+    import pyaudio
+    pa = pyaudio.PyAudio()
+    for i in range(pa.get_device_count()):
+        info = pa.get_device_info_by_index(i)
+        if 'USB' in info['name'] and info['maxInputChannels'] > 0:
+            return i
+    raise RuntimeError("USB microphone not found")
+
+
+
 # 示例调用
 # async def main():
 #     input_devices,output_devices,input_device_found,output_device_found = await check_audio_devices(expected_input="USB", expected_output="HDMI")
