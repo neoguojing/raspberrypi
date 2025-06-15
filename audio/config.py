@@ -19,7 +19,14 @@ PORCUPINE_SENSITIVITIES = [0.5] # 对应每个关键词的灵敏度 (0.0 to 1.0)
 # 录音参数
 AUDIO_FORMAT = "wav" # 或者 "flac" 等，取决于你的API
 AUDIO_CHANNELS = 1
-AUDIO_RATE = 16000 # 采样率，Hz
+AUDIO_RATE = 16000
+try:
+    AUDIO_RATE = int(os.getenv("AUDIO_RATE", 16000))
+    if AUDIO_RATE not in [16000, 44100, 48000]:
+        raise ValueError(f"Unsupported AUDIO_RATE: {AUDIO_RATE}")
+except Exception as e:
+    print(f"[WARN] Invalid AUDIO_RATE, fallback to 16000Hz: {e}")
+    AUDIO_RATE = 16000
 AUDIO_CHUNK_SIZE = 1024 # 每次读取的帧数
 AUDIO_DEVICE_INDEX = None # 麦克风设备索引，None代表默认。运行 list_audio_devices.py 查找。
 RECORD_SECONDS_AFTER_WAKE = 10 # 唤醒后最长录音时间
