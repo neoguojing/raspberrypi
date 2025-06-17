@@ -58,7 +58,7 @@ class ContinuousAudioListener:
                 format=pyaudio.paInt16,
                 input=True,
                 frames_per_buffer=self.chunk_size,
-                input_device_index=self.device_index,
+                # input_device_index=self.device_index,
                 stream_callback=self._audio_callback
             )
             self._stream.start_stream()
