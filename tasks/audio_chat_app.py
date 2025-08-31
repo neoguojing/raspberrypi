@@ -5,6 +5,7 @@ from audio.audio_play import play_audio_bytes
 from clients.agi import OpenAIClient
 from tools.device import check_audio_devices
 from tools.utils import pcm_to_wav
+from urllib.parse import urljoin
 import os
 import time
 import asyncio
@@ -83,7 +84,7 @@ class VoiceAssistant(BaseTask):
         print(f"输入设备：{inputs}")
         print(f"输出设备：{outputs}")
         # 启动监听与唤醒检测
-        audio_player_url = f"{AGI_TTS_URL}/ws/audio_stream/raspberrypi"
+        audio_player_url = urljoin(AGI_TTS_URL,"/ws/audio_stream/raspberrypi")
         asyncio.create_task(self.audio_ctl.run(audio_player_url))
         asyncio.create_task(self.wake_checker())
         last_interaction = 0
