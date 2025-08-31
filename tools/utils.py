@@ -16,7 +16,7 @@ async def audio_to_base64(source):
     encoded_audio = None
     if bio:
         encoded_audio = base64.b64encode(bio.getvalue()).decode('utf-8')
-        encoded_audio = f"data:audio/wav;base64,{encoded_audio}"
+        encoded_audio = f"data:audio/x-wav;base64,{encoded_audio}"
     return encoded_audio
 
 async def decode_base64_audio(data: str) -> str:
