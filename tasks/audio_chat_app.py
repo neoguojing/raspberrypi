@@ -84,7 +84,7 @@ class VoiceAssistant(BaseTask):
         print(f"输入设备：{inputs}")
         print(f"输出设备：{outputs}")
         # 启动监听与唤醒检测
-        audio_player_url = urljoin(AGI_TTS_URL,"/ws/audio_stream/raspberrypi")
+        audio_player_url = urljoin(AGI_TTS_URL,"ws/audio_stream/raspberrypi")
         asyncio.create_task(self.audio_ctl.run(audio_player_url))
         asyncio.create_task(self.wake_checker())
         last_interaction = 0
