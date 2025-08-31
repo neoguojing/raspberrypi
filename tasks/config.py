@@ -14,6 +14,6 @@ POST_WAKE_COOLDOWN = 180 #唤醒后激活的保持时间 秒
 AUDIO_FEATURE_TYPE = os.getenv("AUDIO_FEATURE_TYPE", "")
 AGI_URL = os.getenv("AGI_URL", "http://localhost:8000/v1")
 AGI_TTS_URL = os.getenv("AGI_TTS_URL", "http://localhost:8002/v1")
-AGI_WHISPER_URL = os.getenv("AGI_URL", "http://localhost:8003/v1")
+AGI_WHISPER_URL = os.getenv("AGI_WHISPER_URL", "http://localhost:8003/v1")
 
 AGI_API_KEY = os.getenv("AGI_API_KEY", "123")
