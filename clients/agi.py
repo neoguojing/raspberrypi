@@ -9,10 +9,12 @@ class OpenAIClient:
     集成 AsyncOpenAI 客户端管理和音频处理功能（唤醒词检测和发送音频到LLM）
     """
 
-    def __init__(self, api_key=None, base_url=None):
+    def __init__(self, api_key=None, base_url=None,whisper_url=None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = base_url or "https://api.openai.com/v1"
+        self.whisper_url = whisper_url or base_url
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.whisper_client = AsyncOpenAI(api_key=self.api_key, base_url=self.whisper_url)
 
     async def audio_wakeup(self, audio_filepath: str, wake_up_word: str = "小派") -> bool:
         """使用 Whisper 识别音频内容，判断是否包含唤醒词"""
@@ -22,7 +24,7 @@ class OpenAIClient:
 
         try:
             with open(audio_filepath, "rb") as audio_file:
-                response = await self.client.audio.transcriptions.create(
+                response = await self.whisper_client.audio.transcriptions.create(
                     file=audio_file,
                     model="whisper-1",
                     response_format="json",

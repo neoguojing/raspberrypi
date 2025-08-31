@@ -17,7 +17,8 @@ from .config import (
     AUDIO_FEATURE_TYPE,
     AGI_URL,
     AGI_API_KEY,
-    AGI_TTS_URL
+    AGI_TTS_URL,
+    AGI_WHISPER_URL
     )
 from .base import BaseTask
 import logging
@@ -29,7 +30,7 @@ class VoiceAssistant(BaseTask):
     def __init__(self):
         super().__init__() 
         self.audio_ctl = AudioControllerAsync()
-        self.client = OpenAIClient(api_key=AGI_API_KEY,base_url=AGI_URL)
+        self.client = OpenAIClient(api_key=AGI_API_KEY,base_url=AGI_URL,whisper_url=AGI_WHISPER_URL)
         self.wake_event = asyncio.Event()
         self.cooldown = POST_WAKE_COOLDOWN or 180
         self.interaction_lock = asyncio.Lock()
