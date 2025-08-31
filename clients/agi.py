@@ -12,7 +12,7 @@ class OpenAIClient:
     def __init__(self, api_key=None, base_url=None,whisper_url=None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = base_url or "https://api.openai.com/v1"
-        self.whisper_url = whisper_url or base_url
+        self.whisper_url = whisper_url
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         self.whisper_client = AsyncOpenAI(api_key=self.api_key, base_url=self.whisper_url)
 
