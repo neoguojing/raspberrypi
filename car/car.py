@@ -74,12 +74,17 @@ class Motor:
     # -------------------------
     # 内部：设置 PWM
     # -------------------------
-    def _apply_pwm(self, bwd_duty,fwd_duty):
+    def _apply_pwm(self, fwd_duty,bwd_duty):
         """内部方法，确保不会正反同时输出"""
 
         fwd_duty = int(max(0, min(100, fwd_duty)))
         bwd_duty = int(max(0, min(100, bwd_duty)))
         print(fwd_duty,bwd_duty)
+
+        if fwd_duty > 0 and bwd_duty > 0:
+            # 可以选择报错，或自动处理（比如优先正转，或置零）
+            # 这里建议抛出异常，防止逻辑错误
+            raise ValueError("Cannot apply forward and backward PWM simultaneously!")
 
         if fwd_duty > 0:
             lgpio.tx_pwm(self.handle, self.forward, self.freq, fwd_duty)
@@ -94,15 +99,15 @@ class Motor:
     # -------------------------
     # 电机反转（后退）
     # -------------------------
-    def backward_run(self, speed=10):
-        self._apply_pwm(speed, 0)
+    def backward_run(self, speed=60):
+        self._apply_pwm(0, speed)
         self.current_speed = -speed
 
     # -------------------------
     # 电机正转（前进）
     # -------------------------
-    def forward_run(self, speed=15):
-        self._apply_pwm(0, speed)
+    def forward_run(self, speed=85):
+        self._apply_pwm(speed, 0)
         self.current_speed = speed
 
     # -------------------------
@@ -151,14 +156,14 @@ class Motor:
 # ---------------------------
 class FourWheelCar:
     def __init__(self, steering_pin, motor_pins_list, pwm=True):
-        # self.steering = Steering(steering_pin)
+        self.steering = Steering(steering_pin)
         self.motors = [Motor(*pins) for pins in motor_pins_list]
 
-    def forward(self, speed=100):
+    def forward(self, speed=85):
         for m in self.motors:
             m.forward_run(speed)
 
-    def backward(self, speed=100):
+    def backward(self, speed=80):
         for m in self.motors:
             m.backward_run(speed)
 
@@ -173,11 +178,13 @@ class FourWheelCar:
         self.steering.set_angle(abs(angle))
 
     def center_steering(self):
-        self.steering.center()
+        if self.steering:
+            self.steering.center()
 
     def cleanup(self):
         self.stop()
-        self.steering.cleanup()
+        if self.steering:
+            self.steering.cleanup()
         for m in self.motors:
             m.cleanup()
 
@@ -189,9 +196,9 @@ if __name__ == "__main__":
     steering_pin = 18   # 示例：BCM18（原 BOARD 12）
 
     motor_pins = [
-        (5, 6),  # 前左 BOARD 29 31
+        (6,5),  # 前左 BOARD 29 31
         (13, 19),   # 前右 BOARD 33 35
-        (26, 16),    # 后左 BOARD 37 36
+        (16,26),    # 后左 BOARD 37 36
         (20, 21)   # 后右 BOARD 38 40
     ]
 
