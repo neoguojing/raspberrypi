@@ -1,0 +1,39 @@
+# Pi 5 camera setting
+
+白色面朝 HDMI 方向
+蓝色 FPC 面朝 USB 方向
+（Pi5 的 CSI 接口与 Pi4方向相反）
+
+```
+ls /dev/video*
+vcgencmd get_camera
+
+sudo raspi-config
+Interface Options → Camera → Enable
+sudo reboot
+
+sudo apt update
+sudo apt install libcamera-apps libcamera-tools -y
+
+
+sudo apt install qv4l2 v4l-utils -y
+
+rpicam-hello --timeout 5000
+rpicam-still -o test.jpg
+rpicam-vid -o test.h264 -t 10000
+
+```
+
+# GStreamer
+```
+gst-inspect-1.0 libcamerasrc
+
+sudo apt update
+sudo apt install libcamera-gstreamer libcamera-tools libcamera-apps -y
+
+gst-launch-1.0 libcamerasrc ! fakesink
+gst-launch-1.0 libcamerasrc ! videoconvert ! autovideosink
+gst-launch-1.0 libcamerasrc ! video/x-raw,width=1280,height=720,framerate=60/1 ! autovideosink
+gst-launch-1.0 libcamerasrc exposure=8000 awb-mode=daylight ! videoconvert ! autovideosink
+
+```

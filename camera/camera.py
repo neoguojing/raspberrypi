@@ -4,14 +4,14 @@ import queue
 import threading
 
 # sensor_mode
-# | mode | 分辨率              | 最大 FPS     |
-# | ---- | ---------------- | ---------- |
-# | 0    | 3280×2464 (full) | 21 fps     |
-# | 1    | 1920×1080        | 30 fps     |
-# | 2    | 1640×1232        | 40 fps     |
-# | 3    | 1640×922         | 50 fps     |
-# | 4    | 1280×720         | **60 fps** |
-# | 5    | 640×480          | 90 fps     |
+# IMX219 的模式是：
+# mode	分辨率	fps	FOV
+# 0	3280×2464	21 fps	full-res
+# 1	1920×1080	30 fps	cropped
+# 2	3280×2464	30 fps	full-res
+# 3	1640×1232	30 fps	2×2 binning
+# 4	1640×922	60 fps	2×2 binning
+# 5	1280×720	120 fps	cropped
 # exposure
 # | 场景      | 曝光建议             |
 # | ------- | ---------------- |
@@ -47,7 +47,8 @@ class RpiCamera:
                  auto_exposure=False,
                  awb_mode=0,
                  gain=1.0,
-                 queue_size=10):
+                 queue_size=10,
+                 use_gsm=False):
         self.width = width  #分辨率
         self.height = height #分辨率
         self.fps = fps #帧率
@@ -61,6 +62,7 @@ class RpiCamera:
 
         self._stop_flag = False
         self._thread = None
+        self.use_gsm = use_gsm
 
     # ----------------------------------------------------------
     # ① 启动解码线程（SLAM / 模型输入）
@@ -69,7 +71,11 @@ class RpiCamera:
         if self._thread:
             return
         self._stop_flag = False
-        self._thread = threading.Thread(target=self._frame_loop, daemon=True)
+        if self.use_gsm:
+            self._thread = threading.Thread(target=self._frame_loop_gsm, daemon=True)
+        else:
+            self._thread = threading.Thread(target=self._frame_loop, daemon=True)
+
         self._thread.start()
 
     def stop(self):
@@ -78,7 +84,7 @@ class RpiCamera:
             self._thread.join()
             self._thread = None
 
-    def _frame_loop(self):
+    def _frame_loop_gsm(self):
         cap = cv2.VideoCapture(self._make_gst_pipeline(), cv2.CAP_GSTREAMER)
         if not cap.isOpened():
             print("❌ 摄像头无法打开")
@@ -105,19 +111,58 @@ class RpiCamera:
         cap.release()
 
     def _make_gst_pipeline(self):
+        # 自动曝光？则不设置 exposure
+        exposure_part = "" if self.auto_exposure else f"exposure={self.exposure} "
+
         pipeline = (
             "libcamerasrc "
-            f"sensor-mode=4 "               # IMX219 1280×720@60fps
-            f"exposure-time={self.exposure} "
+            f"sensor-mode=4 "
+            f"{exposure_part}"
             f"ae-mode={'1' if self.auto_exposure else '0'} "
             f"awb-mode={self.awb_mode} "
             f"gain={self.gain} "
-            f"! video/x-raw,width={self.width},height={self.height},framerate={self.fps}/1 "
+            "! video/x-raw,width={0},height={1},framerate={2}/1 "
             "! videoconvert "
             "! video/x-raw,format=BGR "
-            "! appsink drop=true max-buffers=1"
+            "! appsink drop=true max-buffers=1 sync=false".format(
+                self.width, self.height, self.fps
+            )
         )
         return pipeline
+
+    def _frame_loop(self):
+        cap = cv2.VideoCapture(0)
+
+        # 基本参数设置（可能不生效）
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        cap.set(cv2.CAP_PROP_FPS, self.fps)
+
+        if not self.auto_exposure:
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)  # 手动模式
+            cap.set(cv2.CAP_PROP_EXPOSURE, float(self.exposure) / 1e6)
+
+        if not cap.isOpened():
+            print("❌ 摄像头无法打开（/dev/video0）")
+            return
+
+        while not self._stop_flag:
+            ret, frame = cap.read()
+            if not ret:
+                continue
+
+            ts = time.time()
+
+            if self.frame_queue.full():
+                try:
+                    self.frame_queue.get_nowait()
+                except:
+                    pass
+
+            self.frame_queue.put((ts, frame))
+
+        cap.release()
+
 
     # ----------------------------------------------------------
     # ② 获取 SLAM / AI 输入帧
