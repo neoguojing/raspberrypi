@@ -1,12 +1,20 @@
 from car.steer import Steering
 from car.motor import Motor
+import time
 
+steering_pin = 18   # 示例：BCM18（原 BOARD 12）
 
+motor_pins = [
+    (6,5),  # 前左 BOARD 29 31
+    (13, 19),   # 前右 BOARD 33 35
+    (16,26),    # 后左 BOARD 37 36
+    (20, 21)   # 后右 BOARD 38 40
+]
 # ---------------------------
 # 四轮小车控制类
 # ---------------------------
 class FourWheelCar:
-    def __init__(self, steering_pin, motor_pins_list, pwm=True):
+    def __init__(self, steering_pin=18, motor_pins_list=motor_pins):
         self.steering = Steering(steering_pin)
         self.motors = [Motor(*pins) for pins in motor_pins_list]
 
@@ -38,41 +46,80 @@ class FourWheelCar:
             self.steering.cleanup()
         for m in self.motors:
             m.cleanup()
+            
+    def drive(self):
+        try:
+            while True:
+                cmd = input("输入命令 w/s/a/d/q: ")
+                if cmd == 'w':
+                    self.forward()
+                elif cmd == 's':
+                    self.backward()
+                elif cmd == 'a':
+                    self.turn_left(10)
+                elif cmd == 'd':
+                    self.turn_right(10)
+                elif cmd == 'q':
+                    self.stop()
+                    self.center_steering()
+                else:
+                    print("无效命令")
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.cleanup()
 
 
 # ---------------------------
 # 测试代码（你需要将 BOARD 改为 BCM）
 # ---------------------------
 if __name__ == "__main__":
-    steering_pin = 18   # 示例：BCM18（原 BOARD 12）
-
-    motor_pins = [
-        (6,5),  # 前左 BOARD 29 31
-        (13, 19),   # 前右 BOARD 33 35
-        (16,26),    # 后左 BOARD 37 36
-        (20, 21)   # 后右 BOARD 38 40
-    ]
-
+        
     car = FourWheelCar(steering_pin, motor_pins, pwm=True)
 
     try:
-        while True:
-            cmd = input("输入命令 w/s/a/d/q: ")
-            if cmd == 'w':
-                car.forward()
-            elif cmd == 's':
-                car.backward()
-            elif cmd == 'a':
-                car.turn_left(10)
-            elif cmd == 'd':
-                car.turn_right(10)
-            elif cmd == 'q':
-                car.stop()
-                car.center_steering()
-            else:
-                print("无效命令")
+        print("▶ 自动测试开始…")
+
+        # 1. 前进
+        print("➡ 前进 2 秒")
+        car.forward(60)
+        time.sleep(2)
+
+        # 2. 后退
+        print("⬅ 后退 2 秒")
+        car.backward(60)
+        time.sleep(2)
+
+        # 3. 左转
+        print("↙ 左转 1 秒")
+        car.turn_left(30)
+        time.sleep(1)
+        car.center_steering()
+
+        # 4. 右转
+        print("↘ 右转 1 秒")
+        car.turn_right(30)
+        time.sleep(1)
+        car.center_steering()
+
+        # 5. 前进 + 小转向
+        print("➡ 前进并右偏 2 秒")
+        car.turn_right(15)
+        car.forward(60)
+        time.sleep(2)
+        car.center_steering()
+
+        # 停止
+        print("■ 停止")
+        car.stop()
+        time.sleep(1)
+
+        print("✅ 自动测试结束")
+
     except KeyboardInterrupt:
-        pass
+        print("\n手动中断")
+
     finally:
         car.cleanup()
+        print("GPIO 已清理")
 
