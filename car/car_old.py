@@ -141,26 +141,51 @@ if __name__ == "__main__":
         (33, 35)   # 后右
     ]
 
-    car = FourWheelCar(steering_pin, motor_pins, pwm=False)
+    car = FourWheelCar(steering_pin, motor_pins, pwm=True)
 
     try:
-        while True:
-            cmd = input("输入命令 w/s/a/d/q: ")
-            if cmd == 'w':
-                car.forward()
-            elif cmd == 's':
-                car.backward()
-            elif cmd == 'a':
-                car.turn_left(30)
-            elif cmd == 'd':
-                car.turn_right(30)
-            elif cmd == 'q':
-                car.stop()
-                car.center_steering()
-            else:
-                print("无效命令")
+        print("▶ 自动测试开始…")
+
+        # 1. 前进
+        print("➡ 前进 2 秒")
+        car.forward(60)
+        time.sleep(2)
+
+        # 2. 后退
+        print("⬅ 后退 2 秒")
+        car.backward(60)
+        time.sleep(2)
+
+        # 3. 左转
+        print("↙ 左转 1 秒")
+        car.turn_left(30)
+        time.sleep(1)
+        car.center_steering()
+
+        # 4. 右转
+        print("↘ 右转 1 秒")
+        car.turn_right(30)
+        time.sleep(1)
+        car.center_steering()
+
+        # 5. 前进 + 小转向
+        print("➡ 前进并右偏 2 秒")
+        car.turn_right(15)
+        car.forward(60)
+        time.sleep(2)
+        car.center_steering()
+
+        # 停止
+        print("■ 停止")
+        car.stop()
+        time.sleep(1)
+
+        print("✅ 自动测试结束")
+
     except KeyboardInterrupt:
-        pass
+        print("\n手动中断")
+
     finally:
         car.cleanup()
+        print("GPIO 已清理")
 
