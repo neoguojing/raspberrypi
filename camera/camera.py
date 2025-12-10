@@ -111,24 +111,20 @@ class RpiCamera:
         cap.release()
 
     def _make_gst_pipeline(self):
-        # 自动曝光？则不设置 exposure
-        exposure_part = "" if self.auto_exposure else f"exposure={self.exposure} "
-
-        pipeline = (
+        return (
             "libcamerasrc "
             f"sensor-mode=4 "
-            f"{exposure_part}"
+            f"exposure-time={self.exposure} "
             f"ae-mode={'1' if self.auto_exposure else '0'} "
             f"awb-mode={self.awb_mode} "
             f"gain={self.gain} "
-            "! video/x-raw,width={0},height={1},framerate={2}/1 "
-            "! videoconvert "
+            "! video/x-raw,width={self.width},height={self.height},framerate={self.fps}/1 "
+            "! v4l2convert "  # GPU 硬件转换
             "! video/x-raw,format=BGR "
-            "! appsink drop=true max-buffers=1 sync=false".format(
-                self.width, self.height, self.fps
-            )
+            "! appsink drop=true max-buffers=1"
         )
-        return pipeline
+
+    
 
     def _frame_loop(self):
         cap = cv2.VideoCapture(0)
@@ -182,7 +178,7 @@ class RpiCamera:
     # ③ 拍照
     # ----------------------------------------------------------
     def capture_photo(self, filename="photo.jpg"):
-        cap = cv2.VideoCapture(self._make_gst_pipeline(), cv2.CAP_GSTREAMER)
+        cap = cv2.VideoCapture(0)
         ret, frame = cap.read()
         if ret:
             cv2.imwrite(filename, frame)
@@ -192,7 +188,7 @@ class RpiCamera:
     # ④ 录像（不经过队列）
     # ----------------------------------------------------------
     def record_video(self, filename="video.mp4", duration=10):
-        cap = cv2.VideoCapture(self._make_gst_pipeline(), cv2.CAP_GSTREAMER)
+        cap = cv2.VideoCapture(0)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
 
