@@ -3,7 +3,7 @@ import time
 import numpy as np
 import os
 import yaml
-from .camera import RpiCamera
+from camera.camera import RpiCamera
 
 # ---------------- IMX219 / generic camera calibration helper ----------------
 class CalibrationTool:
