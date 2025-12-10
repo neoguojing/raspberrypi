@@ -54,7 +54,7 @@ venv:
 		echo "Virtual environment $(VENV_DIR) already exists."; \
 	else \
 		echo "Creating Python virtual environment in $(VENV_DIR)..."; \
-		$(PYTHON) -m venv $(VENV_DIR); \
+		$(PYTHON) -m venv $(VENV_DIR) --system-site-packages; \
 		echo "Virtual environment created. Activate with: source $(VENV_DIR)/bin/activate"; \
 	fi
 	@echo "Upgrading pip in venv..."

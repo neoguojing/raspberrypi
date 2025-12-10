@@ -2,6 +2,9 @@ import cv2
 import time
 import queue
 import threading
+# import sys
+# sys.path.append('/usr/lib/python3/dist-packages')
+from picamera2 import Picamera2
 
 # sensor_mode
 # IMX219 的模式是：
@@ -178,11 +181,29 @@ class RpiCamera:
     # ③ 拍照
     # ----------------------------------------------------------
     def capture_photo(self, filename="photo.jpg"):
-        cap = cv2.VideoCapture(0)
-        ret, frame = cap.read()
-        if ret:
+        try:
+            picam2 = Picamera2()
+            # 配置高分辨率静态图像模式
+            config = picam2.create_still_configuration(main={"size": (1920, 1080)})
+            picam2.configure(config)
+            picam2.start()
+
+            # 捕获一帧（返回 numpy array，BGR 格式）
+            frame = picam2.capture_array()
+
+            # 保存为 JPEG
             cv2.imwrite(filename, frame)
-        cap.release()
+
+            picam2.stop()
+            picam2.close()
+
+            print(f"✅ 照片已保存: {filename}")
+            return frame  # 可直接用于 OpenCV 处理
+
+        except Exception as e:
+            print(f"❌ 拍照失败: {e}")
+            return None
+            return ret
 
     # ----------------------------------------------------------
     # ④ 录像（不经过队列）
@@ -195,6 +216,7 @@ class RpiCamera:
         start = time.time()
         while time.time() - start < duration:
             ret, frame = cap.read()
+            print(ret)
             if not ret:
                 continue
             out.write(frame)
@@ -202,3 +224,7 @@ class RpiCamera:
         out.release()
         cap.release()
 
+if __name__ == "__main__":
+    cam = RpiCamera()
+    cam.capture_photo()
+    # cam.record_video(duration=30)

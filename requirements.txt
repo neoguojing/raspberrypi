@@ -10,3 +10,5 @@ aiohttp
 openai
 dotenv
 webrtcvad
+picamera2
+opencv-python
