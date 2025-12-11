@@ -226,7 +226,10 @@ if __name__ == "__main__":
 
     # 获取一帧用于 SLAM
     ts, frame = cam.get_frame(rgb=False)  # BGR
-
+    if frame is not None:
+        # 保存为 BGR 图像（OpenCV 默认格式）
+        filename = f"frame_{ts:.6f}.jpg"
+        cv2.imwrite(filename, frame)
     # 拍照
     cam.capture_photo("test.jpg")
 
