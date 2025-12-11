@@ -37,6 +37,12 @@ class CalibrationTool:
         self.square_size = square_size
         self.frame_skip = frame_skip
 
+        self.K = None
+        self.dist = None
+        self.reproj_error = None
+        self.H = None
+        self.img_shape = None
+
     # ============================================================
     #                获取最新帧的“跳帧策略”
     # ============================================================
@@ -230,7 +236,10 @@ class CalibrationTool:
         reproj_error = total_err / len(objpoints)
 
         print(f"[Calib] 标定完成 ✔\n重投影误差: {reproj_error:.4f}")
-
+        self.K = K
+        self.dist = dist
+        self.reproj_error = reproj_error
+        self.img_shape = img_shape
         return {
             "camera_matrix": K,
             "dist_coeffs": dist,
@@ -243,7 +252,7 @@ class CalibrationTool:
     #                单应矩阵 (world->pixel)
     # ============================================================
     @staticmethod
-    def compute_homography(world_pts, image_pts):
+    def compute_homography(self,world_pts, image_pts):
         """
         world_pts: Nx2 世界坐标点（平面坐标）
         image_pts: Nx2 像素坐标点
@@ -252,13 +261,13 @@ class CalibrationTool:
         image_pts = np.array(image_pts, dtype=np.float32)
         H, mask = cv2.findHomography(world_pts, image_pts, cv2.RANSAC)
         print(f"[Calib] 单应矩阵 H:\n{H}")
+        self.H = H
         return H, mask
 
     # ============================================================
     #                保存所有标定结果为一个 JSON
     # ============================================================
-    @staticmethod
-    def save_calibration_json(path, K, dist, H=None, extra=None):
+    def save_calibration_json(self,path="./imx219.json"):
         """
         参数:
             path : 保存 JSON 路径
@@ -267,10 +276,9 @@ class CalibrationTool:
             H    : 单应矩阵
         """
         data = {
-            "camera_matrix": K.tolist(),
-            "dist_coeffs": dist.flatten().tolist(),
-            "homography": None if H is None else H.tolist(),
-            "extra": extra,
+            "camera_matrix": self.K.tolist(),
+            "dist_coeffs": self.dist.flatten().tolist(),
+            "homography": None if self.H is None else self.H.tolist(),
         }
         with open(path, "w") as f:
             json.dump(data, f, indent=4)
@@ -279,15 +287,39 @@ class CalibrationTool:
     # ============================================================
     #                从 JSON 恢复 numpy 参数
     # ============================================================
-    @staticmethod
-    def load_calibration_json(path):
+    def load_calibration_json(self,path="./imx219.json"):
         with open(path, "r") as f:
             data = json.load(f)
 
-        data["camera_matrix"] = np.array(data["camera_matrix"], dtype=np.float32)
-        data["dist_coeffs"] = np.array(data["dist_coeffs"], dtype=np.float32)
-
+        self.K = np.array(data["camera_matrix"], dtype=np.float32)
+        self.dist = np.array(data["dist_coeffs"], dtype=np.float32)
         if data["homography"] is not None:
-            data["homography"] = np.array(data["homography"], dtype=np.float32)
+            self.H = np.array(data["homography"], dtype=np.float32)
 
         return data
+    
+if __name__ == "__main__":
+    my_cam = RpiCamera()
+    tool = CalibrationTool(camera=my_cam, frame_skip=5)
+
+    # Step 1: 采集图像
+    tool.capture_calibration_images(count=40)
+
+    # Step 2: 标定 K、dist
+    calib = tool.calibrate_camera()
+
+    # Step 3: 计算单应矩阵
+    H, _ = tool.compute_homography(
+        world_pts=[(0,0), (1,0), (1,1), (0,1)],
+        image_pts=[(320,240), (640,240), (640,480), (320,480)]
+    )
+
+    # Step 4: 保存所有参数到一个 JSON
+    tool.save_calibration_json()
+
+    # Step 5: 加载
+    params = tool.load_calibration_json("calibration_output.json")
+    K = params["camera_matrix"]
+    dist = params["dist_coeffs"]
+    H = params["homography"]
+
