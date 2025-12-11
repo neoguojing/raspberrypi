@@ -75,7 +75,7 @@ class FourWheelCar:
 # ---------------------------
 if __name__ == "__main__":
         
-    car = FourWheelCar(steering_pin, motor_pins, pwm=True)
+    car = FourWheelCar()
 
     try:
         print("▶ 自动测试开始…")
@@ -83,30 +83,30 @@ if __name__ == "__main__":
         # 1. 前进
         print("➡ 前进 2 秒")
         car.forward(60)
-        time.sleep(2)
+        time.sleep(10)
 
         # 2. 后退
         print("⬅ 后退 2 秒")
         car.backward(60)
-        time.sleep(2)
+        time.sleep(5)
 
         # 3. 左转
         print("↙ 左转 1 秒")
         car.turn_left(30)
-        time.sleep(1)
+        time.sleep(3)
         car.center_steering()
 
         # 4. 右转
         print("↘ 右转 1 秒")
         car.turn_right(30)
-        time.sleep(1)
+        time.sleep(5)
         car.center_steering()
 
         # 5. 前进 + 小转向
         print("➡ 前进并右偏 2 秒")
         car.turn_right(15)
         car.forward(60)
-        time.sleep(2)
+        time.sleep(5)
         car.center_steering()
 
         # 停止
