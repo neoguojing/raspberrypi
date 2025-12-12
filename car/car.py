@@ -36,6 +36,9 @@ class FourWheelCar:
     def turn_right(self, angle=30):
         self.steering.set_angle(abs(angle))
 
+    def set_angle(self, angle=30):
+        self.steering.set_angle(angle)
+
     def center_steering(self):
         if self.steering:
             self.steering.center()
@@ -46,7 +49,12 @@ class FourWheelCar:
             self.steering.cleanup()
         for m in self.motors:
             m.cleanup()
-            
+    
+    def get_odometry_data(self):
+        """模拟获取里程计数据 (位置 x,y, 角度 theta)"""
+        # 实际应从编码器或其他传感器读取
+        return 0.0, 0.0, 0.0 # x, y, theta
+    
     def drive(self):
         try:
             while True:
