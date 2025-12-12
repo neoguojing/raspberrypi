@@ -1,0 +1,20 @@
+{
+    // 指定 VS Code 应该使用的 Python 解释器路径
+    // 如果您在远程机器上使用 Docker 或 SSH，路径应该是远程机器上的路径
+    "python.defaultInterpreterPath": "/usr/bin/python3",
+
+    // *** 核心设置：配置 Python 查找路径 ***
+    "python.analysis.extraPaths": [
+        // 1. ROS 2 系统安装路径 (替换 <您的ROS版本> 和 <您的Python版本>)
+        "/opt/ros/jazzy/lib/python3.12/site-packages",
+        
+        // 2. 您的自定义工作空间 install 路径 (如果您的自定义包找不到)
+        // 替换为您的工作空间实际路径，例如 ~/ros2_ws
+        "${workspaceFolder}/install/lib/python3.10/site-packages" 
+        // 也可以使用: "${workspaceFolder}/install"
+    ],
+    
+    // 推荐设置：启用 ROS 2 特定的功能
+    "ros.python.autoActivateEnvironment": true,
+    "ros.rosPath": "/opt/ros/jazzy"
+}
