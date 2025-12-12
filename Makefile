@@ -74,6 +74,22 @@ run: venv# Ensure requirements are installed
 	@echo "Running the application (main.py)..."
 	$(PYTHON_EXEC) cli.py chat 
 
+ros2:
+	docker build -t rtabmap-arm64:humble ./ros2/
+
+ros2_run:
+	docker run -it --rm \
+		--name rtabmap_container \
+		--network host \
+		introlab3it/rtabmap_ros:jazzy-latest
+ros2_dev:
+	docker run -d \
+		--name rtabmap_dev_container \
+		--network host \
+		-v ${PWD}:/home/ros_user/ros2_ws/src \
+		introlab3it/rtabmap_ros:jazzy-latest \
+		sleep infinity
+
 # Target to list audio devices
 list-audio: requirements
 	@echo "Listing audio devices..."
