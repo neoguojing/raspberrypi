@@ -28,8 +28,9 @@ import time
 import queue
 import threading
 import cv2
-import libcamera
+# import libcamera
 from picamera2 import Picamera2
+from picamera2.controls import AwbModeEnum
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
@@ -82,13 +83,13 @@ class RpiCamera:
         else:
             controls["AwbEnable"] = False
             AWB_MAP = {
-                1: libcamera.AwbModeEnum.Incandescent,
-                2: libcamera.AwbModeEnum.Fluorescent,
-                3: libcamera.AwbModeEnum.Cloudy,
-                4: libcamera.AwbModeEnum.Daylight,
-                5: libcamera.AwbModeEnum.Shade,
-                6: libcamera.AwbModeEnum.Twilight,
-                7: libcamera.AwbModeEnum.Custom,
+                1: AwbModeEnum.Incandescent,
+                2: AwbModeEnum.Fluorescent,
+                3: AwbModeEnum.Cloudy,
+                4: AwbModeEnum.Daylight,
+                5: AwbModeEnum.Shade,
+                6: AwbModeEnum.Twilight,
+                7: AwbModeEnum.Custom,
             }
             controls["AwbMode"] = AWB_MAP.get(self.awb_mode, libcamera.AwbModeEnum.Daylight)
 

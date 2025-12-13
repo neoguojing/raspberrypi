@@ -24,7 +24,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help
+.PHONY: all init venv requirements run clean help ros2 ros2_run ros2_dev
 
 # --- Targets ---
 
@@ -75,19 +75,22 @@ run: venv# Ensure requirements are installed
 	$(PYTHON_EXEC) cli.py chat 
 
 ros2:
-	docker build -t rtabmap-arm64:humble ./ros2/
+	docker build -t rtabmap_ros_jazzy:pi5 ./ros2/
 
 ros2_run:
 	docker run -it --rm \
 		--name rtabmap_container \
+		--privileged \
 		--network host \
-		introlab3it/rtabmap_ros:jazzy-latest
+		rtabmap_ros_jazzy:pi5
 ros2_dev:
+	-docker rm -f rtabmap_dev_container 2>/dev/null || true
 	docker run -d \
 		--name rtabmap_dev_container \
 		--network host \
+		--privileged \
 		-v ${PWD}:/home/ros_user/ros2_ws/src \
-		introlab3it/rtabmap_ros:jazzy-latest \
+		rtabmap_ros_jazzy:pi5 \
 		sleep infinity
 
 # Target to list audio devices
