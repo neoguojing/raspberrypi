@@ -10,7 +10,7 @@
         
         // 2. 您的自定义工作空间 install 路径 (如果您的自定义包找不到)
         // 替换为您的工作空间实际路径，例如 ~/ros2_ws
-        "${workspaceFolder}/install/lib/python3.10/site-packages" 
+        "${workspaceFolder}/install/lib/python3.12/site-packages" 
         // 也可以使用: "${workspaceFolder}/install"
     ],
     

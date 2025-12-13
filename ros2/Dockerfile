@@ -1,26 +1,41 @@
-# 使用 ROS 2 Humble 或 Jazzy 的 ARM64 基础镜像
-# 推荐使用 Humble，因为它更稳定，且有官方 ARM64 支持
-ARG ROS_DISTRO=humble
-FROM ros:$ROS_DISTRO-ros-base-jammy
+# 指定基础镜像
+FROM introlab3it/rtabmap_ros:jazzy-latest
+
+# 切换为 root 用户以安装系统软件包和构建依赖
+USER root
+
+# 1. 安装系统依赖和 ROS 2 环境设置所需的基本工具
+#    - libcap-dev: 解决 python-prctl (picamera2 依赖) 的编译问题
+#    - python3-libcamera: 提供 libcamera C++ 库的 Python 绑定（必须系统安装）
+#    - python3-picamera2: 推荐使用这个高层库，它依赖 libcamera
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3-pip \
+    python3-venv \
+    libcap-dev \
+    python3-lgpio \
+    # python3-libcamera \
+    libcamera-dev \
+    libcamera-tools && \
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
-WORKDIR /home/ros_user
+WORKDIR /home/ros_user/ros2_ws/src
 
-# 安装 ROS 2 依赖、构建工具和 RTAB-Map 依赖
-RUN apt update && apt install -y \
-    python3-pip \
-    build-essential \
-    cmake \
-    git \
-    libsqlite3-dev \
-    ros-$ROS_DISTRO-rtabmap-ros \
-    ros-$ROS_DISTRO-vision-opencv \
-    ros-$ROS_DISTRO-depth-image-proc \
-    && rm -rf /var/lib/apt/lists/*
+# === 使用 Venv 并继承系统包 ===
 
-# 设置 ROS 2 环境
-ENV LD_LIBRARY_PATH="/opt/ros/$ROS_DISTRO/lib:${LD_LIBRARY_PATH}"
-ENV PATH="/opt/ros/$ROS_DISTRO/bin:${PATH}"
+# 1. 创建一个虚拟环境，关键是使用 --system-site-packages 继承 libcamera 和 picamera2
+ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
+RUN python3 -m venv $VIRTUAL_ENV --system-site-packages
 
-# 设置容器启动时的默认命令
-CMD ["bash"]
+# 2. 复制并安装依赖
+# 注意：确保 requirementrobot.txt中不包含 libcamera 或 picamera2，
+# 因为它们已经通过 apt 安装并由 --system-site-packages 继承。
+RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
+    # 在这里列出您的项目所需的包，例如：
+    picamera2 \
+    # ... 其他包 ...
+    && echo "Python packages installed successfully."
+
+RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
+    echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
