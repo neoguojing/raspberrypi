@@ -90,12 +90,12 @@ if __name__ == "__main__":
 
         # 1. 前进
         print("➡ 前进 2 秒")
-        car.forward(60)
-        time.sleep(10)
+        car.forward(85)
+        time.sleep(5)
 
         # 2. 后退
         print("⬅ 后退 2 秒")
-        car.backward(60)
+        car.backward(70)
         time.sleep(5)
 
         # 3. 左转
