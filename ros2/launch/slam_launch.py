@@ -1,6 +1,6 @@
 import os
-import launch
-from launch import LaunchDescription
+import ros2.launch.slam_launch as slam_launch
+from ros2.launch.slam_launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -64,7 +64,7 @@ def generate_launch_description():
         executable='rtabmap_viz',
         output='screen',
         parameters=[{'frame_id': 'base_link'}],
-        condition=launch.conditions.IfCondition(use_rtabmap_viz)
+        condition=slam_launch.conditions.IfCondition(use_rtabmap_viz)
     )
 
     return LaunchDescription([
