@@ -8,10 +8,6 @@
 ls /dev/video*
 vcgencmd get_camera
 
-sudo raspi-config
-Interface Options → Camera → Enable
-sudo reboot
-
 sudo apt update
 sudo apt install libcamera-apps libcamera-tools -y
 
