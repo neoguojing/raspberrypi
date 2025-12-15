@@ -21,7 +21,7 @@ class CalibrationTool:
 
     def __init__(self,
                  camera: RpiCamera,
-                 board_size=(9, 6),
+                 board_size=(8, 5),
                  square_size=0.024,
                  frame_skip=5):
         """

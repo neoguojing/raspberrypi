@@ -91,7 +91,7 @@ class RpiCamera:
                 6: AwbModeEnum.Twilight,
                 7: AwbModeEnum.Custom,
             }
-            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, libcamera.AwbModeEnum.Daylight)
+            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, AwbModeEnum.Daylight)
 
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
