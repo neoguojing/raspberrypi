@@ -24,7 +24,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help ros2 ros2_run ros2_dev
+.PHONY: all init venv requirements run clean help ros2 ros2_run ros2_dev slam3 slam3_run
 
 # --- Targets ---
 
@@ -73,6 +73,18 @@ setup: venv requirements
 run: venv# Ensure requirements are installed
 	@echo "Running the application (main.py)..."
 	$(PYTHON_EXEC) cli.py chat 
+
+slam3:
+	@echo "--- 🛠️ 正在构建 Docker 镜像 $(FULL_IMAGE_NAME) ---"
+	docker build -t orb_slam3_jazzy:amd64 -f ros2/Dockerfile.slam .
+	@echo "--- ✅ 镜像构建完成 ---"
+
+slam3_run:
+	@echo "--- 🚀 正在运行容器 $(CONTAINER_NAME) (带 Pangolin 图形支持) ---"
+	docker run $(RUN_FLAGS) \
+		--name orbslam3_container\
+		--privileged \
+		$(FULL_IMAGE_NAME) bash
 
 ros2:
 	docker build -t rtabmap_ros_jazzy:pi5 ./ros2/
