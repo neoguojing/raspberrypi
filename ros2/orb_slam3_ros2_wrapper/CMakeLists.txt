@@ -32,6 +32,8 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)         # 关键：用于 Eigen 和 TF 转换
 find_package(tf2_geometry_msgs REQUIRED) # 关键：用于 Pose 转换
+find_package(Sophus REQUIRED)
+find_package(Pangolin REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)            # 关键：矩阵运算
 # 查找 OpenGL 核心库
@@ -83,6 +85,9 @@ ament_target_dependencies(ORBSLAM3Wrapper
     tf2_ros
     tf2_eigen
     tf2_geometry_msgs
+    ORB_SLAM3 
+    Pangolin 
+    OpenCV
 )
 
 # 链接 非ROS 依赖 (OpenCV, Eigen, ORB-SLAM3)
@@ -92,7 +97,7 @@ target_link_libraries(ORBSLAM3Wrapper
     ${ORB_SLAM3_DIR}/lib/libORB_SLAM3.so
     ${ORB_SLAM3_DIR}/Thirdparty/g2o/lib/libg2o.so
     ${ORB_SLAM3_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-
+    Pangolin::Pangolin
     ${GLEW_LIBRARIES}
     ${OPENGL_LIBRARIES}
 )
