@@ -74,7 +74,7 @@ RUN cd /home/ros_user/ORB_SLAM3/Thirdparty/Sophus \
 # 步骤 5: 配置环境变量和清理
 # --------------------------
 # 设置环境变量，确保系统可以找到新编译的库
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/home/ros_user/ORB_SLAM3/lib
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/home/ros_user/ORB_SLAM3/lib:/home/ros_user/Thirdparty/g2o/lib:/home/ros_user/Thirdparty/DBoW2/lib
 ENV PATH=$PATH:/home/ros_user/ORB_SLAM3
 ENV ORBSLAM3_ROOT_DIR=/home/ros_user/ORB_SLAM3
 # 恢复工作目录
