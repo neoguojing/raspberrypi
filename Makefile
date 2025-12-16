@@ -119,5 +119,5 @@ clean:
 
 fullclean: clean
 
-orb_slam3_ros2_wrapper:
-	cd ros2/orb_slam3_ros2_wrapper && colcon build --packages-select orb_slam3_ros2_wrapper
+orbslam3:
+	colcon build --packages-select orbslam3
