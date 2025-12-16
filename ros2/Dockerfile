@@ -20,6 +20,8 @@ RUN apt-get update && \
     libcamera-tools && \
     rm -rf /var/lib/apt/lists/*
 
+WORKDIR /home/ros_user
+RUN git clone https://github.com/neoguojing/ORB_SLAM3_ROS2.git orbslam3
 # 设置工作目录
 WORKDIR /home/ros_user/ros2_ws/src
 
@@ -40,7 +42,5 @@ RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
 
 RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
     echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
-
-RUN git clone https://github.com/neoguojing/ORB_SLAM3_ROS2.git orbslam3
 
 ENV ROS_DOMAIN_ID=42
