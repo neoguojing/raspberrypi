@@ -12,8 +12,6 @@ WORKDIR /home/user
 # ORB-SLAM3 依赖 Eigen, Pangolin, OpenCV (已在 ROS 镜像中)
 # 安装 Pangolin 编译所需的基础库
 RUN apt-get update && apt-get install -y \
-    # # 安装 GCC 10 和 G++ 10
-    # gcc-11 g++-11 \
     build-essential \
     cmake \
     git \
@@ -26,11 +24,6 @@ RUN apt-get update && apt-get install -y \
     # 清理APT缓存
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
- # 配置系统使用 GCC 11
-# RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 \
-#     && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100 \
-#     && update-alternatives --set gcc /usr/bin/gcc-11 \
-#     && update-alternatives --set g++ /usr/bin/g++-11
 
 RUN gcc --version
 # --------------------------
