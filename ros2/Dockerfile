@@ -1,5 +1,5 @@
 # 指定基础镜像
-FROM introlab3it/rtabmap_ros:jazzy-latest
+FROM orb_slam3_jazzy:pi5
 
 # 切换为 root 用户以安装系统软件包和构建依赖
 USER root
@@ -14,7 +14,8 @@ RUN apt-get update && \
     python3-venv \
     libcap-dev \
     python3-lgpio \
-    # python3-libcamera \
+    python3-libcamera \
+    v4l-utils \
     libcamera-dev \
     libcamera-tools && \
     rm -rf /var/lib/apt/lists/*

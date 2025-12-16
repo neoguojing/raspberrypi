@@ -76,25 +76,18 @@ run: venv# Ensure requirements are installed
 
 slam3:
 	@echo "--- 🛠️ 正在构建 Docker 镜像 $(FULL_IMAGE_NAME) ---"
-	docker build -t orb_slam3_jazzy:amd64 -f ros2/Dockerfile.slam .
+	docker build -t orb_slam3_jazzy:pi5 -f ros2/Dockerfile.slam .
 	@echo "--- ✅ 镜像构建完成 ---"
 
-slam3_run:
-	@echo "--- 🚀 正在运行容器 $(CONTAINER_NAME) (带 Pangolin 图形支持) ---"
-	docker run $(RUN_FLAGS) \
-		--name orbslam3_container\
-		--privileged \
-		$(FULL_IMAGE_NAME) bash
-
 ros2:
-	docker build -t rtabmap_ros_jazzy:pi5 ./ros2/
+	docker build -t robot_rtabmap_slam3_jazzy:pi5 ./ros2/
 
 ros2_run:
 	docker run -it --rm \
 		--name rtabmap_container \
 		--privileged \
 		--network host \
-		rtabmap_ros_jazzy:pi5
+		robot_rtabmap_slam3_jazzy:pi5
 ros2_dev:
 	-docker rm -f rtabmap_dev_container 2>/dev/null || true
 	docker run -d \
@@ -102,7 +95,7 @@ ros2_dev:
 		--network host \
 		--privileged \
 		-v ${PWD}:/home/ros_user/ros2_ws/src \
-		rtabmap_ros_jazzy:pi5 \
+		robot_rtabmap_slam3_jazzy:pi5 \
 		sleep infinity
 
 # Target to list audio devices
