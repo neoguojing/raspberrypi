@@ -88,9 +88,6 @@ ament_target_dependencies(ORBSLAM3Wrapper
     tf2_ros
     tf2_eigen
     tf2_geometry_msgs
-    ORB_SLAM3 
-    Pangolin 
-    OpenCV
 )
 
 # 链接 非ROS 依赖 (OpenCV, Eigen, ORB-SLAM3)
