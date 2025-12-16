@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.8)
 project(orb_slam3_ros2_wrapper)
 
+# 🎯 关键修正 1: 设置策略以消除 CMP0072 警告
+# 明确告诉 CMake 使用 GLVND 方式查找 OpenGL
+if(POLICY CMP0072)
+    cmake_policy(SET CMP0072 NEW)
+endif()
+
 # 设置 C++ 标准，ORB-SLAM3 通常需要 C++14 或 C++17
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -13,6 +19,8 @@ endif()
 # --------------------------------------------------------
 # 1. 查找依赖
 # --------------------------------------------------------
+set(OpenGL_GL_PREFERENCE "GLVND")
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
