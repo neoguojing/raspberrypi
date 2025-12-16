@@ -43,6 +43,9 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_PANGOLIN_PYTHON=OFF \
       -DBUILD_EXAMPLES=OFF \
+      -DENABLE_GLEW=ON \
+      -DENABLE_EGL=OFF \
+      -DENABLE_GLES=OFF \
     && cd /home/ros_user
     # && rm -rf Pangolin
 
