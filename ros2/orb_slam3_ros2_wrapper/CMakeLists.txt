@@ -36,7 +36,6 @@ find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(Eigen3 REQUIRED)            # 关键：矩阵运算
 # 查找 OpenGL 核心库
 find_package(OpenGL REQUIRED)
 # 查找 GLEW 库 (Pangolin 常用的扩展加载库)
@@ -97,7 +96,6 @@ target_link_libraries(ORBSLAM3Wrapper
     ${ORB_SLAM3_DIR}/lib/libORB_SLAM3.so
     ${ORB_SLAM3_DIR}/Thirdparty/g2o/lib/libg2o.so
     ${ORB_SLAM3_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-    Pangolin::Pangolin
     ${GLEW_LIBRARIES}
     ${OPENGL_LIBRARIES}
 )
