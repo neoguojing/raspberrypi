@@ -34,6 +34,7 @@ find_package(tf2_eigen REQUIRED)         # 关键：用于 Eigen 和 TF 转换
 find_package(tf2_geometry_msgs REQUIRED) # 关键：用于 Pose 转换
 find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)            # 关键：矩阵运算
 # 查找 OpenGL 核心库
@@ -51,6 +52,8 @@ endif()
 set(ORB_SLAM3_DIR $ENV{ORBSLAM3_ROOT_DIR})
 message(STATUS "ORB-SLAM3 DIR: ${ORB_SLAM3_DIR}")
 
+
+add_subdirectory(${ORB_SLAM3_DIR} ORB_SLAM3)
 # --------------------------------------------------------
 # 3. 包含头文件
 # --------------------------------------------------------
