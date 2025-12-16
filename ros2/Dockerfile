@@ -41,4 +41,6 @@ RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
 RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
     echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
 
+RUN git clone https://github.com/neoguojing/ORB_SLAM3_ROS2.git
+
 ENV ROS_DOMAIN_ID=42
