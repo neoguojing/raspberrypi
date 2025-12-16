@@ -45,6 +45,7 @@ include_directories(
     include
     ${ORB_SLAM3_DIR}
     ${ORB_SLAM3_DIR}/include
+    ${ORB_SLAM3_DIR}/include/CameraModels
     ${ORB_SLAM3_DIR}/Thirdparty/DBoW2/include
     ${ORB_SLAM3_DIR}/Thirdparty/g2o/include
     ${EIGEN3_INCLUDE_DIR}
