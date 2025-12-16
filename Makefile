@@ -24,7 +24,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help ros2 ros2_run ros2_dev slam3 slam3_run
+.PHONY: all init venv requirements run clean help ros2 ros2_run ros2_dev slam3 slam3_run orb_slam3_ros2_wrapper
 
 # --- Targets ---
 
@@ -118,3 +118,6 @@ clean:
 	@echo "Cleanup complete."
 
 fullclean: clean
+
+orb_slam3_ros2_wrapper:
+	cd ros2/orb_slam3_ros2_wrapper && colcon build --packages-select orb_slam3_ros2_wrapper
