@@ -21,6 +21,11 @@ RUN apt-get update && apt-get install -y \
     libepoxy-dev \
     libopencv-dev \
     python3-pip \
+    libxkbcommon-dev \
+    libavdevice-dev \
+    ninja-build \
+    # 解决 GCC 兼容性问题所需的其他依赖
+    libgl1-mesa-dev libglvnd-dev libxmu-dev libxi-dev \
     # 清理APT缓存
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -33,14 +38,11 @@ RUN gcc --version
 RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
     && cd Pangolin \
     && git checkout v0.9.2 \
-    && ./scripts/install_prerequisites.sh recommended \
-    && cmake -B build \
-    && cmake --build build \
-    # && mkdir build \
-    # && cd build \
-    # && cmake ..\
-    # && make -j3 \
-    && sudo make install \
+    && mkdir build && cd build  \
+    && cmake .. \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_PANGOLIN_PYTHON=OFF \
+      -DBUILD_EXAMPLES=OFF \
     && cd /home/ros_user
     # && rm -rf Pangolin
 
