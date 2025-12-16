@@ -46,6 +46,9 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
       -DENABLE_GLEW=ON \
       -DENABLE_EGL=OFF \
       -DENABLE_GLES=OFF \
+    && make -j4 \
+    && make install \
+    && ldconfig \
     && cd /home/ros_user
     # && rm -rf Pangolin
 
