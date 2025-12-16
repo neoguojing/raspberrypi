@@ -30,18 +30,19 @@ RUN gcc --version
 # 步骤 2: 编译和安装 Pangolin
 # --------------------------
 # Pangolin 是 ORB-SLAM3 重要的可视化依赖，通常需要源码编译
-RUN git clone https://github.com/stevenlovegrove/Pangolin.git \
+RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
     && cd Pangolin \
     && git checkout v0.9.2 \
-    && mkdir build \
-    && cd build \
-    # 使用 -DCMAKE_BUILD_TYPE=Release 进行优化编译
-    # 在 RPi/ARM 上，使用 -jN 限制并行核心数，避免内存溢出 (OOM)
-    && cmake ..\
-    && make -j3 \
+    && ./scripts/install_prerequisites.sh recommended \
+    && cmake -B build \
+    && cmake --build build \
+    # && mkdir build \
+    # && cd build \
+    # && cmake ..\
+    # && make -j3 \
     && sudo make install \
-    && cd /home/ros_user \
-    && rm -rf Pangolin
+    && cd /home/ros_user
+    # && rm -rf Pangolin
 
 
 
