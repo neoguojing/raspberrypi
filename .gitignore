@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+install
+log
+build
 # C extensions
 *.so
 
