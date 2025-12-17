@@ -78,14 +78,14 @@ slam3:
 	@echo "--- ✅ 镜像构建完成 ---"
 
 image:
-	docker build -t robot_rtabmap_slam3_jazzy:pi5 -f ./ros2/Dockerfile .
+	docker build -t guojingneo/robot_rtabmap_slam3_jazzy:pi5 -f ./ros2/Dockerfile .
 
 runtime:
 	docker run -d --rm \
 		--name ros2_container \
 		--privileged \
 		--network host \
-		robot_rtabmap_slam3_jazzy:pi5
+		guojingneo/robot_rtabmap_slam3_jazzy:pi5
 dev:
 	-docker rm -f ros2_container 2>/dev/null || true
 	docker run -d \
@@ -96,7 +96,7 @@ dev:
 		-v "${PWD}/../ORB_SLAM3_ROS2":/home/ros_user/orbslam3 \
 		-e DISPLAY=${DISPLAY} \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
-		robot_rtabmap_slam3_jazzy:pi5 \
+		guojingneo/robot_rtabmap_slam3_jazzy:pi5 \
 		sleep infinity
 
 # Target to list audio devices
