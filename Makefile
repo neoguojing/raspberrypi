@@ -24,7 +24,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 amd64 amd64_run amd64_dev arm64 arm64_run arm64_dev
+.PHONY: all init venv requirements run clean help slam3 image dev runtime
 
 all: help
 
@@ -77,37 +77,16 @@ slam3:
 	docker build -t orb_slam3_jazzy:pi5 -f ros2/Dockerfile.slam .
 	@echo "--- ✅ 镜像构建完成 ---"
 
-arm64:
-	docker build -t robot_rtabmap_jazzy:arm64 ./ros2/
+image:
+	docker build -t robot_rtabmap_slam3_jazzy:pi5 -f ./ros2/Dockerfile .
 
-arm64_run:
+runtime:
 	docker run -d --rm \
 		--name rtabmap_container \
 		--privileged \
 		--network host \
-		robot_rtabmap_jazzy:arm64
-arm64_dev:
-	-docker rm -f rtabmap_dev_container 2>/dev/null || true
-	docker run -d \
-		--name rtabmap_dev_container \
-		--network host \
-		--privileged \
-		-v ${PWD}:/home/ros_user/ros2_ws/src \
-		-e DISPLAY=${DISPLAY} \
-		-v /tmp/.X11-unix:/tmp/.X11-unix \
-		robot_rtabmap_jazzy:arm64 \
-		sleep infinity
-
-amd64:
-	docker build -t robot_rtabmap_slam3_jazzy:amd64 -f ./ros2/Dockerfile.amd64 .
-
-amd64_run:
-	docker run -d --rm \
-		--name rtabmap_container \
-		--privileged \
-		--network host \
-		robot_rtabmap_slam3_jazzy:amd64
-amd64_dev:
+		robot_rtabmap_slam3_jazzy:pi5
+dev:
 	-docker rm -f rtabmap_dev_container 2>/dev/null || true
 	docker run -d \
 		--name rtabmap_dev_container \
@@ -117,7 +96,7 @@ amd64_dev:
 		-v "${PWD}/../ORB_SLAM3_ROS2":/home/ros_user/orbslam3 \
 		-e DISPLAY=${DISPLAY} \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
-		robot_rtabmap_slam3_jazzy:amd64 \
+		robot_rtabmap_slam3_jazzy:pi5 \
 		sleep infinity
 
 # Target to list audio devices
