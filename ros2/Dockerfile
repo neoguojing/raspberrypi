@@ -14,10 +14,11 @@ RUN apt-get update && \
     python3-venv \
     libcap-dev \
     python3-lgpio \
-    python3-libcamera \
     v4l-utils \
-    libcamera-dev \
-    libcamera-tools && \
+
+    # python3-libcamera \
+    # libcamera-dev \
+    # libcamera-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
@@ -29,16 +30,65 @@ WORKDIR /home/ros_user/ros2_ws/src
 ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
 RUN python3 -m venv $VIRTUAL_ENV --system-site-packages
 
-# 2. 复制并安装依赖
-# 注意：确保 requirementrobot.txt中不包含 libcamera 或 picamera2，
-# 因为它们已经通过 apt 安装并由 --system-site-packages 继承。
-RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
-    # 在这里列出您的项目所需的包，例如：
-    picamera2 \
-    # ... 其他包 ...
-    && echo "Python packages installed successfully."
-
 RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
     echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
 
+    # 确保 PYTHONPATH 初始化，并包含 libcamera 所在的路径
+# 注意：我们先放 venv 的路径（如果有自定义的话），再放系统路径
+ENV PYTHONPATH="/usr/lib/aarch64-linux-gnu/python3.12/site-packages:/usr/lib/python3/dist-packages"
 ENV ROS_DOMAIN_ID=42
+
+# 2. 复制并安装依赖
+# 注意：确保 requirementrobot.txt中不包含 libcamera 或 picamera2，
+# 因为它们已经通过 apt 安装并由 --system-site-packages 继承。
+# RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
+#     picamera2 \
+#     && echo "Python packages installed successfully."
+# RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir git+https://github.com/raspberrypi/picamera2.git
+# libcamera
+WORKDIR /usr/local/
+RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.3.1+rpt20240906
+WORKDIR /usr/local/libcamera/
+RUN meson setup build --buildtype=release \
+    -Dpipelines=rpi/vc4,rpi/pisp \
+    -Dipas=rpi/vc4,rpi/pisp \
+    -Dv4l2=true \
+    -Dgstreamer=enabled \
+    -Dtest=false \
+    -Dlc-compliance=disabled \
+    -Dcam=disabled \
+    -Dqcam=disabled \
+    -Ddocumentation=disabled \
+    -Dpycamera=enabled && \
+    ninja -C build && \
+    sudo ninja -C build install
+
+# rpicam-apps
+WORKDIR /usr/local/
+RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
+WORKDIR /usr/local/rpicam-apps/
+RUN meson setup build \
+    -Denable_libav=enabled \
+    -Denable_drm=enabled \
+    -Denable_egl=enabled \
+    -Denable_qt=enabled \
+    -Denable_opencv=disabled \
+    -Denable_tflite=disabled
+RUN meson compile -C build
+RUN meson install -C build
+RUN sudo ldconfig
+
+# kmsxx
+WORKDIR /usr/local/
+RUN git clone https://github.com/tomba/kmsxx.git
+WORKDIR /usr/local/kmsxx
+RUN git reset --hard 6cf6e88715ac034f568603bce9a1b8f4a30c12ce
+RUN git submodule update --init && \
+    meson build -Dpykms=enabled && \
+    sudo ninja -C build install
+
+# picamera2 and rpi-libcamera
+# upgrade pip required to passed setup-args
+RUN pip install --upgrade pip
+RUN pip install picamera2==0.3.21
+RUN pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906"
