@@ -59,30 +59,57 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git \
 RUN git clone https://github.com/neoguojing/ORB-SLAM3-STEREO-FIXED.git ORB_SLAM3
 WORKDIR /home/ros_user/ORB_SLAM3
 
+
 # 修改 build.sh 脚本，限制编译核心数，防止 OOM (可选，但推荐)
 # 这里我们直接修改编译命令，不用修改文件
-RUN sed -i 's/make -j/make -j3/' build.sh \
-    && chmod +x build.sh
+RUN chmod +x build.sh && ./build.sh
 
-# 执行编译脚本。它会编译 DBoW2, g2o, 然后编译 ORB-SLAM3 核心库和示例程序
-RUN ./build.sh
+# 用于嵌入式平台，内存不够编译
+# --- 1. 编译 DBoW2 ---
+# RUN echo "Building Thirdparty/DBoW2 ..." && \
+#     cd Thirdparty/DBoW2 && \
+#     mkdir -p build && cd build && \
+#     cmake .. -DCMAKE_BUILD_TYPE=Release && \
+#     make -j1
 
-# --------------------------
-# 步骤 3: 编译和安装 Sophus (可选，但推荐)
-# --------------------------
-# 使用 ORB-SLAM3 推荐的 Sophus 版本
-RUN cd /home/ros_user/ORB_SLAM3/Thirdparty/Sophus \
-    && cd build \
-    && cmake .. \
-    && make -j3 \
-    && sudo make install \
-    && cd /home/ros_user
+# # --- 2. 编译 g2o ---
+# RUN echo "Building Thirdparty/g2o ..." && \
+#     cd Thirdparty/g2o && \
+#     mkdir -p build && cd build && \
+#     cmake .. -DCMAKE_BUILD_TYPE=Release && \
+#     make -j1
+
+# # --- 3. 编译 Sophus ---
+# RUN echo "Building Thirdparty/Sophus ..." && \
+#     cd Thirdparty/Sophus && \
+#     mkdir -p build && cd build && \
+#     cmake .. -DCMAKE_BUILD_TYPE=Release && \
+#     make -j1
+
+# # --- 4. 解压词典 (这一步不占内存但占空间，建议解压后删除压缩包以减小镜像) ---
+# RUN echo "Uncompressing vocabulary ..." && \
+#     cd Vocabulary && \
+#     tar -xf ORBvoc.txt.tar.gz && \
+#     rm ORBvoc.txt.tar.gz
+
+# # --- 5. 编译 ORB_SLAM3 主库 ---
+# # 这一步是内存消耗的巅峰，严格使用 -j1
+# RUN echo "Building ORB_SLAM3 ..." && \
+#     mkdir -p build && cd build && \
+#     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2 --param ggc-min-expand=1 --param ggc-min-heapsize=32768" && \
+#     make -j1
+
 
 # --------------------------
 # 步骤 5: 配置环境变量和清理
 # --------------------------
 # 设置环境变量，确保系统可以找到新编译的库
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/home/ros_user/ORB_SLAM3/lib:/home/ros_user/Thirdparty/g2o/lib:/home/ros_user/Thirdparty/DBoW2/lib:/home/ros_user/Pangolin/build
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:\
+/usr/local/lib:\
+/home/ros_user/ORB_SLAM3/lib:\
+/home/ros_user/ORB_SLAM3/Thirdparty/g2o/lib:\
+/home/ros_user/ORB_SLAM3/Thirdparty/DBoW2/lib:\
+/home/ros_user/Pangolin/build
 ENV PATH=$PATH:/home/ros_user/ORB_SLAM3
 ENV ORBSLAM3_ROOT_DIR=/home/ros_user/ORB_SLAM3
 # 恢复工作目录

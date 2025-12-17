@@ -113,7 +113,7 @@ if __name__ == "__main__":
         # 5. 前进 + 小转向
         print("➡ 前进并右偏 2 秒")
         car.turn_right(15)
-        car.forward(60)
+        car.forward(80)
         time.sleep(5)
         car.center_steering()
 

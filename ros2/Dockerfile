@@ -1,5 +1,5 @@
 # 指定基础镜像
-FROM orb_slam3_jazzy:pi5
+FROM guojingneo/orb_slam3_jazzy:pi5
 
 # 切换为 root 用户以安装系统软件包和构建依赖
 USER root
