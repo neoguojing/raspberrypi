@@ -74,7 +74,7 @@ run: venv# Ensure requirements are installed
 
 slam3:
 	@echo "--- 🛠️ 正在构建 Docker 镜像 $(FULL_IMAGE_NAME) ---"
-	docker build -t orb_slam3_jazzy:pi5 -f ros2/Dockerfile.slam .
+	docker build -t guojingneo/orb_slam3_jazzy:pi5 -f ros2/Dockerfile.slam .
 	@echo "--- ✅ 镜像构建完成 ---"
 
 image:
