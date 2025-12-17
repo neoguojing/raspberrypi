@@ -23,14 +23,18 @@
 # | 4  | Indoor       |
 # | 5  | Daylight     |
 # | 6  | Cloudy       |
-
+import sys
 import time
 import queue
 import threading
 import cv2
 # import libcamera
+from unittest.mock import MagicMock
+# 强行伪造 pykms 模块，防止 picamera2 报错
+# 必须在 from picamera2 import ... 之前执行
+mock_pykms = MagicMock()
+sys.modules["pykms"] = mock_pykms
 from picamera2 import Picamera2
-from picamera2.controls import AwbModeEnum
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
@@ -83,15 +87,16 @@ class RpiCamera:
         else:
             controls["AwbEnable"] = False
             AWB_MAP = {
-                1: AwbModeEnum.Incandescent,
-                2: AwbModeEnum.Fluorescent,
-                3: AwbModeEnum.Cloudy,
-                4: AwbModeEnum.Daylight,
-                5: AwbModeEnum.Shade,
-                6: AwbModeEnum.Twilight,
-                7: AwbModeEnum.Custom,
+                1: "Incandescent",
+                2: "Fluorescent",
+                3: "Cloudy",
+                4: "Daylight",
+                5: "Shade",
+                6: "Twilight",
+                7: "Custom",
+                0: "Auto"  # 别忘了通常 0 是自动
             }
-            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, AwbModeEnum.Daylight)
+            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, Daylight)
 
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
