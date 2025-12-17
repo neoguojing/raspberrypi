@@ -82,14 +82,14 @@ image:
 
 runtime:
 	docker run -d --rm \
-		--name rtabmap_container \
+		--name ros2_container \
 		--privileged \
 		--network host \
 		robot_rtabmap_slam3_jazzy:pi5
 dev:
-	-docker rm -f rtabmap_dev_container 2>/dev/null || true
+	-docker rm -f ros2_container 2>/dev/null || true
 	docker run -d \
-		--name rtabmap_dev_container \
+		--name ros2_container \
 		--network host \
 		--privileged \
 		-v ${PWD}:/home/ros_user/ros2_ws/src \
