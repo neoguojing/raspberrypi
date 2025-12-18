@@ -115,6 +115,7 @@ ENV ROS_DOMAIN_ID=42
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
+RUN $VIRTUAL_ENV/bin/pip install "av<10.0.0"
 RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.21
 RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906" -C setup-args="-Dwerror=false"
 
