@@ -40,23 +40,6 @@ RUN apt-get update && \
     libavdevice-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置工作目录
-WORKDIR /home/ros_user/ros2_ws/src
-
-# === 使用 Venv 并继承系统包 ===
-
-# 1. 创建一个虚拟环境，关键是使用 --system-site-packages 继承 libcamera 和 picamera2
-ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
-RUN python3 -m venv $VIRTUAL_ENV --system-site-packages
-
-RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
-    echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
-
-    # 确保 PYTHONPATH 初始化，并包含 libcamera 所在的路径
-# 注意：我们先放 venv 的路径（如果有自定义的话），再放系统路径
-ENV PYTHONPATH="/usr/lib/aarch64-linux-gnu/python3.12/site-packages:/usr/lib/python3/dist-packages"
-ENV ROS_DOMAIN_ID=42
-
 # 2. 复制并安装依赖
 # 注意：确保 requirementrobot.txt中不包含 libcamera 或 picamera2，
 # 因为它们已经通过 apt 安装并由 --system-site-packages 继承。
@@ -106,10 +89,26 @@ RUN git submodule update --init && \
     meson build -Dpykms=enabled && \
     sudo ninja -C build install
 
+# 设置工作目录
+WORKDIR /home/ros_user/ros2_ws/src
+
+# === 使用 Venv 并继承系统包 ===
+
+# 1. 创建一个虚拟环境，关键是使用 --system-site-packages 继承 libcamera 和 picamera2
+ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
+RUN python3 -m venv $VIRTUAL_ENV --system-site-packages
+
+RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
+    echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
+
+    # 确保 PYTHONPATH 初始化，并包含 libcamera 所在的路径
+# 注意：我们先放 venv 的路径（如果有自定义的话），再放系统路径
+ENV PYTHONPATH="/usr/lib/aarch64-linux-gnu/python3.12/site-packages:/usr/lib/python3/dist-packages"
+ENV ROS_DOMAIN_ID=42
+
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
 RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.21
 RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906" -C setup-args="-Dwerror=false"
-
 
