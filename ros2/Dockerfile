@@ -70,8 +70,7 @@ RUN meson setup build --buildtype=release \
 
 # rpicam-apps
 WORKDIR /usr/local/
-RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch main
-RUN git checkout 4bf06054b7d2
+RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.10.1
 WORKDIR /usr/local/rpicam-apps/
 RUN meson setup build \
     # -Denable_libav=enabled \
