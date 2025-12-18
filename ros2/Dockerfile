@@ -50,7 +50,8 @@ RUN apt-get update && \
 # RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir git+https://github.com/raspberrypi/picamera2.git
 # libcamera
 WORKDIR /usr/local/
-RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.3.1+rpt20240906
+# RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.3.1+rpt20240906
+RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.5.0+rpt20250429
 WORKDIR /usr/local/libcamera/
 RUN meson setup build --buildtype=release \
     -Dpipelines=rpi/vc4,rpi/pisp \
@@ -70,7 +71,8 @@ RUN meson setup build --buildtype=release \
 
 # rpicam-apps
 WORKDIR /usr/local/
-RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
+# RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
+RUN git clone https://github.com/raspberrypi/rpicam-apps.git
 WORKDIR /usr/local/rpicam-apps/
 RUN meson setup build \
     -Denable_libav=enabled \
@@ -88,7 +90,7 @@ RUN cd .. && rm -rf rpicam-apps
 WORKDIR /usr/local/
 RUN git clone https://github.com/tomba/kmsxx.git
 WORKDIR /usr/local/kmsxx
-RUN git reset --hard 6cf6e88715ac034f568603bce9a1b8f4a30c12ce
+# RUN git reset --hard 6cf6e88715ac034f568603bce9a1b8f4a30c12ce
 RUN git submodule update --init && \
     meson build -Dpykms=enabled && \
     sudo ninja -C build install && \
