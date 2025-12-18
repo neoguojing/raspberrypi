@@ -104,9 +104,7 @@ class RpiCamera:
             controls=controls
         )
         self.picam2.configure(video_config)
-        self.picam2.start()
-        self.picam2.start(callback=self.frame_callback)
-
+        self.picam2.set_handler("request_completed", self.frame_callback)
         # self._thread = threading.Thread(target=self._frame_loop, daemon=True)
         # self._thread.start()
 
