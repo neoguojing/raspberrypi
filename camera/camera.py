@@ -58,15 +58,9 @@ class RpiCamera:
         self.gain = gain
         self.queue_size = queue_size
         self.frame_queue = queue.Queue(maxsize=queue_size)
-        self._stop_flag = False
-        self._thread = None
         self.picam2 = None  # 单一实例
 
     def start(self):
-        if self._thread and self._thread.is_alive():
-            return
-
-        self._stop_flag = False
         self.picam2 = Picamera2()
 
         # 构建 controls
@@ -107,14 +101,8 @@ class RpiCamera:
         self.picam2.pre_callback = self._event_loop_callback        
 
         self.picam2.start()
-        # self._thread = threading.Thread(target=self._frame_loop, daemon=True)
-        # self._thread.start()
 
     def stop(self):
-        self._stop_flag = True
-        if self._thread:
-            self._thread.join(timeout=2)
-            self._thread = None
         if self.picam2:
             self.picam2.stop()
             self.picam2.close()
@@ -159,20 +147,6 @@ class RpiCamera:
 
         except Exception as e:
             print(f"Callback error: {e}")
-
-    def _frame_loop(self):
-        while not self._stop_flag:
-            frame_bgr = self.picam2.capture_array("main")  # BGR
-            # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            ts = time.time()
-            
-            if self.frame_queue.full():
-                try:
-                    self.frame_queue.get_nowait()
-                except queue.Empty:
-                    pass
-            self.frame_queue.put((ts, frame_bgr))
-            time.sleep(1.0 / self.fps)
 
     def get_frame(self, rgb=False):
         try:
