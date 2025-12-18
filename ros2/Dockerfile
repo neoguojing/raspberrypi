@@ -35,6 +35,9 @@ RUN apt-get update && \
     python3-ply \
     python3-yaml \
     pybind11-dev \
+
+    #ffmpeg
+    libavdevice-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
@@ -79,7 +82,7 @@ RUN meson setup build --buildtype=release \
     ninja -C build && \
     sudo ninja -C build install
 
-# rpicam-apps
+# rpicam-appspython3python3python3python3
 WORKDIR /usr/local/
 RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
 WORKDIR /usr/local/rpicam-apps/
