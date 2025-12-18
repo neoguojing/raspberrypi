@@ -48,7 +48,7 @@ class CameraPublisherNode(Node):
             image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
 
             # 3. 设置 Header
-            image_msg.header.stamp = ts_from_driver
+            image_msg.header.stamp = timestamp
             image_msg.header.frame_id = 'camera_link'
 
             # 4. 发布消息
