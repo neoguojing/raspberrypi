@@ -19,7 +19,7 @@ RUN apt-get update && \
     # python3-libcamera \
     # libcamera-dev \
     # libcamera-tools && \
-    rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /home/ros_user/ros2_ws/src
