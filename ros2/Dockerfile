@@ -18,6 +18,7 @@ RUN apt-get update && \
 
     meson \
     ninja-build \
+    
     # libcamera 编译还需要这些
     libgnutls28-dev \
     libboost-dev \
@@ -29,6 +30,11 @@ RUN apt-get update && \
     libglib2.0-dev \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
+
+    python3-jinja2 \
+    python3-ply \
+    python3-yaml \
+    pybind11-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
