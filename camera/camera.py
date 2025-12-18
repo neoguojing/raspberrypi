@@ -34,7 +34,7 @@ import cv2
 # # 必须在 from picamera2 import ... 之前执行
 # mock_pykms = MagicMock()
 # sys.modules["pykms"] = mock_pykms
-from picamera2 import Picamera2
+from picamera2 import Picamera2,MappedArray
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
@@ -104,7 +104,9 @@ class RpiCamera:
             controls=controls
         )
         self.picam2.configure(video_config)
-        self.picam2.set_handler("request_completed", self.frame_callback)
+        self.picam2.pre_callback = self._event_loop_callback        
+
+        self.picam2.start()
         # self._thread = threading.Thread(target=self._frame_loop, daemon=True)
         # self._thread.start()
 
@@ -118,42 +120,44 @@ class RpiCamera:
             self.picam2.close()
             self.picam2 = None
 
-    def frame_callback(self, request):
+    def _event_loop_callback(self, request):
+        """
+        按照文档 8.2.1 节建议的事件循环回调
+        """
         try:
-            # 1. 获取图像数组
-            frame_bgr = request.make_array("main")
-            
-            # --- 防御性判断 ---
-            # 检查是否为 None 或非数组对象
-            if frame_bgr is None or not hasattr(frame_bgr, 'shape'):
-                print("⚠️ 警告: 捕获到非法帧 (None 或非数组)")
-                return
+            # 使用 MappedArray 实现零拷贝访问 (In-place access)
+            # 这比 request.make_array() 更快，因为它直接映射内存
+            with MappedArray(request, "main") as m:
+                # 此时 m.array 就是一个 numpy 数组
+                # 由于你设置了 BGR888，这里拿到的直接就是 BGR
+                frame_bgr = m.array.copy() # copy 是为了防止内存被底层回收
+                # --- 防御性判断 ---
+                # 检查是否为 None 或非数组对象
+                if frame_bgr is None or not hasattr(frame_bgr, 'shape'):
+                    print("⚠️ 警告: 捕获到非法帧 (None 或非数组)")
+                    return
 
-            # 检查维度是否完整 (H, W, C)
-            if len(frame_bgr.shape) != 3:
-                print(f"⚠️ 警告: 帧维度异常: {frame_bgr.shape}")
-                return
+                # 检查维度是否完整 (H, W, C)
+                if len(frame_bgr.shape) != 3:
+                    print(f"⚠️ 警告: 帧维度异常: {frame_bgr.shape}")
+                    return
+                
+            # 获取硬件时间戳
+            ts = request.metadata.get("SensorTimestamp")
+            ts = ts / 1e9 if ts else time.time()
 
-            # 2. 获取硬件时间戳 (SensorTimestamp 是纳秒)
-            # 获取不到时回退到系统时间
-            ts_ns = request.metadata.get("SensorTimestamp")
-            ts = ts_ns / 1e9 if ts_ns is not None else time.time()
-            
-            # --- 打印调试信息 (建议生产环境关闭或降级) ---
-            # 打印：分辨率 (H, W), 像素类型, 时间戳(秒)
             print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f}")
 
-            # 3. 更新队列
+            # 入队逻辑
             if self.frame_queue.full():
                 try:
                     self.frame_queue.get_nowait()
                 except queue.Empty:
                     pass
-            
             self.frame_queue.put((ts, frame_bgr))
 
         except Exception as e:
-            print(f"❌ 回调处理发生错误: {e}")
+            print(f"Callback error: {e}")
 
     def _frame_loop(self):
         while not self._stop_flag:
