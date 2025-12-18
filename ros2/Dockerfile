@@ -50,7 +50,6 @@ RUN apt-get update && \
 # RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir git+https://github.com/raspberrypi/picamera2.git
 # libcamera
 WORKDIR /usr/local/
-# RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.3.1+rpt20240906
 RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.5.0+rpt20250429
 WORKDIR /usr/local/libcamera/
 RUN meson setup build --buildtype=release \
@@ -71,8 +70,8 @@ RUN meson setup build --buildtype=release \
 
 # rpicam-apps
 WORKDIR /usr/local/
-# RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
 RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch main
+RUN git checkout 4bf06054b7d2
 WORKDIR /usr/local/rpicam-apps/
 RUN meson setup build \
     # -Denable_libav=enabled \
@@ -91,7 +90,7 @@ RUN cd .. && rm -rf rpicam-apps
 WORKDIR /usr/local/
 RUN git clone https://github.com/tomba/kmsxx.git
 WORKDIR /usr/local/kmsxx
-# RUN git reset --hard 6cf6e88715ac034f568603bce9a1b8f4a30c12ce
+RUN git reset --hard 2efdd2583da9575242091bb53c57a311c3eacbc6
 RUN git submodule update --init && \
     meson build -Dpykms=enabled && \
     sudo ninja -C build install && \
@@ -118,8 +117,6 @@ ENV ROS_DOMAIN_ID=42
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
-RUN $VIRTUAL_ENV/bin/pip install picamera2
-RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera -C setup-args="-Dwerror=false"
-# RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.21
-# RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906" -C setup-args="-Dwerror=false"
+RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33
+RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false" -C setup-args="-Drevision=v0.5.0+59-d83ff0a4"
 
