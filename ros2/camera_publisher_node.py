@@ -37,16 +37,18 @@ class CameraPublisherNode(Node):
         """
         try:
             # 1. 获取 BGR 格式的 OpenCV 图像
-            cv_image = self.camera_driver.get_frame()
-            print(f"DEBUG: cv_image type: {type(cv_image)}") # 看看输出是什么
-            if cv_image:
+            res = self.camera_driver.get_frame()
+            print(f"DEBUG: cv_image type: {type(res[1])}") # 看看输出是什么
+            if res is None or res[1] is None:
                 return
+
+            ts_from_driver, cv_image = res
 
             # 2. 使用 cv_bridge 转换为 ROS 2 Image 消息，指定 'bgr8' 编码
             image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
 
             # 3. 设置 Header
-            image_msg.header.stamp = timestamp
+            image_msg.header.stamp = ts_from_driver
             image_msg.header.frame_id = 'camera_link'
 
             # 4. 发布消息
