@@ -22,6 +22,13 @@ RUN apt-get update && \
     libgnutls28-dev \
     libboost-dev \
     libyaml-dev \
+
+    # 解决 libudev 缺失
+    libudev-dev \
+    # 解决 glib-2.0 和 GStreamer 缺失
+    libglib2.0-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
