@@ -29,11 +29,11 @@ import queue
 import threading
 import cv2
 # import libcamera
-from unittest.mock import MagicMock
-# 强行伪造 pykms 模块，防止 picamera2 报错
-# 必须在 from picamera2 import ... 之前执行
-mock_pykms = MagicMock()
-sys.modules["pykms"] = mock_pykms
+# from unittest.mock import MagicMock
+# # 强行伪造 pykms 模块，防止 picamera2 报错
+# # 必须在 from picamera2 import ... 之前执行
+# mock_pykms = MagicMock()
+# sys.modules["pykms"] = mock_pykms
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
@@ -96,7 +96,7 @@ class RpiCamera:
                 7: "Custom",
                 0: "Auto"  # 别忘了通常 0 是自动
             }
-            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, Daylight)
+            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, "Daylight")
 
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
