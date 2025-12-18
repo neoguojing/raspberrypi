@@ -22,6 +22,8 @@ class CameraPublisherNode(Node):
         # 定时器：周期性发布图像帧
         self.timer = self.create_timer(1.0 / self.camera_frequency, self.image_timer_callback)
 
+        self.camera_driver.start()
+
     
     def image_timer_callback(self):
         """定时器触发，用于周期性地发布 Image 数据。"""
