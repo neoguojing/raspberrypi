@@ -82,7 +82,7 @@ RUN meson setup build --buildtype=release \
     ninja -C build && \
     sudo ninja -C build install
 
-# rpicam-appspython3python3python3python3
+# rpicam-apps
 WORKDIR /usr/local/
 RUN git clone https://github.com/raspberrypi/rpicam-apps.git --branch v1.5.1 
 WORKDIR /usr/local/rpicam-apps/
@@ -108,6 +108,7 @@ RUN git submodule update --init && \
 
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
-RUN pip install --upgrade pip
-RUN pip install picamera2==0.3.21
-RUN pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906"
+RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
+RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.21
+RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a6 -C setup-args="-Drevision=v0.3.1+rpt20240906"
+
