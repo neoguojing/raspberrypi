@@ -16,9 +16,12 @@ RUN apt-get update && \
     python3-lgpio \
     v4l-utils \
 
-    # python3-libcamera \
-    # libcamera-dev \
-    # libcamera-tools && \
+    meson \
+    ninja-build \
+    # libcamera 编译还需要这些
+    libgnutls28-dev \
+    libboost-dev \
+    libyaml-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
