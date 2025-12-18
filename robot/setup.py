@@ -1,0 +1,31 @@
+from setuptools import setup
+import os
+from glob import glob
+
+package_name = 'robot' 
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=[package_name],
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+        # 这一行非常重要：确保 launch 文件能被找到
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='ros_user',
+    description='Camera and Car Driver Package',
+    license='Apache License 2.0',
+    tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            # 格式： '可执行文件名 = 包名.文件名:main函数'
+            'car_driver_node = robot.car_driver_node:main',
+            'camera_publisher_node = robot.camera_publisher_node:main',
+        ],
+    },
+)

@@ -6,7 +6,7 @@ PYTHON = python3
 VENV_DIR = .venv
 PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
-
+PROJECT_ROOT := $(shell pwd)
 # APT packages needed for the project
 # python3-pyaudio is sometimes better installed via apt on Raspberry Pi
 # python3-pygame can also be installed via apt
@@ -24,7 +24,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 image dev runtime
+.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install,ros2_build,ros2_run
 
 all: help
 
@@ -122,3 +122,20 @@ clean:
 	@echo "Cleanup complete."
 
 fullclean: clean
+
+ROBOT_DIR := robot
+ROS_DISTRO := jazzy
+ros2_install:
+	@echo "安装依赖..."
+	cd $(ROBOT_DIR) && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
+
+ros2_build:
+	@echo "编译 ROS 2 节点..."
+	cd $(ROBOT_DIR) && colcon build --symlink-install
+
+ros2_run:
+	@echo "启动系统..."
+	# 核心点：运行前确保 source 了当前的工作空间，并且 PYTHONPATH 包含根目录
+	source $(ROBOT_DIR)/install/setup.bash && \
+	export PYTHONPATH=$(PROJECT_ROOT):$$PYTHONPATH && \
+	ros2 launch robot robot.launch.py

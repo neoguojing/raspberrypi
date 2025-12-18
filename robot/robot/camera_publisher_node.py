@@ -56,9 +56,13 @@ class CameraPublisherNode(Node):
 
         except Exception as e:
             self.get_logger().error(f'发布图像失败: {e}')
+    def destroy_node(self):
+        # 在这里显式关闭摄像头驱动，防止资源泄露
+        self.get_logger().info('正在关闭摄像头驱动...')
+        self.camera_driver.stop() 
+        super().destroy_node()
 
-
-def main_camera_publisher(args=None):
+def main(args=None):
     rclpy.init(args=args)
     node = CameraPublisherNode()
     try:
@@ -70,4 +74,4 @@ def main_camera_publisher(args=None):
         rclpy.shutdown()
 
 if __name__ == '__main__':
-    main_camera_publisher()
+    main()
