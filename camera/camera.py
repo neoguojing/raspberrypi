@@ -143,10 +143,11 @@ class RpiCamera:
                     return
                 
             # 获取硬件时间戳
-            ts = request.metadata.get("SensorTimestamp")
+            metadata = request.get_metadata()
+            ts = metadata.get("SensorTimestamp")
             ts = ts / 1e9 if ts else time.time()
 
-            print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f}")
+            print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f} | Meta: {metadata}")
 
             # 入队逻辑
             if self.frame_queue.full():
