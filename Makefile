@@ -141,5 +141,5 @@ ros2_run:
 	ros2 launch robot robot.launch.py
 
 ros2_clean:
-	echo "进入 $(PROJECT_ROOT)/robot/\"
+	@echo "进入 $(PROJECT_ROOT)"
 	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/
