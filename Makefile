@@ -131,7 +131,7 @@ ros2_install:
 
 ros2_build: ros2_clean
 	@echo "编译 ROS 2 节点..."
-	cd $(ROBOT_DIR) && colcon build --symlink-install --packages-select robot
+	colcon build --symlink-install --packages-select robot
 
 ros2_run:
 	@echo "启动系统..."
