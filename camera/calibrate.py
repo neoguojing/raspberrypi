@@ -279,24 +279,109 @@ class CalibrationTool:
             "camera_matrix": self.K.tolist(),
             "dist_coeffs": self.dist.flatten().tolist(),
             "homography": None if self.H is None else self.H.tolist(),
+            "width": self.img_shape[0],
+            "height": self.img_shape[1],
         }
         with open(path, "w") as f:
             json.dump(data, f, indent=4)
         print(f"[Calib] JSON 写入: {path}")
 
+    def generate_orb_slam3_config(self, output_file="EuRoC.yaml"):
+        width, height = self.img_shape
+        print(f"检测到图片分辨率: {width} x {height}")
+
+        # --- B. 提取内参 ---
+        camera_matrix = self.K.tolist()
+        fx = camera_matrix[0][0]
+        fy = camera_matrix[1][1]
+        cx = camera_matrix[0][2]
+        cy = camera_matrix[1][2]
+        
+        dist_coeffs = self.dist.flatten().tolist()
+        # 对应 OpenCV 的 [k1, k2, p1, p2, k3]
+        k1, k2, p1, p2, k3 = dist_coeffs
+
+        # --- C. 构建 YAML 内容 ---
+        yaml_content = f"""%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters.
+#--------------------------------------------------------------------------------------------
+Camera.type: "Pinhole"
+
+# Camera calibration parameters
+Camera.fx: {fx}
+Camera.fy: {fy}
+Camera.cx: {cx}
+Camera.cy: {cy}
+
+# Distortion coefficients
+Camera.k1: {k1}
+Camera.k2: {k2}
+Camera.p1: {p1}
+Camera.p2: {p2}
+Camera.k3: {k3}
+
+# Camera resolution
+Camera.width: {width}
+Camera.height: {height}
+
+# Camera frames per second 
+Camera.fps: 30.0
+
+# Color order of the images (0: BGR, 1: RGB)
+Camera.RGB: 0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+ORBextractor.nFeatures: 1250
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+"""
+
+        # --- D. 保存到文件 ---
+        with open(output_file, 'w') as f:
+            f.write(yaml_content)
+        
+        print(f"成功！配置文件已保存至: {output_file}")
+
     # ============================================================
     #                从 JSON 恢复 numpy 参数
     # ============================================================
-    def load_calibration_json(self,path="./imx219.json"):
+    @staticmethod
+    def load_calibration_json(path="./imx219.json", image_path=None):
+        """
+        加载 JSON 配置，并根据提供的图片获取分辨率
+        返回: 填充好数据的 CameraConfig 对象
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"找不到配置文件: {path}")
+
+        # 1. 创建当前类的实例
+        obj = CalibrationTool()
+
+        # 2. 读取 JSON 数据
         with open(path, "r") as f:
             data = json.load(f)
 
-        self.K = np.array(data["camera_matrix"], dtype=np.float32)
-        self.dist = np.array(data["dist_coeffs"], dtype=np.float32)
-        if data["homography"] is not None:
-            self.H = np.array(data["homography"], dtype=np.float32)
+        # 3. 填充矩阵属性
+        obj.K = np.array(data["camera_matrix"], dtype=np.float32)
+        obj.dist = np.array(data["dist_coeffs"], dtype=np.float32)
+        
+        # 检查 homography 是否存在
+        if data.get("homography") is not None:
+            obj.H = np.array(data["homography"], dtype=np.float32)
+        else:
+            obj.H = None
 
-        return data
+        if data.get("width") is not None:
+            obj.img_shape = (data.get("width"),data.get("height"))
+
+        # 5. 返回填充好的对象
+        return obj
     
 if __name__ == "__main__":
     my_cam = RpiCamera()
@@ -306,20 +391,18 @@ if __name__ == "__main__":
     # tool.capture_calibration_images(count=40)
 
     # Step 2: 标定 K、dist
-    calib = tool.calibrate_camera()
+    # calib = tool.calibrate_camera()
 
     # # Step 3: 计算单应矩阵
     # H, _ = tool.compute_homography(
     #     world_pts=[(0,0), (1,0), (1,1), (0,1)],
     #     image_pts=[(320,240), (640,240), (640,480), (320,480)]
     # )
+    tool = tool.load_calibration_json()
 
     # Step 4: 保存所有参数到一个 JSON
     tool.save_calibration_json()
 
-    # Step 5: 加载
-    params = tool.load_calibration_json("calibration_output.json")
-    K = params["camera_matrix"]
-    dist = params["dist_coeffs"]
-    H = params["homography"]
+    tool.generate_orb_slam3_config
+
 
