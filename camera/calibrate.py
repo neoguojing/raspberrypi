@@ -300,7 +300,7 @@ class CalibrationTool:
     
 if __name__ == "__main__":
     my_cam = RpiCamera()
-    tool = CalibrationTool(camera=my_cam, frame_skip=5)
+    tool = CalibrationTool(camera=my_cam, frame_skip=5,board_size=(8,8))
 
     # Step 1: 采集图像
     # tool.capture_calibration_images(count=40)
