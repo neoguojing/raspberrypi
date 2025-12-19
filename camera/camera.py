@@ -255,16 +255,16 @@ if __name__ == "__main__":
     cam.start()
 
     # 获取一帧用于 SLAM
-    # for _ in range(5):
-    #     ts, frame = cam.get_frame(rgb=False)  # BGR
-    #     if frame is not None:
-    #         # 保存为 BGR 图像（OpenCV 默认格式）
-    #         filename = f"frame_{ts:.6f}.jpg"
-    #         cv2.imwrite(filename, frame)
+    for _ in range(1):
+        ts, frame = cam.get_frame(rgb=False)  # BGR
+        if frame is not None:
+            # 保存为 BGR 图像（OpenCV 默认格式）
+            filename = f"frame_{ts:.6f}.jpg"
+            cv2.imwrite(filename, frame)
     # 拍照
-    # cam.capture_photo()
+    cam.capture_photo()
 
     # 录像 5 秒
-    cam.record_video("test.mp4", duration=30)
+    cam.record_video("test.mp4", duration=5)
 
     cam.stop()
