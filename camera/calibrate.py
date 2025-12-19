@@ -303,16 +303,16 @@ if __name__ == "__main__":
     tool = CalibrationTool(camera=my_cam, frame_skip=5)
 
     # Step 1: 采集图像
-    tool.capture_calibration_images(count=40)
+    # tool.capture_calibration_images(count=40)
 
     # Step 2: 标定 K、dist
     calib = tool.calibrate_camera()
 
-    # Step 3: 计算单应矩阵
-    H, _ = tool.compute_homography(
-        world_pts=[(0,0), (1,0), (1,1), (0,1)],
-        image_pts=[(320,240), (640,240), (640,480), (320,480)]
-    )
+    # # Step 3: 计算单应矩阵
+    # H, _ = tool.compute_homography(
+    #     world_pts=[(0,0), (1,0), (1,1), (0,1)],
+    #     image_pts=[(320,240), (640,240), (640,480), (320,480)]
+    # )
 
     # Step 4: 保存所有参数到一个 JSON
     tool.save_calibration_json()
