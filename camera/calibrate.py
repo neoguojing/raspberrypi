@@ -287,7 +287,7 @@ class CalibrationTool:
         print(f"[Calib] JSON 写入: {path}")
 
     def generate_orb_slam3_config(self, output_file="EuRoC.yaml"):
-        width, height = self.img_shape
+        width, height = self.img_shape if self.img_shape else (None,None)
         print(f"检测到图片分辨率: {width} x {height}")
 
         # --- B. 提取内参 ---
