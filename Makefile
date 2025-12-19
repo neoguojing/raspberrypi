@@ -7,7 +7,7 @@ VENV_DIR = .venv
 PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
 PROJECT_ROOT := $(shell pwd)
-ROBOT_DIR := robot
+ROBOT_DIR = $(PROJECT_ROOT)/robot
 ROS_DISTRO := jazzy
 # APT packages needed for the project
 # python3-pyaudio is sometimes better installed via apt on Raspberry Pi
@@ -127,7 +127,8 @@ fullclean: clean
 
 ros2_install:
 	@echo "安装依赖..."
-	cd $(ROBOT_DIR) && rosdep update && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
+	rosdep update && \
+	rosdep install -i --from-path $(ROBOT_DIR) --rosdistro $(ROS_DISTRO) -y
 
 ros2_build: ros2_clean
 	@echo "编译 ROS 2 节点..."
@@ -135,9 +136,9 @@ ros2_build: ros2_clean
 
 ros2_run:
 	@echo "启动系统..."
-	# 核心点：运行前确保 source 了当前的工作空间，并且 PYTHONPATH 包含根目录
-	source $(ROBOT_DIR)/install/setup.bash && \
-	export PYTHONPATH=$(PROJECT_ROOT):$$PYTHONPATH && \
+	# 使用 . 代替 source，并确保在项目根目录执行
+	cd $(PROJECT_ROOT) && \
+	. install/setup.bash && \
 	ros2 launch robot robot.launch.py
 
 ros2_clean:
