@@ -5,6 +5,12 @@ __pycache__/
 install
 log
 build
+frame_*
+output/
+calib_images/
+core
+test.jpg
+test.mp4
 # C extensions
 *.so
 
