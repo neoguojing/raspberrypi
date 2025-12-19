@@ -94,7 +94,7 @@ WORKDIR /home/ros_user/ros2_ws
 # === 使用 Venv 并继承系统包 ===
 
 # 1. 创建一个虚拟环境，关键是使用 --system-site-packages 继承 libcamera 和 picamera2
-ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
+ENV VIRTUAL_ENV=/home/ros_user/venv
 
 RUN python3 -m venv $VIRTUAL_ENV --system-site-packages && \
     echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \

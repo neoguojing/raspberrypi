@@ -139,6 +139,7 @@ ros2_run:
 	# 使用 . 代替 source，并确保在项目根目录执行
 	cd $(PROJECT_ROOT) && \
 	. install/setup.bash && \
+	export PYTHONPATH=$(PROJECT_ROOT):$$PYTHONPATH && \
 	ros2 launch robot robot.launch.py
 
 ros2_clean:
