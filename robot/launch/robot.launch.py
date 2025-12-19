@@ -7,7 +7,7 @@ def generate_launch_description():
     """
     
     # 替换 'my_robot_pkg' 为您的 ROS 2 包名
-    package_name = 'ros2' 
+    package_name = 'robot' 
 
     # 1. 配置 CarDriverNode
     car_driver_node = Node(
