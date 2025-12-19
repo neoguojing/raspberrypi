@@ -97,7 +97,7 @@ dev:
 		--ipc=host \
 		-v /dev:/dev \
 		-v /run/udev:/run/udev:ro \
-		-v ${PWD}:/home/ros_user/ros2_ws/src \
+		-v ${PWD}:/home/ros_user/ros2_ws \
 		-v "${PWD}/../ORB_SLAM3_ROS2":/home/ros_user/orbslam3 \
 		-e DISPLAY=${DISPLAY} \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -139,3 +139,7 @@ ros2_run:
 	source $(ROBOT_DIR)/install/setup.bash && \
 	export PYTHONPATH=$(PROJECT_ROOT):$$PYTHONPATH && \
 	ros2 launch robot robot.launch.py
+
+ros2_clean:
+	echo "进入 $(PROJECT_ROOT)/robot/\"
+	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/

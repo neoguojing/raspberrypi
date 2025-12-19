@@ -89,7 +89,7 @@ RUN git reset --hard 2efdd2583da9575242091bb53c57a311c3eacbc6 && \
     ldconfig && cd .. && rm -rf kmsxx
 
 # 设置工作目录
-WORKDIR /home/ros_user/ros2_ws/src
+WORKDIR /home/ros_user/ros2_ws
 
 # === 使用 Venv 并继承系统包 ===
 
