@@ -7,6 +7,8 @@ VENV_DIR = .venv
 PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
 PROJECT_ROOT := $(shell pwd)
+ROBOT_DIR := robot
+ROS_DISTRO := jazzy
 # APT packages needed for the project
 # python3-pyaudio is sometimes better installed via apt on Raspberry Pi
 # python3-pygame can also be installed via apt
@@ -74,11 +76,11 @@ run: venv# Ensure requirements are installed
 
 slam3:
 	@echo "--- 🛠️ 正在构建 Docker 镜像 $(FULL_IMAGE_NAME) ---"
-	docker build -t guojingneo/orb_slam3_jazzy:pi5 -f ros2/Dockerfile.slam .
+	docker build -t guojingneo/orb_slam3_jazzy:pi5 -f $(ROBOT_DIR)/Dockerfile.slam .
 	@echo "--- ✅ 镜像构建完成 ---"
 
 image:
-	docker build -t guojingneo/robot_rtabmap_slam3_jazzy:pi5 -f ./ros2/Dockerfile .
+	docker build -t guojingneo/robot_rtabmap_slam3_jazzy:pi5 -f $(ROBOT_DIR)/Dockerfile .
 
 runtime:
 	docker run -d --rm \
@@ -123,8 +125,6 @@ clean:
 
 fullclean: clean
 
-ROBOT_DIR := robot
-ROS_DISTRO := jazzy
 ros2_install:
 	@echo "安装依赖..."
 	cd $(ROBOT_DIR) && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
