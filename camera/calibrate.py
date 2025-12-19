@@ -352,7 +352,7 @@ ORBextractor.minThFAST: 7
     #                从 JSON 恢复 numpy 参数
     # ============================================================
     @staticmethod
-    def load_calibration_json(path="./imx219.json", image_path=None):
+    def load_calibration_json(camera,path="./imx219.json"):
         """
         加载 JSON 配置，并根据提供的图片获取分辨率
         返回: 填充好数据的 CameraConfig 对象
@@ -361,7 +361,7 @@ ORBextractor.minThFAST: 7
             raise FileNotFoundError(f"找不到配置文件: {path}")
 
         # 1. 创建当前类的实例
-        obj = CalibrationTool()
+        obj = CalibrationTool(camera)
 
         # 2. 读取 JSON 数据
         with open(path, "r") as f:
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     #     world_pts=[(0,0), (1,0), (1,1), (0,1)],
     #     image_pts=[(320,240), (640,240), (640,480), (320,480)]
     # )
-    tool = tool.load_calibration_json()
+    tool = tool.load_calibration_json(my_cam)
 
     # Step 4: 保存所有参数到一个 JSON
     tool.save_calibration_json()
