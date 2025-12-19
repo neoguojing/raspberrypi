@@ -279,8 +279,8 @@ class CalibrationTool:
             "camera_matrix": self.K.tolist(),
             "dist_coeffs": self.dist.flatten().tolist(),
             "homography": None if self.H is None else self.H.tolist(),
-            "width": self.img_shape[0],
-            "height": self.img_shape[1],
+            "width": self.img_shape[0] if self.img_shape else None,
+            "height": self.img_shape[1] if self.img_shape else None,
         }
         with open(path, "w") as f:
             json.dump(data, f, indent=4)
