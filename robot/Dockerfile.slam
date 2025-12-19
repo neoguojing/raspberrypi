@@ -5,7 +5,6 @@ FROM introlab3it/rtabmap_ros:jazzy-latest
 RUN source /opt/ros/jazzy/setup.bash
 # 设定工作目录
 WORKDIR /home/ros_user
-
 # --------------------------
 # 步骤 1: 安装 ORB-SLAM3 编译依赖
 # --------------------------
@@ -47,12 +46,9 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git \
       -DENABLE_GLES=OFF \
     && make -j4 \
     && make install \
-    && ldconfig \
-    && cd /home/ros_user
-    # && rm -rf Pangolin
+    && ldconfig 
 
-
-
+WORKDIR /home/ros_user
 # --------------------------
 # 步骤 4: 编译 ORB-SLAM3
 # --------------------------
