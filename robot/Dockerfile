@@ -41,14 +41,7 @@ RUN apt-get update && \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. 复制并安装依赖
-# 注意：确保 requirementrobot.txt中不包含 libcamera 或 picamera2，
-# 因为它们已经通过 apt 安装并由 --system-site-packages 继承。
-# RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir \
-#     picamera2 \
-#     && echo "Python packages installed successfully."
-# RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir git+https://github.com/raspberrypi/picamera2.git
-# libcamera
+
 WORKDIR /usr/local/
 RUN git clone https://github.com/raspberrypi/libcamera.git --branch v0.5.0+rpt20250429
 WORKDIR /usr/local/libcamera/
