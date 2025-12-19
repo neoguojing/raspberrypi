@@ -58,39 +58,45 @@ class RpiCamera:
         self.picam2 = Picamera2()
 
         # 构建 controls
-        controls = {"FrameRate": float(self.fps)}
+        controls = {"FrameRate": float(self.fps),'FrameDurationLimits':(33333, 100000)}
         
+        # 2. 曝光控制
         if not self.auto_exposure:
             controls.update({
                 "AeEnable": False,
-                "ExposureTime": self.exposure,
-                "AnalogueGain": self.gain
+                "ExposureTime": int(self.exposure), # 确保是整数，单位微秒
+                "AnalogueGain": float(self.gain)
             })
         else:
             controls["AeEnable"] = True
 
-        # 白平衡
+        # 3. 白平衡控制 (关键修正点)
+        # libcamera 中：AwbEnable 应该始终为 True，除非你要手动指定 ColorGains
         if self.awb_mode == 0:
             controls["AwbEnable"] = True
+            controls["AwbMode"] = 0  # Auto
         else:
-            controls["AwbEnable"] = False
+            controls["AwbEnable"] = True 
+            # 这里的 AWB_MAP 对应 libcamera 的索引
+            # 0: Auto, 1: Incandescent, 2: Tungsten, 3: Fluorescent, 
+            # 4: Indoor, 5: Daylight, 6: Cloudy
             AWB_MAP = {
-                1: "Incandescent",
-                2: "Fluorescent",
-                3: "Cloudy",
-                4: "Daylight",
-                5: "Shade",
-                6: "Twilight",
-                7: "Custom",
-                0: "Auto"  # 别忘了通常 0 是自动
+                0: 0, # Auto
+                1: 1, # Incandescent (白炽灯)
+                2: 3, # Fluorescent (荧光灯)
+                3: 6, # Cloudy (多云)
+                4: 5, # Daylight (日光)
+                5: 4, # Indoor (室内)
             }
-            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, "Daylight")
+            # 获取对应的索引数字
+            controls["AwbMode"] = AWB_MAP.get(self.awb_mode, 0)
 
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
             main={"size": (self.width, self.height), "format": "BGR888"},
             controls=controls
         )
+        print("Camera Controls:", video_config)
         self.picam2.configure(video_config)
         self.picam2.pre_callback = self._event_loop_callback        
 
@@ -167,6 +173,14 @@ class RpiCamera:
             self.picam2.configure(photo_config)
             self.picam2.start()
             
+            # 3. 手动强制设置参数 (关键点)
+            # ExposureTime 单位是微秒 (us)
+            # AnalogueGain 是模拟增益
+            self.picam2.set_controls({"AeEnable": True})
+            
+            # 4. 等待 2 秒让硬件寄存器生效
+            time.sleep(2)
+            
             frame_bgr = self.picam2.capture_array()
             # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             cv2.imwrite(filename, frame_bgr)
@@ -203,12 +217,13 @@ class RpiCamera:
             # 创建视频配置（与当前流一致）
             video_config = self.picam2.create_video_configuration(
                 main={"size": (self.width, self.height)},
-                controls={"FrameRate": float(self.fps)}
+                controls={"FrameRate": float(self.fps),"AeEnable": True,'FrameDurationLimits':(33333, 100000)}
             )
             self.picam2.stop()
             self.picam2.configure(video_config)
             self.picam2.start()
-
+            
+        # -----------------------
             # 选择编码器
             # encoder = H265Encoder(10_000_000) if use_h265 else H264Encoder(10_000_000)
             encoder = H264Encoder(10_000_000)
@@ -236,19 +251,20 @@ class RpiCamera:
                 pass
             
 if __name__ == "__main__":
-    cam = RpiCamera(width=1280, height=720, fps=30, auto_exposure=False, exposure=10000, gain=1.5)
+    cam = RpiCamera(width=1280, height=720, fps=30)
     cam.start()
 
     # 获取一帧用于 SLAM
-    ts, frame = cam.get_frame(rgb=False)  # BGR
-    if frame is not None:
-        # 保存为 BGR 图像（OpenCV 默认格式）
-        filename = f"frame_{ts:.6f}.jpg"
-        cv2.imwrite(filename, frame)
+    # for _ in range(5):
+    #     ts, frame = cam.get_frame(rgb=False)  # BGR
+    #     if frame is not None:
+    #         # 保存为 BGR 图像（OpenCV 默认格式）
+    #         filename = f"frame_{ts:.6f}.jpg"
+    #         cv2.imwrite(filename, frame)
     # 拍照
-    cam.capture_photo("test.jpg")
+    # cam.capture_photo()
 
     # 录像 5 秒
-    cam.record_video("test.mp4", duration=5)
+    cam.record_video("test.mp4", duration=30)
 
     cam.stop()
