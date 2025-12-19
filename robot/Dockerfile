@@ -79,22 +79,21 @@ RUN meson setup build \
     -Denable_egl=enabled \
     -Denable_qt=enabled \
     -Denable_opencv=disabled \
-    -Denable_tflite=disabled
-RUN meson compile -C build
-RUN meson install -C build
-RUN ldconfig
-RUN cd .. && rm -rf rpicam-apps
+    -Denable_tflite=disabled && \
+    meson compile -C build && \
+    meson install -C build && \
+    ldconfig && \
+    cd .. && rm -rf rpicam-apps
 
 # kmsxx
 WORKDIR /usr/local/
 RUN git clone https://github.com/tomba/kmsxx.git
 WORKDIR /usr/local/kmsxx
-RUN git reset --hard 2efdd2583da9575242091bb53c57a311c3eacbc6
-RUN git submodule update --init && \
+RUN git reset --hard 2efdd2583da9575242091bb53c57a311c3eacbc6 && \
+    git submodule update --init && \
     meson build -Dpykms=enabled && \
     sudo ninja -C build install && \
-    ldconfig
-RUN cd .. && rm -rf kmsxx
+    ldconfig && cd .. && rm -rf kmsxx
 
 # 设置工作目录
 WORKDIR /home/ros_user/ros2_ws/src
@@ -103,9 +102,9 @@ WORKDIR /home/ros_user/ros2_ws/src
 
 # 1. 创建一个虚拟环境，关键是使用 --system-site-packages 继承 libcamera 和 picamera2
 ENV VIRTUAL_ENV=/home/ros_user/ros2_ws/venv
-RUN python3 -m venv $VIRTUAL_ENV --system-site-packages
 
-RUN echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
+RUN python3 -m venv $VIRTUAL_ENV --system-site-packages && \
+    echo "source /opt/ros/jazzy/setup.sh" >> /root/.bashrc && \
     echo "source \$VIRTUAL_ENV/bin/activate" >> /root/.bashrc
 
     # 确保 PYTHONPATH 初始化，并包含 libcamera 所在的路径
@@ -116,7 +115,7 @@ ENV ROS_DOMAIN_ID=42
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
-RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33
-RUN $VIRTUAL_ENV/bin/pip install rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false"
+RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
+    rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false"
 
 

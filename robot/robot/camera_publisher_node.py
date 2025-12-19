@@ -17,7 +17,7 @@ class CameraPublisherNode(Node):
         self.camera_frequency = self.get_parameter('camera_frequency').get_parameter_value().double_value
 
         # 发布器：发布图像帧
-        self.image_publisher = self.create_publisher(Image, 'image_raw', 10)
+        self.image_publisher = self.create_publisher(Image, '/camera/image_raw', 10)
         
         # 定时器：周期性发布图像帧
         self.timer = self.create_timer(1.0 / self.camera_frequency, self.image_timer_callback)
