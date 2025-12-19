@@ -26,7 +26,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install,ros2_build,ros2_run
+.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install,ros2_build,ros2_run ros2_clean
 
 all: help
 
@@ -129,9 +129,9 @@ ros2_install:
 	@echo "安装依赖..."
 	cd $(ROBOT_DIR) && rosdep update && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
 
-ros2_build:
+ros2_build: ros2_clean
 	@echo "编译 ROS 2 节点..."
-	cd $(ROBOT_DIR) && colcon build --symlink-install
+	cd $(ROBOT_DIR) && colcon build --symlink-install --packages-select robot
 
 ros2_run:
 	@echo "启动系统..."
@@ -142,4 +142,5 @@ ros2_run:
 
 ros2_clean:
 	@echo "进入 $(PROJECT_ROOT)"
+	rm -rf build/ install/ log/ && \
 	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/
