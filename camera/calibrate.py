@@ -403,6 +403,6 @@ if __name__ == "__main__":
     # Step 4: 保存所有参数到一个 JSON
     tool.save_calibration_json()
 
-    tool.generate_orb_slam3_config
+    tool.generate_orb_slam3_config()
 
 
