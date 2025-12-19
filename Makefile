@@ -127,7 +127,7 @@ fullclean: clean
 
 ros2_install:
 	@echo "安装依赖..."
-	cd $(ROBOT_DIR) && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
+	cd $(ROBOT_DIR) && rosdep update && rosdep install -i --from-path . --rosdistro $(ROS_DISTRO) -y
 
 ros2_build:
 	@echo "编译 ROS 2 节点..."
