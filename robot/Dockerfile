@@ -39,6 +39,8 @@ RUN apt-get update && \
     #ffmpeg
     libavdevice-dev \
     ffmpeg \
+    # 网页可视化
+    ros-jazzy-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -110,5 +112,7 @@ ENV ROS_DOMAIN_ID=42
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
 RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
     rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false"
+
+CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
 
 
