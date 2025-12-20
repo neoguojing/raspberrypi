@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from camera.camera import RpiCamera # 确保这个路径正确
+from robot.camera.camera import RpiCamera
 
 class CameraPublisherNode(Node):
     def __init__(self):

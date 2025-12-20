@@ -41,6 +41,7 @@ RUN apt-get update && \
     ffmpeg \
     # 网页可视化
     ros-jazzy-foxglove-bridge \
+    ros-jazzy-tf-transformations \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -104,7 +105,7 @@ RUN python3 -m venv $VIRTUAL_ENV --system-site-packages && \
 
     # 确保 PYTHONPATH 初始化，并包含 libcamera 所在的路径
 # 注意：我们先放 venv 的路径（如果有自定义的话），再放系统路径
-ENV PYTHONPATH="/usr/lib/aarch64-linux-gnu/python3.12/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/aarch64-linux-gnu/python3.12/site-packages:$PYTHONPATH"
+ENV PYTHONPATH="/home/ros_user/venv/lib/python3.12/site-packages:/usr/lib/aarch64-linux-gnu/python3.12/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/aarch64-linux-gnu/python3.12/site-packages:$PYTHONPATH"
 ENV ROS_DOMAIN_ID=42
 
 # picamera2 and rpi-libcamera
