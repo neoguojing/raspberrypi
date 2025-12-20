@@ -135,7 +135,7 @@ class RpiCamera:
             ts = metadata.get("SensorTimestamp")
             ts = ts / 1e9 if ts else time.time()
 
-            print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f} | Meta: {metadata}")
+            # print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f} | Meta: {metadata}")
 
             # 入队逻辑
             if self.frame_queue.full():
@@ -251,7 +251,7 @@ class RpiCamera:
                 pass
             
 if __name__ == "__main__":
-    cam = RpiCamera(width=1280, height=720, fps=30)
+    cam = RpiCamera()
     cam.start()
 
     # 获取一帧用于 SLAM

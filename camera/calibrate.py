@@ -22,8 +22,8 @@ class CalibrationTool:
     def __init__(self,
                  camera: RpiCamera,
                  board_size=(8, 5),
-                 square_size=0.024,
-                 frame_skip=5):
+                 square_size=0.029,
+                 frame_skip=15):
         """
         参数说明:
             camera       : RpiCamera 实例，get_frame() 从队列拿取最新帧
@@ -67,7 +67,7 @@ class CalibrationTool:
     #                 采集校准图片
     # ============================================================
     def capture_calibration_images(
-        self, count=50, delay=1.0, out_dir="calib_images", show=False
+        self, count=50, delay=1.0, out_dir="calib_images", show=True
     ):
         """
         自动采集棋盘格图片，用于后续标定。
@@ -107,6 +107,7 @@ class CalibrationTool:
             cv2.destroyAllWindows()
 
         print("[Calib] 采集完成")
+        self.camera.stop()
         return True
 
     # ============================================================
@@ -385,10 +386,10 @@ ORBextractor.minThFAST: 7
     
 if __name__ == "__main__":
     my_cam = RpiCamera()
-    tool = CalibrationTool(camera=my_cam, frame_skip=5)
+    tool = CalibrationTool(camera=my_cam, frame_skip=15)
 
     # Step 1: 采集图像
-    tool.capture_calibration_images(count=50)
+    tool.capture_calibration_images(count=100)
 
     # Step 2: 标定 K、dist
     calib = tool.calibrate_camera()

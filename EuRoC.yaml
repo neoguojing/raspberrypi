@@ -1,0 +1,38 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters.
+#--------------------------------------------------------------------------------------------
+Camera.type: "Pinhole"
+
+# Camera calibration parameters
+Camera.fx: 1076.4459524082592
+Camera.fy: 1074.978367519355
+Camera.cx: 621.7927015314689
+Camera.cy: 359.7698377158356
+
+# Distortion coefficients
+Camera.k1: -0.23732659858435895
+Camera.k2: -0.2787495472840418
+Camera.p1: -0.009977825213521337
+Camera.p2: 0.00048385082889193065
+Camera.k3: 0.4848616005584634
+
+# Camera resolution
+Camera.width: 1280
+Camera.height: 720
+
+# Camera frames per second 
+Camera.fps: 30.0
+
+# Color order of the images (0: BGR, 1: RGB)
+Camera.RGB: 0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+ORBextractor.nFeatures: 1250
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
