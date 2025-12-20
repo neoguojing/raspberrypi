@@ -1,5 +1,5 @@
-from car.steer import Steering
-from car.motor import Motor
+from robot.car.steer import Steering
+from robot.car.motor import Motor
 import time
 
 steering_pin = 18   # 示例：BCM18（原 BOARD 12）
