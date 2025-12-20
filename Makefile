@@ -100,7 +100,9 @@ dev:
 		-v ${PWD}:/home/ros_user/ros2_ws \
 		-v "${PWD}/../ORB_SLAM3_ROS2":/home/ros_user/orbslam3 \
 		-e DISPLAY=${DISPLAY} \
+		-e QT_X11_NO_MITSHM=1 \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
+		-v ~/.Xauthority:/root/.Xauthority:ro \
 		guojingneo/robot_rtabmap_slam3_jazzy:pi5 \
 		sleep infinity
 

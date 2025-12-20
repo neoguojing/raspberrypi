@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-dev \
     libglu1-mesa-dev \
     libgles2-mesa-dev \
+
     # 清理APT缓存
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -55,32 +56,28 @@ WORKDIR /home/ros_user
 RUN git clone https://github.com/neoguojing/ORB-SLAM3-STEREO-FIXED.git ORB_SLAM3
 WORKDIR /home/ros_user/ORB_SLAM3
 
-
-# 修改 build.sh 脚本，限制编译核心数，防止 OOM (可选，但推荐)
-# 这里我们直接修改编译命令，不用修改文件
-# RUN chmod +x build.sh && ./build.sh
-
+# 注意：下面的编译步骤可能会占用较多内存
 # 用于嵌入式平台，内存不够编译
 # --- 1. 编译 DBoW2 ---
 RUN echo "Building Thirdparty/DBoW2 ..." && \
     cd Thirdparty/DBoW2 && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j2
+    make -j4
 
 # --- 2. 编译 g2o ---
 RUN echo "Building Thirdparty/g2o ..." && \
     cd Thirdparty/g2o && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j2
+    make -j4
 
 # --- 3. 编译 Sophus ---
 RUN echo "Building Thirdparty/Sophus ..." && \
     cd Thirdparty/Sophus && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j2 && make install
+    make -j4 && make install
 
 # --- 4. 解压词典 (这一步不占内存但占空间，建议解压后删除压缩包以减小镜像) ---
 RUN echo "Uncompressing vocabulary ..." && \
@@ -93,7 +90,7 @@ RUN echo "Uncompressing vocabulary ..." && \
 RUN echo "Building ORB_SLAM3 ..." && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2 --param ggc-min-expand=1 --param ggc-min-heapsize=32768" && \
-    make -j2
+    make -j4
 
 
 # 如果你的 ROS 2 节点依然找不到 Sophus，可以在环境变量中添加前缀路径
