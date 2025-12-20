@@ -132,14 +132,13 @@ ros2_install:
 
 ros2_build: ros2_clean
 	@echo "编译 ROS 2 节点..."
-	colcon build --symlink-install --packages-select robot
+	colcon build --packages-select robot
 
 ros2_run:
 	@echo "启动系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
 	cd $(PROJECT_ROOT) && \
 	. install/setup.bash && \
-	export PYTHONPATH=$(PROJECT_ROOT):$$PYTHONPATH && \
 	ros2 launch robot robot.launch.py
 
 ros2_clean:
