@@ -29,7 +29,7 @@ class CarDriverNode(Node):
         # 发布器：发布里程计 (Odometry)
         self.odom_publisher = self.create_publisher(
             Odometry,
-            'odom', 
+            '/imu/data_raw', 
             10)
         
         # 定时器：周期性发布里程计
