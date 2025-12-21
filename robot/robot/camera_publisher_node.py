@@ -66,7 +66,8 @@ class CameraPublisherNode(Node):
                     print(f"image_publisher: CompressedImage: {msg.header}") # 看看输出是什么
             else:
                 # 2. 使用 cv_bridge 转换为 ROS 2 Image 消息，指定 'bgr8' 编码
-                image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
+                # image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
+                image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='rgb8')
 
                 # 3. 设置 Header
                 image_msg.header.stamp = timestamp

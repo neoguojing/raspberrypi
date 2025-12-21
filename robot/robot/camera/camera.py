@@ -93,7 +93,8 @@ class RpiCamera:
 
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
-            main={"size": (self.width, self.height), "format": "BGR888"},
+            # main={"size": (self.width, self.height), "format": "BGR888"},
+            main={"size": (self.width, self.height), "format": "RGB888"},
             controls=controls
         )
         print("Camera Controls:", video_config)
@@ -118,16 +119,16 @@ class RpiCamera:
             with MappedArray(request, "main") as m:
                 # 此时 m.array 就是一个 numpy 数组
                 # 由于你设置了 BGR888，这里拿到的直接就是 BGR
-                frame_bgr = m.array.copy() # copy 是为了防止内存被底层回收
+                frame_rgb = m.array.copy() # copy 是为了防止内存被底层回收
                 # --- 防御性判断 ---
                 # 检查是否为 None 或非数组对象
-                if frame_bgr is None or not hasattr(frame_bgr, 'shape'):
+                if frame_如果不 is None or not hasattr(frame_rgb, 'shape'):
                     print("⚠️ 警告: 捕获到非法帧 (None 或非数组)")
                     return
 
                 # 检查维度是否完整 (H, W, C)
-                if len(frame_bgr.shape) != 3:
-                    print(f"⚠️ 警告: 帧维度异常: {frame_bgr.shape}")
+                if len(frame_rgb.shape) != 3:
+                    print(f"⚠️ 警告: 帧维度异常: {frame_rgb.shape}")
                     return
                 
             # 获取硬件时间戳
@@ -135,7 +136,7 @@ class RpiCamera:
             ts = metadata.get("SensorTimestamp")
             ts = ts / 1e9 if ts else time.time()
 
-            # print(f"📸 Frame Captured | Size: {frame_bgr.shape} | Type: {frame_bgr.dtype} | TS: {ts:.4f} | Meta: {metadata}")
+            # print(f"📸 Frame Captured | Size: {frame_rgb.shape} | Type: {frame_rgb.dtype} | TS: {ts:.4f} | Meta: {metadata}")
 
             # 入队逻辑
             if self.frame_queue.full():
@@ -143,15 +144,15 @@ class RpiCamera:
                     self.frame_queue.get_nowait()
                 except queue.Empty:
                     pass
-            self.frame_queue.put((ts, frame_bgr))
+            self.frame_queue.put((ts, frame_rgb))
 
         except Exception as e:
             print(f"Callback error: {e}")
 
-    def get_frame(self, rgb=False):
+    def get_frame(self, rgb=True):
         try:
-            ts, frame_bgr = self.frame_queue.get(timeout=1)
-            return (ts, frame_bgr) if not rgb else (ts, cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+            ts, frame_rgb = self.frame_queue.get(timeout=1)
+            return (ts, frame_rgb) if rgb else (ts, cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
         except queue.Empty:
             return None, None
 
@@ -181,9 +182,9 @@ class RpiCamera:
             # 4. 等待 2 秒让硬件寄存器生效
             time.sleep(2)
             
-            frame_bgr = self.picam2.capture_array()
-            # frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(filename, frame_bgr)
+            frame_rgb = self.picam2.capture_array()
+            # frame_rgb = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(filename, frame_rgb)
             
             # 恢复视频流配置
             self.picam2.stop()
@@ -191,7 +192,7 @@ class RpiCamera:
             self.picam2.start()
             
             print(f"✅ 照片已保存: {filename}")
-            return frame_bgr
+            return frame_rgb
 
         except Exception as e:
             print(f"❌ 拍照失败: {e}")
@@ -256,9 +257,8 @@ if __name__ == "__main__":
 
     # 获取一帧用于 SLAM
     for _ in range(1):
-        ts, frame = cam.get_frame(rgb=False)  # BGR
+        ts, frame = cam.get_frame()
         if frame is not None:
-            # 保存为 BGR 图像（OpenCV 默认格式）
             filename = f"frame_{ts:.6f}.jpg"
             cv2.imwrite(filename, frame)
     # 拍照
