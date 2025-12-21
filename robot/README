@@ -1,0 +1,8 @@
+# 
+ros2 topic list
+# QoS（服务质量）匹配
+ros2 topic info /camera/image_raw --verbose
+ros2 topic hz /camera/image_raw
+
+ros2 multicast receive  # 先在一台机器运行
+ros2 multicast send     # 后在另一台机器运行
