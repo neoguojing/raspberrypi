@@ -122,7 +122,7 @@ class RpiCamera:
                 frame_rgb = m.array.copy() # copy 是为了防止内存被底层回收
                 # --- 防御性判断 ---
                 # 检查是否为 None 或非数组对象
-                if frame_如果不 is None or not hasattr(frame_rgb, 'shape'):
+                if frame_rgb is None or not hasattr(frame_rgb, 'shape'):
                     print("⚠️ 警告: 捕获到非法帧 (None 或非数组)")
                     return
 
