@@ -13,7 +13,7 @@ def generate_launch_description():
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     
     # 设置您的包名和配置文件路径
-    pkg_name = 'my_robot_navigation' # 替换为您的实际包名
+    pkg_name = 'robot' # 替换为您的实际包名
     config_dir = os.path.join(get_package_share_directory(pkg_name), 'config')
     
     # 您的 Nav2 配置 YAML 文件路径

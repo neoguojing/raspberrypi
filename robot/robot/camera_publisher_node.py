@@ -54,7 +54,7 @@ class CameraPublisherNode(Node):
                 # 1. 创建消息对象
                 msg = CompressedImage()
                 msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = "camera_frame"
+                msg.header.frame_id = "camera_link"
                 msg.format = "jpeg" # 设置压缩格式
                 
                 # 2. 将 OpenCV 图像压缩为 JPEG 字节流
