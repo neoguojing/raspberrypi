@@ -44,5 +44,5 @@ def generate_launch_description():
     return LaunchDescription([
         car_driver_node,
         camera_publisher_node,
-        icm20948_spi_node
+        # icm20948_spi_node
     ])
