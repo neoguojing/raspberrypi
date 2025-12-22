@@ -42,6 +42,10 @@ RUN apt-get update && \
     # 网页可视化
     ros-jazzy-foxglove-bridge \
     ros-jazzy-tf-transformations \
+    # IMU
+    python3-spidev \
+    ros-jazzy-imu-tools \
+
     && rm -rf /var/lib/apt/lists/*
 
 

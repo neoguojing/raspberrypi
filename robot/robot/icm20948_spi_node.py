@@ -14,13 +14,17 @@ class ICM20948Node(Node):
         self.spi.open(0, 0)  # 对应总线 0, 片选 0
         self.spi.max_speed_hz = 7000000
         self.spi.mode = 0b11
+
+        # 参数设置
+        self.declare_parameter('imu_frequency', 100)
+        self.camera_frequency = self.get_parameter('imu_frequency').get_parameter_value().double_value
         
         # 2. 传感器初始化
         self.init_icm20948()
         
         # 3. ROS 2 发布者
         self.publisher_ = self.create_publisher(Imu, '/imu/data_raw', 10)
-        self.timer = self.create_timer(0.01, self.timer_callback) # 100Hz
+        self.timer = self.create_timer(1/self.camera_frequency, self.timer_callback) # 100Hz
         self.get_logger().info('ICM-20948 SPI Node Started')
 
     def write_reg(self, reg, value):

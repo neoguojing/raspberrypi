@@ -27,6 +27,7 @@ setup(
             # 格式： '可执行文件名 = 包名.文件名:main函数'
             'car_driver_node = robot.car_driver_node:main',
             'camera_publisher_node = robot.camera_publisher_node:main',
+            # 'icm20948_spi_node = robot.icm20948_spi_node:main',
         ],
     },
 )
