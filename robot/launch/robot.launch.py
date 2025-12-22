@@ -14,10 +14,7 @@ def generate_launch_description():
         package=package_name,
         executable='car_driver_node', # 确保在 setup.py 中定义了此入口点
         name='car_driver_node',
-        output='screen',
-        parameters=[
-            {'odom_frequency': 30.0}
-        ]
+        output='screen'
     )
     
 
