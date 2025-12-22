@@ -1,83 +1,57 @@
 import os
-import ros2.launch.slam_launch as slam_launch
-from ros2.launch.slam_launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # 1. 获取 rtabmap_ros 包的共享目录
-    rtabmap_pkg_dir = get_package_share_directory('rtabmap_ros')
-
-    # 2. 声明 Launch 文件参数
-    # 是否使用 GUI (Rtabmap viz)
-    use_rtabmap_viz = LaunchConfiguration('rtabmap_viz', default='true')
+    # 声明参数
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     
-    # 传感器数据话题
-    rgb_topic = LaunchConfiguration('rgb_topic', default='/camera/color/image_raw')
-    depth_topic = LaunchConfiguration('depth_topic', default='/camera/depth/image_raw')
-    camera_info_topic = LaunchConfiguration('camera_info_topic', default='/camera/color/camera_info')
-    
-    # 里程计话题 (通常由独立节点提供，如 camera_link_tf_odom)
-    odom_topic = LaunchConfiguration('odom_topic', default='/odom')
-
-    # 3. RTAB-Map SLAM 节点配置
+    # RTAB-Map 核心节点
     rtabmap_node = Node(
-        package='rtabmap_ros',
+        package='rtabmap_slam', # 注意：ROS 2 Humble 及之后版本包名为 rtabmap_slam
         executable='rtabmap',
         output='screen',
         parameters=[{
-            # 基本配置
-            'frame_id': 'base_link',  # 机器人基座坐标系
-            'subscribe_depth': True,  # 订阅深度图像
-            'subscribe_rgb': True,    # 订阅 RGB 图像
-            'subscribe_odom': True,   # 订阅里程计
-            'approx_sync': True,      # 近似时间同步
+            'use_sim_time': use_sim_time,
+            'frame_id': 'base_link',
+            'subscribe_depth': True,
+            'subscribe_rgb': True,
+            'subscribe_scan': False,    # 如果有雷达可以设为 True 增强地图
+            'approx_sync': True,
+            'queue_size': 30,           # 树莓派建议增加队列缓存
 
-            # SLAM 和建图参数
-            'Mem/IncrementalMemory': 'true',  # 启用增量建图
-            'Mem/InitWMWithZeroCfg': 'true',  # 避免首次回环检测时出现错误的匹配
-            'Rtabmap/DetectionRate': '5',     # 检测频率（Hz）
-            'RGBD/ProximityBySpace': 'true',  # 允许空间上的回环检测
-            'Reg/Force3DoF': 'true',          # 仅优化 X/Y/Yaw (如果运行2D SLAM)
+            # --- 地图增强参数 ---
+            'RGBD/NeighborLinkRefining': 'true', # 闭环检测后细化邻居连接
+            'RGBD/ProximityBySpace': 'true',     # 空间近接检测
+            'RGBD/AngularUpdate': '0.01',        # 即使旋转很小也更新地图
+            'RGBD/LinearUpdate': '0.01',         # 即使移动很小也更新地图
             
-            # 地图输出：发布 2D 占用栅格地图
-            'Grid/FromKnownArea': 'true',     
-            'Grid/CellSize': '0.05',          # 栅格分辨率 (米)
+            # --- 2.D 占据栅格地图增强 (供 Nav2 使用) ---
+            'Grid/FromKnownArea': 'false',       # 设为 false 以实时动态发现环境
+            'Grid/RayTracing': 'true',           # 启用射线追踪，清除动态障碍物
+            'Grid/3D': 'false',                  # 强制输出 2D 地图
+            'Grid/CellSize': '0.05',             # 分辨率需与 Nav2 YAML 保持一致
+            'Grid/MaxObstacleHeight': '1.8',     # 过滤天花板
+            'Grid/MinGroundHeight': '0.05',      # 过滤地面噪点
             
-            # 数据库路径 (可选)
-            # 'database_path': 'rtabmap.db' 
+            # --- 内存与性能优化 (针对树莓派) ---
+            'Mem/IncrementalMemory': 'true', 
+            'Mem/ReduceGraph': 'true',           # 减少位姿图节点以节省内存
+            'DbSqlite3/CacheSize': '10000',      # 增加数据库缓存提高读写速度
         }],
         remappings=[
-            # 话题重映射
-            ('rgb/image', rgb_topic),
-            ('depth/image', depth_topic),
-            ('rgb/camera_info', camera_info_topic),
-            ('odom', odom_topic)
+            ('rgb/image', '/camera/color/image_raw'),
+            ('depth/image', '/camera/depth/image_raw'),
+            ('rgb/camera_info', '/camera/color/camera_info'),
+            ('odom', '/slam3/odom'),                   # 此处需指向 ORB-SLAM3 发布的里程计
+            ('grid_map', '/map')                 # 将 RTAB-Map 输出的地图映射给 Nav2
         ],
-    )
-    
-    # 4. 可视化节点配置 (可选)
-    rtabmap_viz_node = Node(
-        package='rtabmap_ros',
-        executable='rtabmap_viz',
-        output='screen',
-        parameters=[{'frame_id': 'base_link'}],
-        condition=slam_launch.conditions.IfCondition(use_rtabmap_viz)
     )
 
     return LaunchDescription([
-        # 声明参数供用户在命令行修改
-        DeclareLaunchArgument('rtabmap_viz', default_value='true', description='是否启动 rtabmap 可视化界面'),
-        DeclareLaunchArgument('rgb_topic', default_value='/camera/color/image_raw', description='RGB 图像话题'),
-        DeclareLaunchArgument('depth_topic', default_value='/camera/depth/image_raw', description='深度图像话题'),
-        DeclareLaunchArgument('camera_info_topic', default_value='/camera/color/camera_info', description='相机信息话题'),
-        DeclareLaunchArgument('odom_topic', default_value='/odom', description='里程计话题'),
-
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         rtabmap_node,
-        rtabmap_viz_node,
-        
-        # 另外启动 RViz2 观察地图 (可选)
-        # IncludeLaunchDescription(...) 
     ])

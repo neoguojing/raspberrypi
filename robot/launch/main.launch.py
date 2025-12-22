@@ -17,7 +17,13 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'slam.launch.py'))
     )
 
+    # 包含 SLAM 节点
+    nv2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py'))
+    )
+
     return LaunchDescription([
         base_launch,
-        slam_launch
+        slam_launch,
+        nv2_launch
     ])
