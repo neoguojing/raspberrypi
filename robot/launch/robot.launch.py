@@ -28,10 +28,21 @@ def generate_launch_description():
             {'camera_frequency': 15.0}
         ]
     )
+
+    icm20948_spi_node = Node(
+        package=package_name,
+        executable='icm20948_spi_node', # 确保在 setup.py 中定义了此入口点
+        name='icm20948_spi_node',
+        output='screen',
+        parameters=[
+            {'imu_frequency': 100}
+        ]
+    )
     
 
     # 3. 返回启动描述
     return LaunchDescription([
         car_driver_node,
-        camera_publisher_node
+        camera_publisher_node,
+        icm20948_spi_node
     ])
