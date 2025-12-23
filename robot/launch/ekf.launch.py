@@ -11,7 +11,7 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('robot')
     ekf_config_path = os.path.join(pkg_share, 'config', 'ekf.yaml')
 
-    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
 
     # 2. 定义 EKF 节点
