@@ -52,6 +52,8 @@ RUN apt-get update && \
     ros-jazzy-ros-gz-image \
     ros-jazzy-xacro \
     ros-jazzy-ros-gz-sim \
+    # nv2
+    ros-jazzy-nav2-bringup \
     && rm -rf /var/lib/apt/lists/*
 
 

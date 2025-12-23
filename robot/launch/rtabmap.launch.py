@@ -18,10 +18,10 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': use_sim_time,
             'frame_id': 'base_link',
-            'subscribe_depth': True,
-            'subscribe_rgb': True,
-            'subscribe_scan': False,    # 如果有雷达可以设为 True 增强地图
-            'approx_sync': True,
+            'subscribe_depth': 'false',
+            'subscribe_rgb': 'true',
+            'subscribe_scan': 'false',    # 如果有雷达可以设为 True 增强地图
+            'approx_sync': 'true',
             'queue_size': 30,           # 树莓派建议增加队列缓存
 
             # --- 地图增强参数 ---
