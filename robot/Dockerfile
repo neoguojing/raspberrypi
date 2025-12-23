@@ -51,6 +51,7 @@ RUN apt-get update && \
     ros-jazzy-ros-gz-bridge \
     ros-jazzy-ros-gz-image \
     ros-jazzy-xacro \
+    ros-jazzy-ros-gz-sim \
     && rm -rf /var/lib/apt/lists/*
 
 

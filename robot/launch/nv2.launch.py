@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     # --- 1. 定义必要的参数和文件路径 ---
-    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
 
     # 获取 Nav2 包的共享目录

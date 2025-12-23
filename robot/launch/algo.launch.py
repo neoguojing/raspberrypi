@@ -9,7 +9,7 @@ def generate_launch_description():
     pkg_path = get_package_share_directory('robot')
 
     # 1. 定义统一的参数
-    use_sim_time = LaunchConfiguration('use_sim_time')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false', # 模拟环境默认为 true
