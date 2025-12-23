@@ -119,7 +119,7 @@ RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
     rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false"
 
 ENV ROS_DOMAIN_ID=42
-
+ENV ROS_DISTRO=jazzy
 # 设置环境变量指向该文件
 # ENV CYCLONEDDS_URI=file:///etc/ros/cyclonedds/config.xml
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
