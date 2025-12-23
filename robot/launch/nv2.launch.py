@@ -22,17 +22,7 @@ def generate_launch_description():
     params_file = LaunchConfiguration('params_file')
     default_params_file = os.path.join(config_dir, 'nav2_params.yaml')
 
-    # 地图文件路径
-    map_file = LaunchConfiguration('map')
-    # 假设您的地图文件名为 'my_slam_map.yaml'
-    default_map_file = os.path.join(config_dir, 'my_slam_map.yaml') 
-
     # --- 2. 声明 Launch 参数 ---
-    
-    declare_map_cmd = DeclareLaunchArgument(
-        'map',
-        default_value=default_map_file,
-        description='Full path to map file to load')
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
@@ -47,7 +37,6 @@ def generate_launch_description():
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
         ),
         launch_arguments={
-            'map': map_file,
             'use_sim_time': use_sim_time, # 如果在真实机器人上运行，设置为 false
             'params_file': params_file,
             'autostart': 'true',
@@ -60,7 +49,6 @@ def generate_launch_description():
     # --- 4. 返回 LaunchDescription ---
     return LaunchDescription([
         declare_use_sim_time,
-        declare_map_cmd,
         declare_params_file_cmd,
         nav2_bringup_launch
     ])
