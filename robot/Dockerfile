@@ -130,6 +130,7 @@ ENV ROS_DISTRO=jazzy
 # 设置环境变量指向该文件
 # ENV CYCLONEDDS_URI=file:///etc/ros/cyclonedds/config.xml
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV GZ_PARTITION=sim
 
 CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
 
