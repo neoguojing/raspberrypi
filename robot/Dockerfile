@@ -48,10 +48,11 @@ RUN apt-get update && \
     # DDS
     ros-jazzy-rmw-cyclonedds-cpp \
     # 仿真
+    ros-jazzy-ros-gz \
     ros-jazzy-ros-gz-bridge \
     ros-jazzy-ros-gz-image \
-    ros-jazzy-xacro \
     ros-jazzy-ros-gz-sim \
+    ros-jazzy-xacro \
     # nv2
     ros-jazzy-nav2-bringup \
     && rm -rf /var/lib/apt/lists/*
