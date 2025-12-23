@@ -8,7 +8,8 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     # 声明参数
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
-    
+    declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
+
     # RTAB-Map 核心节点
     rtabmap_node = Node(
         package='rtabmap_slam', # 注意：ROS 2 Humble 及之后版本包名为 rtabmap_slam
@@ -52,6 +53,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        DeclareLaunchArgument('use_sim_time', default_value='false'),
+        declare_use_sim_time,
         rtabmap_node,
     ])
