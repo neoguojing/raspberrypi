@@ -136,18 +136,32 @@ ros2_build: ros2_clean
 	colcon build --packages-select robot
 
 ros2_robot:
-	@echo "启动系统..."
+	@echo "启动robot系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
 	cd $(PROJECT_ROOT) && \
 	. install/setup.bash && \
 	ros2 launch robot robot.launch.py
 
-ros2_server:
-	@echo "启动系统..."
+ros2_algo:
+	@echo "启动算法系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
 	cd $(PROJECT_ROOT) && \
 	. install/setup.bash && \
-	ros2 launch robot main.launch.py
+	ros2 launch robot algo.launch.py
+
+ros2_sim:
+	@echo "启动模拟系统..."
+	# 使用 . 代替 source，并确保在项目根目录执行
+	cd $(PROJECT_ROOT) && \
+	. install/setup.bash && \
+	ros2 launch robot full.sim.launch.py
+
+ros2_full:
+	@echo "启动模拟系统..."
+	# 使用 . 代替 source，并确保在项目根目录执行
+	cd $(PROJECT_ROOT) && \
+	. install/setup.bash && \
+	ros2 launch robot full.launch.py
 
 ros2_clean:
 	@echo "进入 $(PROJECT_ROOT)"

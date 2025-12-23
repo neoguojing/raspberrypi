@@ -8,7 +8,9 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     # --- 1. 定义必要的参数和文件路径 ---
-    
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
+
     # 获取 Nav2 包的共享目录
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
     
@@ -46,7 +48,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             'map': map_file,
-            'use_sim_time': 'false', # 如果在真实机器人上运行，设置为 false
+            'use_sim_time': use_sim_time, # 如果在真实机器人上运行，设置为 false
             'params_file': params_file,
             'autostart': 'true',
             'namespace': '',
@@ -57,6 +59,7 @@ def generate_launch_description():
 
     # --- 4. 返回 LaunchDescription ---
     return LaunchDescription([
+        declare_use_sim_time,
         declare_map_cmd,
         declare_params_file_cmd,
         nav2_bringup_launch

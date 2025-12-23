@@ -47,6 +47,13 @@ RUN apt-get update && \
     ros-jazzy-imu-tools \
     # DDS
     ros-jazzy-rmw-cyclonedds-cpp \
+    # 仿真
+    ros-jazzy-ros-gz-bridge \
+    ros-jazzy-ros-gz-sim-plugins \
+    ros-jazzy-ros-gz-interfaces \
+    ros-jazzy-ros-gz-image \
+    ros-jazzy-robot-state-publisher \
+    ros-jazzy-xacro \
     && rm -rf /var/lib/apt/lists/*
 
 
