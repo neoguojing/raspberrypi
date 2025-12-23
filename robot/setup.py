@@ -15,6 +15,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # 这一行非常重要：确保 launch 文件能被找到
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
