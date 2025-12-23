@@ -36,13 +36,6 @@ def generate_launch_description():
             LaunchConfiguration('voc_path'),
             LaunchConfiguration('yaml_path')
         ],
-        parameters=[{
-            'use_sim_time': True,    # 模拟环境下必须开启
-        }],
-        # 映射到你小车发布的摄像头话题
-        remappings=[
-            ('/camera/image_raw', '/camera/image_raw')
-        ]
     )
 
     return LaunchDescription([
