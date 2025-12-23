@@ -18,10 +18,11 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': use_sim_time,
             'frame_id': 'base_link',
-            'subscribe_depth': 'false',
-            'subscribe_rgb': 'true',
-            'subscribe_scan': 'false',    # 如果有雷达可以设为 True 增强地图
-            'approx_sync': 'true',
+            'subscribe_scan_cloud': True,  # 开启点云订阅
+            'subscribe_depth': False,
+            'subscribe_rgb': True,
+            'subscribe_scan': False,    # 如果有雷达可以设为 True 增强地图
+            'approx_sync': True,
             'queue_size': 30,           # 树莓派建议增加队列缓存
 
             # --- 地图增强参数 ---
@@ -44,9 +45,10 @@ def generate_launch_description():
             'DbSqlite3/CacheSize': '10000',      # 增加数据库缓存提高读写速度
         }],
         remappings=[
-            ('rgb/image', '/camera/color/image_raw'),
+            ('scan_cloud', '/slam3/map_points'), # 将 SLAM3 的点云映射为 RTAB-Map 的输入
+            ('rgb/image', '/camera/image_raw/compressed'),
             ('depth/image', '/camera/depth/image_raw'),
-            ('rgb/camera_info', '/camera/color/camera_info'),
+            ('rgb/camera_info', '/camera/camera_info'),
             ('odom', '/slam3/odom'),                   # 此处需指向 ORB-SLAM3 发布的里程计
             ('grid_map', '/map')                 # 将 RTAB-Map 输出的地图映射给 Nav2
         ],
