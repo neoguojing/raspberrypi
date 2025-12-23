@@ -40,3 +40,14 @@ ros2 topic delay /camera/image_raw
 ros2 run tf2_tools view_frames
 # 在 Jazzy 中，建议使用：
 ros2 run tf2_ros tf2_monitor
+
+# 仿真环境安装
+sudo apt update && sudo apt install curl gnupg lsb-release -y
+sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osr-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osr-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+
+sudo apt update
+sudo apt install gz-harmonic
+
+export GZ_PARTITION=sim
+gz sim -v 4 shapes.sdf

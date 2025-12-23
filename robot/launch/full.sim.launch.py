@@ -48,15 +48,22 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            # 控制与反馈
+            # 1. 指令流：Nav2 -> Gazebo (控制小车 N20 电机和 SG90 舵机)
             '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
+
+            # 2. 时间流：Gazebo -> ROS 2 (同步所有节点的时间戳，避免 TF 超时)
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            # 传感器数据
-            '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+
+            # 3. 基础变换流：Gazebo -> ROS 2 (提供 Link 间的静态 TF，如 base_link 到 camera_link)
+            '/sim/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+
+            # 4. 传感器流：Gazebo -> ORB-SLAM3 & EKF (原始感知数据)
+            '/imu/data_raw@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+
+            # 5. 参考流：Gazebo -> EKF (将 Gazebo 计算的物理里程计作为 EKF 的基础输入之一)
+            '/sim/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry'
         ],
         output='screen'
     )
