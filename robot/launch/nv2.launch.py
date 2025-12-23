@@ -30,7 +30,7 @@ def generate_launch_description():
         description='Full path to the ROS2 parameters file to use for all launched nodes')
 
     # --- 3. 启动 Nav2 的核心组件 ---
-    
+    print("Using Nav2 parameters file: " + str(default_params_file))
     # Nav2 Bringup 的主要启动文件，它会启动 Map Server, AMCL, Planner, Controller, Behavior Tree 等
     nav2_bringup_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -41,8 +41,11 @@ def generate_launch_description():
             'params_file': params_file,
             'autostart': 'true',
             'namespace': '',
-            'slam': 'false', # 我们使用已经构建好的地图，所以 SLAM 关闭
-            'use_respawn': 'false',
+            'slam': 'False', # 我们使用已经构建好的地图，所以 SLAM 关闭
+            'map': 'False',
+            'use_composition': 'True', # 是否使用组件容器
+            'amcl': 'False',   # 设为 False，不要让它启动 amcl
+            # 'use_respawn': 'false',
         }.items(),
     )
 

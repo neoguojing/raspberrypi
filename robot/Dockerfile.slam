@@ -63,21 +63,21 @@ RUN echo "Building Thirdparty/DBoW2 ..." && \
     cd Thirdparty/DBoW2 && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j4
+    make -j2
 
 # --- 2. 编译 g2o ---
 RUN echo "Building Thirdparty/g2o ..." && \
     cd Thirdparty/g2o && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j4
+    make -j2
 
 # --- 3. 编译 Sophus ---
 RUN echo "Building Thirdparty/Sophus ..." && \
     cd Thirdparty/Sophus && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make -j4 && make install
+    make -j2 && make install
 
 # --- 4. 解压词典 (这一步不占内存但占空间，建议解压后删除压缩包以减小镜像) ---
 RUN echo "Uncompressing vocabulary ..." && \
@@ -90,7 +90,7 @@ RUN echo "Uncompressing vocabulary ..." && \
 RUN echo "Building ORB_SLAM3 ..." && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2 --param ggc-min-expand=1 --param ggc-min-heapsize=32768" && \
-    make -j4
+    make -j2
 
 
 # 如果你的 ROS 2 节点依然找不到 Sophus，可以在环境变量中添加前缀路径
