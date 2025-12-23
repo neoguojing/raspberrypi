@@ -5,7 +5,6 @@
   xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd"> 
     <Domain id="any">
         <General>
-            <NetworkInterfaceAddress>wlan0</NetworkInterfaceAddress>
             <AllowMulticast>true</AllowMulticast>
             <MaxMessageSize>65500B</MaxMessageSize>
         </General>
