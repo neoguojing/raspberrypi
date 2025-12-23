@@ -1,8 +1,42 @@
-# 
-ros2 topic list
-# QoS（服务质量）匹配
-ros2 topic info /camera/image_raw --verbose
-ros2 topic hz /camera/image_raw
+# 验证两台机器是否能通过多播发现对方（DDS 发现的基础）
+ros2 multicast receive  # 在服务器端运行
+ros2 multicast send     # 在树莓派端运行，看服务器是否有输出
 
-ros2 multicast receive  # 先在一台机器运行
-ros2 multicast send     # 后在另一台机器运行
+# 检查节点之间的逻辑连接（查看整个计算图）
+ros2 node list
+ros2 node info /your_slam_node_name
+
+# 查看所有话题，确认远端话题是否已经出现在列表中
+ros2 topic list -t      # -t 会显示话题类型，方便排查
+
+# 查看 CycloneDDS 的当前配置（确认 XML 是否生效）
+ros2 doctor --report | grep rmw
+
+# 实时监测网络流量与丢包（需要安装 cyclonedds-tools）
+# sudo apt install ros-jazzy-cyclonedds-tools
+ros2 run cyclonedds_cpp_tools cyclone_find_topic /camera/image_raw
+
+# 强制刷新发现机制（有时节点重启后没对上，可以用这个查看）
+ros2 run cyclonedds_cpp_tools cyclone_list_nodes
+
+# 查看话题的详细 QoS 设置
+# 重点检查：Reliability (可靠性) 和 Durability (持久性)
+ros2 topic info /camera/image_raw --verbose
+
+# 手动指定 QoS 打印话题（如果对方是 SensorDataQoS，普通 echo 可能没数据）
+# 单目视觉和 IMU 通常使用 'sensor_data' 策略
+ros2 topic echo /camera/image_raw --qos-profile sensor_data
+
+# 检查消息频率是否稳定（判断 WiFi 是否堵塞）
+ros2 topic hz /camera/image_raw    # 图像频率
+ros2 topic hz /imu/data            # IMU 频率
+ros2 topic bw /camera/image_raw    # 查看实际占用的带宽（Mbps）
+
+# 检查图像消息从树莓派发出到服务器接收的时间延迟
+# (前提：两台机器已通过 chrony 进行时间同步)
+ros2 topic delay /camera/image_raw
+
+# 查看 TF 树是否完整，以及是否存在过期数据
+ros2 run tf2_tools view_frames
+# 在 Jazzy 中，建议使用：
+ros2 run tf2_ros tf2_monitor
