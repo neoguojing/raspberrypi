@@ -120,7 +120,7 @@ RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
 
 ENV ROS_DOMAIN_ID=42
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV CYCLONEDDS_URI=file:///home/ros_user/ros2_ws/robot/cyclonedds.xml
+# ENV CYCLONEDDS_URI=file:///home/ros_user/ros2_ws/robot/cyclonedds.xml
 
 CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
 
