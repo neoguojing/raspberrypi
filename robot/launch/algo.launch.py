@@ -33,7 +33,7 @@ def generate_launch_description():
 
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'efk.launch.py')),
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'ekf.launch.py')),
         launch_arguments=common_args
     )
 
@@ -46,7 +46,7 @@ def generate_launch_description():
     return LaunchDescription([
         declare_use_sim_time,
         map_launch,
-        nv2_launch,
+        # nv2_launch,
         efk_launch,
         slam3_launch
     ])
