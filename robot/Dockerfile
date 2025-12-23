@@ -120,24 +120,8 @@ RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
 
 ENV ROS_DOMAIN_ID=42
 
-RUN mkdir -p /etc/ros/cyclonedds && \
-    cat <<EOF > /etc/ros/cyclonedds/config.xml
-<?xml version="1.0" encoding="utf-8"?>
-<CycloneDDS xmlns="https://cdds.io/config">
-    <Domain id="any">
-        <General>
-            <AllowMulticast>true</AllowMulticast>
-            <MaxMessageSize>65500B</MaxMessageSize>
-        </General>
-        <Internal>
-            <SocketReceiveBufferSize>10485760</SocketReceiveBufferSize>
-            <SocketSendBufferSize>10485760</SocketSendBufferSize>
-        </Internal>
-    </Domain>
-</CycloneDDS>
-EOF
 # 设置环境变量指向该文件
-ENV CYCLONEDDS_URI=file:///etc/ros/cyclonedds/config.xml
+# ENV CYCLONEDDS_URI=file:///etc/ros/cyclonedds/config.xml
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
