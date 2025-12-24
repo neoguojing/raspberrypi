@@ -68,7 +68,7 @@ ekf_filter_node:
         map_frame: map              # Defaults to "map" if unspecified
         odom_frame: odom            # Defaults to "odom" if unspecified
         base_link_frame: base_link  # Defaults to "base_link" if unspecified
-        world_frame: odom           # Defaults to the value of odom_frame if unspecified 局部efk
+        world_frame: odom           # Defaults to the value of odom_frame if unspecified
 
         # 该滤波器可以接收来自每种消息类型（nav_msgs/Odometry、geometry_msgs/PoseWithCovarianceStamped、geometry_msgs/TwistWithCovarianceStamped、sensor_msgs/Imu）的任意数量的输入。
         # 要添加一个输入项，只需在其“基础”名称后按顺序追加数字即可，例如：odom0、odom1、twist0、twist1、imu0、imu1、imu2 等。
@@ -93,11 +93,11 @@ ekf_filter_node:
         # 在这种情况下，通常合理的做法是：(a) 修正测量数据的协方差；或者 (b) 如果其中一个传感器也测量速度，则让一个传感器测量位姿，另一个测量速度。
         # 然而，(a) 或 (b) 方案并不总是可行，因此我们提供了“微分（differential）”参数。当启用微分模式时，所有的绝对位姿数据都会通过微分计算转换为速度数据。
         # 随后，这些速度数据将像往常一样被积分。注意：此参数仅适用于提供位姿测量的传感器；为速度（twist）测量设置 differential: true 不会有任何效果。
-        odom0_differential: true
+        odom0_differential: false
 
         # 高级】当节点启动时，如果此参数设置为 true，那么收到的第一条测量数据将被视为后续所有测量值的“零点”。虽然使用“微分（differential）”参数也可以达到类似的效果，
         # 但核心区别在于：相对模式（relative）不会在积分之前将测量值转换为速度。如果您只是单纯希望某个传感器的测量数据从 0 开始，请将此参数设置为 true。
-        odom0_relative: true
+        odom0_relative: false
 
         # [ADVANCED] Whether to use the starting pose of child_frame_id as the origin of odometry.
         # Note: this is different from setting odom0_relative to true, as when child_frame is different from 
