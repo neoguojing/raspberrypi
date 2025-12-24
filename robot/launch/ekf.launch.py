@@ -13,7 +13,7 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
-
+    print("Using ekf config:{ekf_config_path}")
     # 2. 定义 EKF 节点
     ekf_node = Node(
         package='robot_localization',
