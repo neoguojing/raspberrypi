@@ -51,3 +51,67 @@ sudo apt install gz-harmonic
 
 export GZ_PARTITION=sim
 gz sim -v 4 shapes.sdf
+
+# 架构
+robot(camera)  -> /camera/image_raw or /camera/image_raw/compressed -> slam3 and rtabmap
+robot(imu)     -> /imu/data_raw -> slam3 and ekf
+slam3   -> /slam3/pose(map) -> 
+slam3   -> /slam3/odom(odom->base_link) -> ekf
+slam3   -> /slam3/map_points -> rtabmap,nv2(local_costmap.obstacle_layer,local_costmap.voxel_layer,global_costmap.obstacle_layer,collision_monitor)
+slam3   -> /slam3/debug_image -> foxglove or ?
+slam3   -> tf(map->odm) -> 
+ekf     -> /ekf/tf(?) -> nv2
+ekf     -> /ekf/tf_static(?) -> 
+ekf     -> /ekf/odom(?) -> nv2(bt_navigator.odom_topic)
+rtabmap -> /map -> nv2
+nv2(collision_monitor) -> cmd_vel -> robot
+robot     -> /camera/camera_info -> rtabmap
+
+robot (camera) --> /camera/image_raw (sensor_msgs/Image) + /camera/camera_info (sensor_msgs/CameraInfo)
+robot (camera) --> /camera/image_raw/compressed  (optional - image_transport)
+
+robot (imu)    --> /imu/data_raw (sensor_msgs/Imu)
+
+# ORB-/SLAM3 节点（视觉里程计 +地图特征）
+slam3 (ORB-SLAM3) --
+    subscribes: /camera/image_raw, /camera/camera_info, /imu/data_raw (if visual-inertial)
+    publishes:
+        /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map
+        /slam3/odom             (nav_msgs/Odometry)           odom->base_link
+        /slam3/map_points       (sensor_msgs/PointCloud2)     （供可视化或稠密化）
+        /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove)
+    broadcasts:
+        TF: map -> map -> odom
+
+# robot_localization (EKF) — 融合 IMU + slam3/odom
+ekf_localization_node --
+    subscribes: /imu/data_raw, /slam3/odom
+    publishes:
+        /odometry/filtered     (nav_msgs/Odometry)         frame_id: odom (-> base_link)
+    broadcasts:
+        TF: odom -> base_link
+
+# Nav2 (导航堆栈)
+nav2 (bt_navigator, planner_server, controller_server, costmap) --
+    subscribes:
+        /map  (来自 rtabmap)
+        odom topic (set 为 /odometry/filtered 或 /odom)
+        sensor topics for obstacle_layer (e.g. /scan, /points)
+    publishes:
+        cmd_vel -> robot base controller (geometry_msgs/Twist)
+    uses tf: map -> odom, odom -> base_link, base_link -> sensors
+
+# collision_monitor (Nav2 或自定义)
+collision_monitor --
+    subscribes: rtabmap pointclouds 或 local_costmap topics
+    triggers safety stops / emergency behaviors -> cmd_vel (or into Nav2 lifecycle)
+
+
+# RTAB-Map 用于生成导航地图（占领网格 / 点云）
+# 废弃，无法使用单目相机生成地图
+rtabmap --
+    subscribes: /camera/image_raw, /camera/camera_info, optionally /slam3/pose or /odom
+    publishes:
+        /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map
+        /rtabmap/points         (sensor_msgs/PointCloud2) (map points / obstacles)
+    note: 如果你用 SLAM3 做定位，RTAB-Map 可仅负责稠密重建 / 占用网格生成。
