@@ -27,7 +27,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full
+.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim
 
 all: help
 
@@ -167,3 +167,6 @@ ros2_clean:
 	@echo "进入 $(PROJECT_ROOT)"
 	rm -rf build/ install/ log/ && \
 	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/
+
+sim:
+	gz sim -r empty.sdf
