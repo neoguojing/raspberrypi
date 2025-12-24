@@ -26,10 +26,10 @@ def generate_launch_description():
     )
 
     # 包含 nv2 节点
-    nv2_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
-        launch_arguments=common_args
-    )
+    # nv2_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
+    #     launch_arguments=common_args
+    # )
 
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
