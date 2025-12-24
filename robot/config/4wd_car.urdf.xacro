@@ -117,9 +117,9 @@
       <wheel_separation>${track_width}</wheel_separation>
       <wheel_radius>${wheel_radius}</wheel_radius>
       <topic>/cmd_vel</topic>
-      <odom_topic>/odom</odom_topic>
+      <odom_topic>/ekf/odom</odom_topic>
       <frame_id>odom</frame_id>
-      <child_frame_id>base_footprint</child_frame_id>
+      <child_frame_id>base_link</child_frame_id>
     </plugin>
 
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
@@ -133,7 +133,7 @@
       <always_on>1</always_on>
       <update_rate>100</update_rate>
       <visualize>true</visualize>
-      <topic>imu</topic>
+      <topic>/imu/data_raw</topic>
       <gz_frame_id>imu_link</gz_frame_id>
     </sensor>
   </gazebo>
@@ -144,7 +144,7 @@
       <update_rate>30</update_rate>
       <visualize>true</visualize>
       <topic>camera/image_raw</topic>
-      <gz_frame_id>camera_link_optical</gz_frame_id>
+      <gz_frame_id>camera_link</gz_frame_id>
       <camera>
         <horizontal_fov>1.085</horizontal_fov>
         <image>

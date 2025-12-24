@@ -8,6 +8,7 @@ PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
 PROJECT_ROOT := $(shell pwd)
 ROBOT_DIR = $(PROJECT_ROOT)/robot
+SLAM3_APP_ROOT = /home/ros_user/orbslam3
 ROS_DISTRO := jazzy
 # APT packages needed for the project
 # python3-pyaudio is sometimes better installed via apt on Raspberry Pi
@@ -138,29 +139,28 @@ ros2_build: ros2_clean
 ros2_robot:
 	@echo "启动robot系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
-	cd $(PROJECT_ROOT) && \
-	. install/setup.bash && \
+	cd $(PROJECT_ROOT) && . install/setup.bash && \
 	ros2 launch robot robot.launch.py
 
 ros2_algo:
 	@echo "启动算法系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
-	cd $(PROJECT_ROOT) && \
-	. install/setup.bash && \
+	cd $(PROJECT_ROOT) && . install/setup.bash && \
+	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
 	ros2 launch robot algo.launch.py
 
 ros2_sim:
 	@echo "启动模拟系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
-	cd $(PROJECT_ROOT) && \
-	. install/setup.bash && \
+	cd $(PROJECT_ROOT) && . install/setup.bash && \
+	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
 	ros2 launch robot full.sim.launch.py
 
 ros2_full:
 	@echo "启动模拟系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
-	cd $(PROJECT_ROOT) && \
-	. install/setup.bash && \
+	cd $(PROJECT_ROOT) && . install/setup.bash && \
+	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
 	ros2 launch robot full.launch.py
 
 ros2_clean:

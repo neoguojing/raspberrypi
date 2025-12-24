@@ -49,7 +49,7 @@ def generate_launch_description():
             ('rgb/image', '/camera/image_raw/compressed'),
             ('depth/image', '/camera/depth/image_raw'),
             ('rgb/camera_info', '/camera/camera_info'),
-            ('odom', '/slam3/odom'),                   # 此处需指向 ORB-SLAM3 发布的里程计
+            ('odom', '/ekf/odom'),                   # 此处需指向 EKF发布的里程计
             ('grid_map', '/map')                 # 将 RTAB-Map 输出的地图映射给 Nav2
         ],
     )
