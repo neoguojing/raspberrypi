@@ -169,4 +169,4 @@ ros2_clean:
 	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/
 
 sim:
-	gz sim -r empty.sdf
+	export GZ_PARTITION=sim && gz sim -r empty.sdf

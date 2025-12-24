@@ -20,10 +20,10 @@ def generate_launch_description():
     common_args = {'use_sim_time': use_sim_time}.items()
 
     # 包含 SLAM 节点
-    map_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
-        launch_arguments=common_args
-    )
+    # map_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
+    #     launch_arguments=common_args
+    # )
 
     # 包含 nv2 节点
     # nv2_launch = IncludeLaunchDescription(
@@ -45,7 +45,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
-        map_launch,
+        # map_launch,
         # nv2_launch,
         efk_launch,
         slam3_launch
