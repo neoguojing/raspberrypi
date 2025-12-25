@@ -173,4 +173,4 @@ ros2_ctl:
 	ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 sim:
-	export GZ_PARTITION=sim && gz sim -r warehouse.sdf
+	export GZ_PARTITION=sim && gz sim -r tugbot_depot.sdf
