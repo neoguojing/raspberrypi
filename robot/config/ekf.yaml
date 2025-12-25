@@ -16,10 +16,11 @@ ekf_filter_node:
     # ========================
     odom0: /slam3/odom
     odom0_config: [
-      true,  true,  false,   # x, y, z
-      false, false, true,    # roll, pitch, yaw
-      false, false, false,   # vx, vy, vz
-      false, false, false    # vroll, vpitch, vyaw
+      false, false, false,  # x, y, z
+      false, false, false,  # roll, pitch, yaw
+      true,  true,  false,  # vx, vy, vz (开启：使用SLAM计算的水平线速度)
+      false, false, true,   # vroll, vpitch, vyaw (开启：使用SLAM计算的偏航角速度)
+      false, false, false   # ax, ay, az
     ]
 
     odom0_queue_size: 10
@@ -28,14 +29,15 @@ ekf_filter_node:
     odom0_relative: false
 
     # ========================
-    # 2. IMU 输入
+    # 2. IMU 输入ICM-20948
     # ========================
     imu0: /imu/data_raw
     imu0_config: [
-      false, false, false,   # x, y, z
-      false, false, true,    # roll, pitch, yaw
-      true,  true,  false,   # vx, vy, vz
-      false, false, true    # vroll, vpitch, vyaw
+      false, false, false,  # x, y, z (位置：IMU不提供)
+      false, false, false,  # roll, pitch, yaw (姿态：防止磁力计干扰，通常设为false)
+      false, false, false,  # vx, vy, vz (线速度：ICM20948不提供，必须为false)
+      true,  true,  true,   # vroll, vpitch, vyaw (角速度：开启)
+      true,  true,  false   # ax, ay, az (线性加速度：开启x和y，z通常有重力干扰设为false)
     ]
 
     imu0_differential: false
@@ -43,13 +45,31 @@ ekf_filter_node:
     imu0_queue_size: 50
     imu0_remove_gravitational_acceleration: true
 
+    # $x, y$: 设置为较小值，依赖速度积分。
+    # $z, roll, pitch$: 虽然是 2D 模式，但为了数值稳定性，保持极小值。
+    # $yaw$: 关键参数，设稍大一点以允许 SLAM 和 IMU 的角速度修正航向。
+    # $vx, vy$: 依赖 SLAM 观测，设置中等值。
+    # $vyaw$: 依赖 IMU 高频观测，设置较小值以保持旋转平滑。
+    process_noise_covariance: [0.05, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.05,  0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    1e-6,   0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    1e-6,   0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    1e-6,   0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.1,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.25,    0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.25,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     1e-6,   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    1e-6,   0.0,    0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    1e-6,   0.0,    0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.05,   0.0,    0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.01,   0.0,    0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.01,   0.0,
+                           0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-6]
     # ========================
     # 3. 初始协方差（关键）
     # ========================
-    initial_estimate_covariance:
-      [1e-9, 0,    0,    0,    0,    0,
-       0,    1e-9, 0,    0,    0,    0,
-       0,    0,    1e6,  0,    0,    0,
-       0,    0,    0,    1e6,  0,    0,
-       0,    0,    0,    0,    1e6,  0,
-       0,    0,    0,    0,    0,    1e-9]
+    # $x, y, yaw$: 给一个适中的不确定度（如 0.1），允许滤波器在接收到第一帧 SLAM 数据时快速修正坐标。
+    # 速度项: 设为较小值，因为启动时小车通常是静止的。
+    # 未观测项 ($z, roll, pitch, az$): 设为较大值（如 1e-6 到 1.0），表示完全不关心这些轴。
+    # 顺序：x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
+    initial_estimate_covariance: [0.1,  0.1,  1e-9, 1e-9, 1e-9, 0.1,1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9]
