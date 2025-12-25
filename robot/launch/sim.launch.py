@@ -40,7 +40,7 @@ def generate_launch_description():
         arguments=[
             '-name', 'n20_sg90_robot',
             '-string', robot_desc,
-            '-world', 'warehouse',      # 明确指定要在名为 warehouse 的世界中生成
+            '-world', 'world_demo',      # 明确指定要在名为 warehouse 的世界中生成
             '-x', '2.0',                # X 坐标偏移
             '-y', '0.0',                # Y 坐标
             '-z', '0.2',                # Z 轴抬高，避免压到地板或碰撞盒重叠
