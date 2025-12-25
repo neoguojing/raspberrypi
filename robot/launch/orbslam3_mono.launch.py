@@ -32,6 +32,7 @@ def generate_launch_description():
         name='orbslam3_mono',
         output='screen',
         # ORB-SLAM3 的 C++ 节点通常通过 main(argc, argv) 接收参数
+        prefix=['gdb -ex run --args'],
         arguments=[
             LaunchConfiguration('voc_path'),
             LaunchConfiguration('yaml_path')
