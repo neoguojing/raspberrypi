@@ -37,7 +37,17 @@ def generate_launch_description():
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
-        arguments=['-name', 'n20_sg90_robot', '-string', robot_desc],
+        arguments=[
+            '-name', 'n20_sg90_robot',
+            '-string', robot_desc,
+            '-world', 'warehouse',      # 明确指定要在名为 warehouse 的世界中生成
+            '-x', '2.0',                # X 坐标偏移
+            '-y', '0.0',                # Y 坐标
+            '-z', '0.2',                # Z 轴抬高，避免压到地板或碰撞盒重叠
+            '-R', '0.0',                # 欧拉角：滚转
+            '-P', '0.0',                # 欧拉角：俯仰
+            '-Y', '1.57'                # 欧拉角：偏航 (1.57弧度约为90度，改变朝向)
+        ],
         output='screen'
     )
 

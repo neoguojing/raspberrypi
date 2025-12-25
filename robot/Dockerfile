@@ -133,6 +133,8 @@ RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyri
     libgz-transport13-dev \
     libgz-sim8-dev \
     libsdformat14-dev \
+    # 仿真控制
+    ros-jazzy-teleop-twist-keyboard \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DOMAIN_ID=42
