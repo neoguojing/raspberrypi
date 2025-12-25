@@ -1,3 +1,4 @@
+#AMCL 是一个“纠偏器”。 它通过将激光雷达扫描与静态地图进行对比，修正轮式里程计（Odom）随时间产生的累积误差，确保机器人在地图上的位置始终准确。
 amcl:
   ros__parameters:
     alpha1: 0.2
@@ -39,6 +40,10 @@ amcl:
     z_short: 0.05
     scan_topic: scan
 
+# BT Navigator (指挥官)
+# 一句话： 它是导航的**“逻辑大脑”**。
+# 功能： 不算路径，不发速度，只拿“行为树说明书”指挥 Planner 规划、Controller 走车、Recovery 救灾。
+# 算法： 行为树（BT），决定了“失败了怎么办”的逻辑。
 bt_navigator:
   ros__parameters:
     global_frame: map
@@ -85,6 +90,10 @@ bt_navigator:
       - undock_robot
       - wait
 
+# Controller Server (驾驶员)
+# 一句话： 它是实际**“踩油门和打方向”**的。
+# 算法： 你的配置是 MPPI（预测数千条路径并选最好的）。
+# 功能： 实时避障并死死贴住全局路径，每秒给电机发 20 次指令（cmd_vel）。
 controller_server:
   ros__parameters:
     controller_frequency: 20.0
@@ -219,6 +228,8 @@ controller_server:
       #   twirling_cost_power: 1
       #   twirling_cost_weight: 10.0
 
+# local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
+# 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
 local_costmap:
   local_costmap:
     ros__parameters:
@@ -275,6 +286,8 @@ local_costmap:
       always_send_full_costmap: True
       introspection_mode: "disabled"
 
+# global_costmap 是机器人的全局上帝视角。 它以静态地图为底色，叠加实时雷达数据（obstacle_layer）和人工规则（keepout/speed filter），
+# 最终通过膨胀算法生成一张让规划器“看清全局风险”的代价网格。
 global_costmap:
   global_costmap:
     ros__parameters:
@@ -331,11 +344,19 @@ global_costmap:
 # The yaml_filename does not need to be specified since it going to be set by defaults in launch.
 # If you'd rather set it in the yaml, remove the default "map" value in the launch file(s).
 # file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
+# map_server 是一个只读的“电子地图分发员”。 它不具备建图能力，也不处理传感器数据。它唯一的任务就是把保存在硬盘里的图片变回 ROS 能够理解的坐标矩阵（栅格地图），
+# 告诉导航系统：“世界原本长什么样”。
 map_server:
   ros__parameters:
     # yaml_filename: ""
     introspection_mode: "disabled"
 
+# Keepout & Speed Filter (禁区与限速滤镜):
+# 核心功能：
+# Keepout: 强制机器人避开特定区域（虚拟墙）。
+# Speed: 强制机器人在特定区域（如人流密集区）降速。
+
+总结：它是**“交通规则”**，通过图像遮罩（Mask）来定义机器人不能去或必须慢行的地方。
 keepout_filter_mask_server:
   ros__parameters:
     topic_name: "keepout_filter_mask"
@@ -369,7 +390,9 @@ map_saver:
     occupied_thresh_default: 0.65
     map_subscribe_transient_local: True
     introspection_mode: "disabled"
-
+# Planner Server (全局规划器):
+# 核心功能：使用 NavfnPlanner 算法（Dijkstra），在全局地图上搜索一条从起点到终点的连通路径。
+# 总结：它是**“寻路者”**，负责算出宏观上哪条路能通。
 planner_server:
   ros__parameters:
     allow_partial_planning: false
@@ -382,7 +405,9 @@ planner_server:
       tolerance: 0.5
       use_astar: false
       allow_unknown: true
-
+# Smoother Server (路径平滑器):
+# 核心功能：对规划器生成的折线路径进行平滑处理，使其更符合机器人的物理运动规律。
+#总结：它是**“修路工”**，把生硬的折线弯道修圆，减少机器人转弯时的顿挫。
 smoother_server:
   ros__parameters:
     smoother_plugins: ["simple_smoother", "route_smoother"]
@@ -402,7 +427,9 @@ smoother_server:
       # False for Route Server or others where smoothing out sharp corners is OK
       enforce_path_inversion: False
       do_refinement: True
-
+# Behavior Server (行为服务器):
+# 核心功能：提供一系列**“自救动作”**（如原地旋转 spin、后退 backup、原地等待 wait）。
+# 总结：它是**“应急预案”**。当机器人卡住或迷路时，由它执行预设的补救动作。
 behavior_server:
   ros__parameters:
     local_costmap_topic: local_costmap/costmap_raw
@@ -436,7 +463,9 @@ behavior_server:
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
     rotational_acc_lim: 3.2
-
+# Waypoint Follower (航点跟随器):
+# 核心功能：依次访问一系列点，并在点位执行任务（如停顿 200ms）。
+# 总结：它是**“巡检调度”**。
 waypoint_follower:
   ros__parameters:
     loop_rate: 20
@@ -447,7 +476,8 @@ waypoint_follower:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: True
       waypoint_pause_duration: 200
-
+# Route Server (路由服务器):
+# 核心功能：基于图（Graph）进行导航。在像仓库这种有预设轨道或路径的网络中，它比全局规划器更有效。
 route_server:
   ros__parameters:
     # The graph_filepath does not need to be specified since it going to be set by defaults in launch.
@@ -470,7 +500,9 @@ route_server:
       plugin: "nav2_route::DistanceScorer"
     CostmapScorer:
       plugin: "nav2_route::CostmapScorer"
-
+# Velocity Smoother (速度平滑器):
+# 核心功能：对最终下发的 cmd_vel 进行加速度和减速度平滑，防止点击抖动或机械损坏。
+# 总结：它是**“油门/刹车缓冲器”**。
 velocity_smoother:
   ros__parameters:
     smoothing_frequency: 20.0
@@ -484,7 +516,9 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
-
+# Collision Monitor (碰撞监测器):
+# 核心功能：直接监听雷达数据，如果检测到障碍物即将进入机器人足迹（Footprint），立即跳过导航逻辑强制刹车。
+# 总结：它是**“主动刹车”**。作为最后的防撞屏障，它比代价地图响应更快、权限更高。
 collision_monitor:
   ros__parameters:
     enabled: True
@@ -516,7 +550,9 @@ collision_monitor:
       min_height: 0.15
       max_height: 2.0
       enabled: True
-
+# Docking Server (自动对接):
+# 核心功能：控制机器人精准地倒车或前进进入充电座（Dock）。
+# 总结：它是**“自动泊车”**。
 docking_server:
   ros__parameters:
     controller_frequency: 50.0
@@ -570,7 +606,9 @@ docking_server:
       projection_time: 5.0
       simulation_step: 0.1
       dock_collision_threshold: 0.3
-
+# Loopback Simulator (回环仿真器):
+# 核心功能：在没有真实机器人或物理引擎（如 Gazebo）时，模拟位姿和雷达数据。
+# 总结：它是**“模拟环境”**。
 loopback_simulator:
   ros__parameters:
     base_frame_id: "base_footprint"

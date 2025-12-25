@@ -37,15 +37,18 @@ def generate_launch_description():
             os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time, # 如果在真实机器人上运行，设置为 false
-            'params_file': params_file,
-            'autostart': 'true',
+            # 定位与地图控制
+            'slam': 'False',         # 关闭 Nav2 自带的 SLAM，因为你有 ORB-SLAM3
+            'amcl': 'False',         # 核心：必须关闭，防止 TF 冲突
+            'map': 'False', # 如果你有建好的地图就填路径，没有就填 'False'
+            
+            # 性能优化
+            'use_composition': 'True', # 建议开启，提升性能
+            'use_respawn': 'True',     # 如果某个节点崩溃，尝试自动重启
+            
+            # 命名空间控制（多机运行才需要修改）
             'namespace': '',
-            'slam': 'False', # 我们使用已经构建好的地图，所以 SLAM 关闭
-            'map': 'False',
-            'use_composition': 'True', # 是否使用组件容器
-            'amcl': 'False',   # 设为 False，不要让它启动 amcl
-            # 'use_respawn': 'false',
+            'use_namespace': 'False',
         }.items(),
     )
 
