@@ -27,7 +27,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim
+.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim ros2_ctl
 
 all: help
 
@@ -157,7 +157,7 @@ ros2_sim:
 	ros2 launch robot full.sim.launch.py
 
 ros2_full:
-	@echo "启动模拟系统..."
+	@echo "启动生产系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行
 	cd $(PROJECT_ROOT) && . install/setup.bash && \
 	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
@@ -168,5 +168,9 @@ ros2_clean:
 	rm -rf build/ install/ log/ && \
 	cd $(PROJECT_ROOT)/robot/ && rm -rf build/ install/ log/
 
+# 用于启动键盘控制仿真模型
+ros2_ctl:
+	ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
 sim:
-	export GZ_PARTITION=sim && gz sim -r empty.sdf
+	export GZ_PARTITION=sim && gz sim -r warehouse.sdf

@@ -19,7 +19,7 @@ def generate_launch_description():
     # 2. 统一定义需要传递给子 Launch 的参数字典
     common_args = {'use_sim_time': use_sim_time}.items()
 
-    # 包含 SLAM 节点
+    # 包含 rtabmap 节点 舍弃
     # map_launch = IncludeLaunchDescription(
     #     PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
     #     launch_arguments=common_args

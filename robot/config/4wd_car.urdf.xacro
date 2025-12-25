@@ -76,6 +76,13 @@
                  iyy="0.0001" iyz="0"
                  izz="0.0001"/>
       </inertial>
+      <!-- 碰撞 -->
+      <collision>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
     </link>
 
     <!-- 后轮连续旋转（驱动） -->
@@ -135,6 +142,7 @@
     <joint name="front_${suffix}_wheel_joint" type="continuous">
       <parent link="front_${suffix}_steer_link"/>
       <child link="front_${suffix}_wheel"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
       <dynamics damping="0.1" friction="0.1"/>
     </joint>
@@ -198,7 +206,7 @@
       <wheel_separation>${track_width}</wheel_separation>
       <wheel_radius>${wheel_radius}</wheel_radius>
       <topic>/cmd_vel</topic>
-      <odom_topic>/ekf/odom</odom_topic>
+      <odom_topic>/wheel_odom</odom_topic>
       <frame_id>odom</frame_id>
       <child_frame_id>base_link</child_frame_id>
     </plugin>
@@ -207,6 +215,15 @@
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-state-publisher-system"
+        name="gz::sim::systems::JointStatePublisher">
+        <topic>/joint_states</topic>
+        <joint_name>front_left_steer_joint</joint_name>
+        <joint_name>front_right_steer_joint</joint_name>
+        <joint_name>rear_left_wheel_joint</joint_name>
+        <joint_name>rear_right_wheel_joint</joint_name>
     </plugin>
   </gazebo>
 
@@ -231,8 +248,8 @@
       <always_on>1</always_on>
       <update_rate>30</update_rate>
       <visualize>true</visualize>
-      <topic>camera/image_raw</topic>
-      <gz_frame_id>camera_link</gz_frame_id>
+      <topic>/camera/image_raw</topic>
+      <gz_frame_id>camera_link_optical</gz_frame_id>
       <camera>
         <horizontal_fov>1.085</horizontal_fov>
         <image>
@@ -244,8 +261,26 @@
           <near>0.02</near>
           <far>300</far>
         </clip>
+        <!-- 畸变参数 -->
+        <distortion>
+          <k1>0.0</k1> <k2>0.0</k2> <p1>0.0</p1> <p2>0.0</p2>
+          <center>0.5 0.5</center>
+        </distortion>
       </camera>
     </sensor>
+  </gazebo>
+  <!-- 轮子摩擦力 -->
+  <gazebo reference="front_left_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="front_right_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="rear_left_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="rear_right_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
   </gazebo>
 
 </robot>
