@@ -115,3 +115,11 @@ rtabmap --
         /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map
         /rtabmap/points         (sensor_msgs/PointCloud2) (map points / obstacles)
     note: 如果你用 SLAM3 做定位，RTAB-Map 可仅负责稠密重建 / 占用网格生成。
+
+map (全局坐标系)
+ └── odom (局部连续坐标系)  <-- [由 EKF 发布]
+      └── base_footprint (机器人投影) <-- [由 EKF 发布]
+           └── base_link (机器人本体) <-- [由 Static TF 发布]
+                ├── imu_link (惯性单元)
+                └── camera_link (相机外壳)
+                     └── camera_link_optical (算法核心坐标系)
