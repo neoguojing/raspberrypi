@@ -10,7 +10,8 @@ def generate_launch_description():
     
     # 默认路径（可以被启动参数覆盖）
     default_voc_path = "/home/ros_user/orbslam3/vocabulary/ORBvoc.txt"
-    default_yaml_path = "/home/ros_user/orbslam3/config/monocular/EuRoC.yaml"
+    # default_yaml_path = "/home/ros_user/orbslam3/config/monocular/EuRoC.yaml"
+    default_yaml_path = "/home/ros_user/orbslam3/config/monocular-inertial/EuRoC.yaml"
 
     # --- 2. 声明启动参数 (可在命令行修改) ---
     voc_path_arg = DeclareLaunchArgument(
@@ -32,7 +33,7 @@ def generate_launch_description():
         name='orbslam3_mono',
         output='screen',
         # ORB-SLAM3 的 C++ 节点通常通过 main(argc, argv) 接收参数
-        prefix=['gdb -ex run --args'],
+        # prefix=['gdb -ex run --args'],
         arguments=[
             LaunchConfiguration('voc_path'),
             LaunchConfiguration('yaml_path')
