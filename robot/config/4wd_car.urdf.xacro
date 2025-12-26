@@ -209,6 +209,7 @@
       <odom_topic>/wheel_odom</odom_topic>
       <frame_id>odom</frame_id>
       <child_frame_id>base_link</child_frame_id>
+      <publish_odom_tf>false</publish_odom_tf>
     </plugin>
 
     <!-- IMU & 传感器系统 -->
