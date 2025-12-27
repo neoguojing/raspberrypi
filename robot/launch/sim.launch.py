@@ -63,15 +63,16 @@ def generate_launch_description():
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
 
             # 3. 基础变换流：Gazebo -> ROS 2 (提供 Link 间的静态 TF，如 base_link 到 camera_link)
-            '/sim/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            # '/sim/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
 
             # 4. 传感器流：Gazebo -> ORB-SLAM3 & EKF (原始感知数据)
             '/imu/data_raw@sensor_msgs/msg/Imu[gz.msgs.IMU',
             '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-
-            # 5. 参考流：Gazebo -> EKF (将 Gazebo 计算的物理里程计作为 EKF 的基础输入之一)
-            '/sim/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry'
+            # 5. 里程计流：将 Gazebo 的轮速里程计转发给 ROS 2
+            # 注意：这里的名称必须与 URDF 中 <odom_topic> 标签里的内容严格一致
+            '/wheel_odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model'
         ],
         output='screen'
     )
