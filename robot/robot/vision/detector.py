@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import numpy as np
 import os
+import cv2
 class SegDetector:
     def __init__(
         self,
@@ -27,7 +28,7 @@ class SegDetector:
             0, 1, 2, 3, 5, 7, 24, 26, 32, 39, 41, 64, 67
         ]
 
-    def get_ground_contact_points(self, frame):
+    def get_ground_contact_points(self, frame, render=True):
         results = self.model(frame, verbose=False, conf=self.conf)[0]
         contact_pixels = []
 
@@ -75,5 +76,16 @@ class SegDetector:
             contact_pixels.append(bottom_points[left_idx])
             contact_pixels.append(bottom_points[mid_idx])
             contact_pixels.append(bottom_points[right_idx])
+        
+        annotated_frame = None
+        if render:
+            # 1. 先让 YOLO 帮你画好基础的 Mask 和 框
+            # labels=True 显示类别, boxes=True 显示方框
+            annotated_frame = results.plot(labels=True, boxes=True)
 
-        return contact_pixels
+            # 2. 在 YOLO 画好的图上，叠加你自己的三个采样点
+            # 假设你已经通过之前的逻辑算出了 contact_pixels
+            for pt in contact_pixels:
+                cv2.circle(annotated_frame, (int(pt[0]), int(pt[1])), 5, (0, 0, 255), -1)
+
+        return (contact_pixels , annotated_frame)
