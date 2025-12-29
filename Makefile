@@ -104,7 +104,7 @@ dev:
 		-e QT_X11_NO_MITSHM=1 \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		-v ~/.Xauthority:/root/.Xauthority:ro \
-		--gpus all \
+		# --gpus all \
 		# --env="NVIDIA_DRIVER_CAPABILITIES=all" \
 		guojingneo/robot_rtabmap_slam3_jazzy:pi5 
 
