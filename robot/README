@@ -109,6 +109,12 @@ map (全局坐标系)
                 └── camera_link (相机外壳)
                      └── camera_link_optical (算法核心坐标系)
 
+坐标系名称 (Link),X (前后),Y (左右),Z (高度),说明
+base_footprint,0,0,0,原点： 车体中心在地面上的投影点
+base_link,0,0,0.021,车体中心： 抬高了一个轮子半径 (wheel_radius)
+imu_link,0,0,0.041,IMU中心： 位于车体中心上方 2cm 处
+camera_link,0.08,0,0.071,摄像头外壳： 位于车头（前方 8cm），高度 7.1cm
+camera_link_optical,0.08,0,0.071,光学中心： 位置同上，但坐标轴已旋转（符合 ROS 视觉标准）
 ## 地图生成方案：
 1. RTAB-Map：但支持单目输入。通过 Mem/StereoFromMotion 参数，它可以利用相机运动产生的位移（SFM）来估计深度并构建占据网格图（Occupancy Grid Map）。
 2. SLAM3它能发布 map -> odom 的 TF 变换。你可以使用 orb_slam3_ros_wrapper 将其稀疏特征点云转化为 Nav2 可识别的消息。 REJECT
