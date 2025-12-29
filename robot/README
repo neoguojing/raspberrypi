@@ -53,31 +53,12 @@ export GZ_PARTITION=sim
 gz sim -v 4 shapes.sdf
 
 # 架构
-robot(camera)  -> /camera/image_raw or /camera/image_raw/compressed -> slam3 and rtabmap
-robot(imu)     -> /imu/data_raw -> slam3 and ekf
-slam3   -> /slam3/pose(map) -> 
-slam3   -> /slam3/odom(odom->base_link) -> ekf
-slam3   -> /slam3/map_points -> rtabmap,nv2(local_costmap.obstacle_layer,local_costmap.voxel_layer,global_costmap.obstacle_layer,collision_monitor)
-slam3   -> /slam3/debug_image -> foxglove or ?
-slam3   -> tf(map->odm) -> 
-ekf     -> /ekf/tf(?) -> nv2
-ekf     -> /ekf/tf_static(?) -> 
-ekf     -> /ekf/odom(?) -> nv2(bt_navigator.odom_topic)
-rtabmap -> /map -> nv2
-nv2(collision_monitor) -> cmd_vel -> robot
-robot     -> /camera/camera_info -> rtabmap
-
-robot (camera) --> /camera/image_raw (sensor_msgs/Image) + /camera/camera_info (sensor_msgs/CameraInfo)
-robot (camera) --> /camera/image_raw/compressed  (optional - image_transport)
-
-robot (imu)    --> /imu/data_raw (sensor_msgs/Imu)
-
 # ORB-/SLAM3 节点（视觉里程计 +地图特征）
 slam3 (ORB-SLAM3) --
     subscribes: /camera/image_raw, /camera/camera_info, /imu/data_raw (if visual-inertial)
     publishes:
         /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map
-        /slam3/odom             (nav_msgs/Odometry)           odom->base_link
+        /slam3/odom             (nav_msgs/Odometry)           odom->base_link  线速度偏移较大 TODO
         /slam3/map_points       (sensor_msgs/PointCloud2)     （供可视化或稠密化）
         /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove)
     broadcasts:
@@ -87,19 +68,23 @@ slam3 (ORB-SLAM3) --
 ekf_localization_node --
     subscribes: /imu/data_raw, /slam3/odom
     publishes:
-        /odometry/filtered     (nav_msgs/Odometry)         frame_id: odom (-> base_link)
+        /odometry/filtered     (nav_msgs/Odometry)         frame_id: odom (-> base_footprint)
     broadcasts:
         TF: odom -> base_link
 
 # Nav2 (导航堆栈)
 nav2 (bt_navigator, planner_server, controller_server, costmap) --
     subscribes:
-        /map  (来自 rtabmap)
+        /map  (OccupancyGrid): 来自 rtabmap 或 slam_toolbox 的全局地图
         odom topic (set 为 /odometry/filtered 或 /odom)
-        sensor topics for obstacle_layer (e.g. /scan, /points)
+        /scan (LaserScan): 用于 obstacle_layer 避障。
+        /points (PointCloud2): 深度相机数据，用于检测高处或低处障碍物。
+        /initialpose: 用于手动初始化机器人在地图中的位姿。
     publishes:
         cmd_vel -> robot base controller (geometry_msgs/Twist)
-    uses tf: map -> odom, odom -> base_link, base_link -> sensors
+        /plan: 规划的全局路径。
+        /local_plan: 局部控制器生成的轨迹。
+    uses tf: map -> odom, odom -> base_link, base_link -> sensors 必须包含完整的坐标变换树。
 
 # collision_monitor (Nav2 或自定义)
 collision_monitor --
@@ -115,7 +100,7 @@ rtabmap --
         /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map
         /rtabmap/points         (sensor_msgs/PointCloud2) (map points / obstacles)
     note: 如果你用 SLAM3 做定位，RTAB-Map 可仅负责稠密重建 / 占用网格生成。
-
+## 目标tf
 map (全局坐标系)
  └── odom (局部连续坐标系)  <-- [由 EKF 发布]
       └── base_footprint (机器人投影) <-- [由 EKF 发布]
@@ -123,3 +108,11 @@ map (全局坐标系)
                 ├── imu_link (惯性单元)
                 └── camera_link (相机外壳)
                      └── camera_link_optical (算法核心坐标系)
+
+## 地图生成方案：
+1. RTAB-Map：但支持单目输入。通过 Mem/StereoFromMotion 参数，它可以利用相机运动产生的位移（SFM）来估计深度并构建占据网格图（Occupancy Grid Map）。
+2.  它能发布 map -> odom 的 TF 变换。你可以使用 orb_slam3_ros_wrapper 将其稀疏特征点云转化为 Nav2 可识别的消息。
+## 
+1. 使用 YOLOv8-Seg,将分割出的非地面区域（障碍物）通过几何投影映射到地平面的极坐标系，伪造出 /scan (LaserScan) 用于局部代价地图  TODO
+2.单目深度估计 (Monocular Depth Estimation):Depth-Anything 或 MiDaS 模型，将单目 RGB 图实时转化为“伪深度图”。配合 depthimage_to_laserscan 插件，将伪深度图转化为标准的 /scan 信号 REJECT （模型太大，算力要求极高）
+3.直接在图像上运行目标检测（YOLO），当检测到“人”或“障碍物”且其在图像底部的像素坐标超过安全阈值时，直接给 collision_monitor 发送一个虚拟的距离信号或触发底盘停止。
