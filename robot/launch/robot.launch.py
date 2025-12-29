@@ -44,8 +44,6 @@ def generate_launch_description():
     
 
     # 2. 配置 CameraPublisherNode
-    camera_config_path = os.path.join(pkg_share, 'config', 'imx219.json')
-    camera_height = robot_config['tf_frames']['camera_link']['offset']['z'] + robot_config['tf_frames']['base_link']['offset']['z']
     camera_publisher_node = Node(
         package=package_name,
         executable='camera_publisher_node', # 确保在 setup.py 中定义了此入口点
@@ -53,11 +51,6 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'camera_frequency': 15.0},
-            {'camera_x_offset': robot_config['tf_frames']['camera_link']['offset']['x']},
-            {'camera_height': camera_height},
-            {'camera_pitch': robot_config['tf_frames']['camera_link']['offset']['pitch']},
-            {'max_detection_range': 5.0},
-            {'config_path' : camera_config_path},
         ]
     )
 

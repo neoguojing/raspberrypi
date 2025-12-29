@@ -30,6 +30,7 @@ setup(
             'camera_publisher_node = robot.camera_publisher_node:main',
             'icm20948_spi_node = robot.icm20948_spi_node:main',
             'static_tf_pub_node = robot.static_tf_pub_node:main',
+            'seg_to_scan_node = robot.seg_to_scan_node:main',
         ],
     },
 )
