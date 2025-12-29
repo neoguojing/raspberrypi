@@ -111,8 +111,8 @@ map (全局坐标系)
 
 ## 地图生成方案：
 1. RTAB-Map：但支持单目输入。通过 Mem/StereoFromMotion 参数，它可以利用相机运动产生的位移（SFM）来估计深度并构建占据网格图（Occupancy Grid Map）。
-2.  它能发布 map -> odom 的 TF 变换。你可以使用 orb_slam3_ros_wrapper 将其稀疏特征点云转化为 Nav2 可识别的消息。
+2. SLAM3它能发布 map -> odom 的 TF 变换。你可以使用 orb_slam3_ros_wrapper 将其稀疏特征点云转化为 Nav2 可识别的消息。 REJECT
 ## 
 1. 使用 YOLOv8-Seg,将分割出的非地面区域（障碍物）通过几何投影映射到地平面的极坐标系，伪造出 /scan (LaserScan) 用于局部代价地图  TODO
+3.直接在图像上运行目标检测（YOLO），当检测到“人”或“障碍物”且其在图像底部的像素坐标超过安全阈值时（图像越靠下，障碍物离机器人越近），直接给 collision_monitor 发送一个虚拟的距离信号或触发底盘停止。TODO
 2.单目深度估计 (Monocular Depth Estimation):Depth-Anything 或 MiDaS 模型，将单目 RGB 图实时转化为“伪深度图”。配合 depthimage_to_laserscan 插件，将伪深度图转化为标准的 /scan 信号 REJECT （模型太大，算力要求极高）
-3.直接在图像上运行目标检测（YOLO），当检测到“人”或“障碍物”且其在图像底部的像素坐标超过安全阈值时，直接给 collision_monitor 发送一个虚拟的距离信号或触发底盘停止。

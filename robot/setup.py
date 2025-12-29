@@ -29,6 +29,7 @@ setup(
             'car_driver_node = robot.car_driver_node:main',
             'camera_publisher_node = robot.camera_publisher_node:main',
             'icm20948_spi_node = robot.icm20948_spi_node:main',
+            'static_tf_pub_node = robot.static_tf_pub_node:main',
         ],
     },
 )
