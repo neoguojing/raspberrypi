@@ -6,51 +6,71 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # 声明参数
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
 
-    # RTAB-Map 核心节点
     rtabmap_node = Node(
-        package='rtabmap_slam', # 注意：ROS 2 Humble 及之后版本包名为 rtabmap_slam
+        package='rtabmap_slam',
         executable='rtabmap',
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
-            'frame_id': 'base_link',
-            'subscribe_scan_cloud': True,  # 开启点云订阅
-            'subscribe_depth': False,
-            'subscribe_rgb': True,
-            'subscribe_scan': False,    # 如果有雷达可以设为 True 增强地图
-            'approx_sync': True,
-            'queue_size': 30,           # 树莓派建议增加队列缓存
 
-            # --- 地图增强参数 ---
-            'RGBD/NeighborLinkRefining': 'true', # 闭环检测后细化邻居连接
-            'RGBD/ProximityBySpace': 'true',     # 空间近接检测
-            'RGBD/AngularUpdate': '0.01',        # 即使旋转很小也更新地图
-            'RGBD/LinearUpdate': '0.01',         # 即使移动很小也更新地图
-            
-            # --- 2.D 占据栅格地图增强 (供 Nav2 使用) ---
-            'Grid/FromKnownArea': 'false',       # 设为 false 以实时动态发现环境
-            'Grid/RayTracing': 'true',           # 启用射线追踪，清除动态障碍物
-            'Grid/3D': 'false',                  # 强制输出 2D 地图
-            'Grid/CellSize': '0.05',             # 分辨率需与 Nav2 YAML 保持一致
-            'Grid/MaxObstacleHeight': '1.8',     # 过滤天花板
-            'Grid/MinGroundHeight': '0.05',      # 过滤地面噪点
-            
-            # --- 内存与性能优化 (针对树莓派) ---
-            'Mem/IncrementalMemory': 'true', 
-            'Mem/ReduceGraph': 'true',           # 减少位姿图节点以节省内存
-            'DbSqlite3/CacheSize': '10000',      # 增加数据库缓存提高读写速度
+            # ======================
+            # 1. 订阅与高频同步
+            # ======================
+            'frame_id': 'base_link',
+            'subscribe_rgb': True,
+            'subscribe_depth': False,
+            'subscribe_imu': True,
+            'approx_sync': True,
+            'queue_size': 50,               # 内存充足，增大队列缓冲
+            'wait_imu_to_init': True,
+
+            # ======================
+            # 2. 视觉增强（PC级性能）
+            # ======================
+            'Mem/StereoFromMotion': 'true',  # 单目核心
+            'Vis/EstimationType': '0',       # 2D->2D 极线几何（单目首选）
+            'Vis/MinInliers': '20',          # 提高门槛，增加位姿鲁棒性
+            'Vis/FeatureType': '8',          # 0=SURF 6=GFTT 8=ORB (PC端可改用 0-SURF 精度更高)
+            'Vis/MaxFeatures': '1000',       # 增加特征点数量（默认500）
+            'Vis/BundleAdjustment': '1',     # 开启全局/局部束调整优化
+            'Vis/CorType': '0',              # 0=Features Matching, 1=Optical Flow
+            'Vis/PnPFlags': '0',
+
+            # ======================
+            # 3. 栅格地图 (Grid Map) 精度提升
+            # ======================
+            'Grid/3D': 'false',               # PC端可以处理3D点云投影
+            'Grid/FromDepth': 'true',
+            'Grid/RangeMax': '3.0',          # 性能好可以看得更远
+            'Grid/CellSize': '0.05',         # 恢复 5cm 分辨率
+            'Grid/RayTracing': 'true',       # 必须开启，清除单目深度浮影
+            'Grid/ClusterRadius': '0.05',    # 噪点过滤阈值
+            'Grid/NormalSegmentation': 'false', # 利用法线分割地面与障碍物，更精准
+
+            # ======================
+            # 4. 回环检测与优化
+            # ======================
+            'Kp/MaxFeatures': '800',         # 回环检测特征点翻倍，提高识别率
+            'RGBD/OptimizeFromGraphEnd': 'true', # 设置为false以优化整个全局地图
+            'RGBD/PlanarScan': 'false',
+            'Optimizer/Strategy': '1',       # 0=g2o, 1=gtsam (PC推荐用1-gtsam，精度更高)
+
+            # ======================
+            # 5. 存储与内存管理 (关闭树莓派那种激进限制)
+            # ======================
+            'Rtabmap/DetectionRate': '2',    # 提高到 2Hz 更新频率
+            'Mem/IncrementalMemory': 'true',
+            'Mem/NotLinkedNodesKept': 'true', # 保留更多未连接节点用于回环
         }],
         remappings=[
-            ('scan_cloud', '/slam3/map_points'), # 将 SLAM3 的点云映射为 RTAB-Map 的输入
-            ('rgb/image', '/camera/image_raw/compressed'),
-            ('depth/image', '/camera/depth/image_raw'),
+            ('rgb/image', '/camera/image_raw'),
             ('rgb/camera_info', '/camera/camera_info'),
-            ('odom', '/ekf/odom'),                   # 此处需指向 EKF发布的里程计
-            ('grid_map', '/map')                 # 将 RTAB-Map 输出的地图映射给 Nav2
+            ('imu', '/imu/data_raw'),
+            ('odom', '/ekf/odom'),
+            ('grid_map', '/map'),
         ],
     )
 

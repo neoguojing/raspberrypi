@@ -1,0 +1,60 @@
+{
+    "config_metadata": {
+        "version": "1.1",
+        "convention": "REP-103 (Right-Hand Rule)",
+        "unit_info": {
+            "translation": "meters (m)",
+            "rotation": "radians (rad)",
+            "formula": "radians = degrees * (Math.PI / 180)"
+        },
+        "axis_definition": {
+            "x": "Forward (前)",
+            "y": "Left (左)",
+            "z": "Up (上)",
+            "roll": "Rotate around X (翻滚 - 左右侧倾)",
+            "pitch": "Rotate around Y (俯仰 - 抬头低头)",
+            "yaw": "Rotate around Z (偏航 - 左右转头)"
+        }
+    },
+    "tf_frames": {
+        "base_footprint": {
+            "parent": "odom",
+            "offset": { "x": 0.0, "y": 0.0, "z": 0.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
+            "_desc": "机器人投影在地面上的中心点。由EKF根据编码器和IMU发布，Z轴永远为0。"
+        },
+        "base_link": {
+            "parent": "base_footprint",
+            "offset": { "x": 0.0, "y": 0.0, "z": 0.03, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
+            "_desc": "物理本体坐标系。Z=0.03 表示底盘离地间隙（Ground Clearance）为3cm。"
+        },
+        "imu_link": {
+            "parent": "base_link",
+            "offset": { "x": 0.0, "y": 0.0, "z": 0.02, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
+            "_desc": "惯性测量单元。建议安装在base_link的正上方，减少旋转时的向心加速度误差。"
+        },
+        "camera_link": {
+            "parent": "base_link",
+            "offset": { 
+                "x": 0.08, 
+                "y": 0.0, 
+                "z": 0.05, 
+                "roll": 0.0, 
+                "pitch": 0.1484, 
+                "yaw": 0.0 
+            },
+            "_desc": "相机物理外壳坐标系。pitch=0.1484 是从 8.5° 转换而来 (8.5 * pi / 180)。"
+        },
+        "camera_link_optical": {
+            "parent": "camera_link",
+            "offset": { 
+                "x": 0.0, 
+                "y": 0.0, 
+                "z": 0.0, 
+                "roll": -1.5708, 
+                "pitch": 0.0, 
+                "yaw": -1.5708 
+            },
+            "_desc": "不改变物理位置，仅将坐标轴从(ROS) [X-前, Y-左, Z-上] 翻译为算法用的(Opencv) [Z-前, X-右, Y-下]。"
+        }
+    }
+}
