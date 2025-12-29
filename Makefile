@@ -89,6 +89,8 @@ runtime:
 		--privileged \
 		--network host \
 		guojingneo/robot_rtabmap_slam3_jazzy:pi5
+
+HAS_NVIDIA := $(shell which nvidia-smi 2>/dev/null)
 dev:
 	-docker rm -f ros2_container 2>/dev/null || true
 	docker run -d \
@@ -104,6 +106,7 @@ dev:
 		-e QT_X11_NO_MITSHM=1 \
 		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		-v ~/.Xauthority:/root/.Xauthority:ro \
+		$(if $(HAS_NVIDIA),--gpus all --env="NVIDIA_DRIVER_CAPABILITIES=all",) \
 		guojingneo/robot_rtabmap_slam3_jazzy:pi5 
 
 # Target to list audio devices
