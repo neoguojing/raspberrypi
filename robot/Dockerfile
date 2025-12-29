@@ -123,7 +123,7 @@ ENV PYTHONPATH="/home/ros_user/venv/lib/python3.12/site-packages:/usr/lib/aarch6
 # picamera2 and rpi-libcamera
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
-RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
+RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir picamera2==0.3.33 \
     rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false" \
     ultralytics
 # 安装仿真
