@@ -124,7 +124,8 @@ ENV PYTHONPATH="/home/ros_user/venv/lib/python3.12/site-packages:/usr/lib/aarch6
 # upgrade pip required to passed setup-args
 RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
 RUN $VIRTUAL_ENV/bin/pip install picamera2==0.3.33 \
-    rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false"
+    rpi-libcamera==0.1a10 -C setup-args="-Dwerror=false" \
+    ultralytics
 # 安装仿真
 RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
@@ -136,7 +137,6 @@ RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyri
     # 仿真控制
     ros-jazzy-teleop-twist-keyboard \
     gdb \
-    ultralytics \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DOMAIN_ID=42
