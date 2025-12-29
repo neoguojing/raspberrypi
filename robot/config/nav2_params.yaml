@@ -1,335 +1,136 @@
-amcl:
+map_server:
   ros__parameters:
-    use_sim_time: False
-    alpha1: 0.2
-    alpha2: 0.2
-    alpha3: 0.2
-    alpha4: 0.2
-    alpha5: 0.2
-    base_frame_id: "base_footprint"
-    beam_skip_distance: 0.5
-    beam_skip_error_threshold: 0.9
-    beam_skip_threshold: 0.3
-    do_beamskip: false
-    global_frame_id: "map"
-    lambda_short: 0.1
-    laser_likelihood_max_dist: 2.0
-    laser_max_range: 100.0
-    laser_min_range: -1.0
-    laser_model_type: "likelihood_field"
-    max_beams: 60
-    max_particles: 2000
-    min_particles: 500
-    odom_frame_id: "odom"
-    pf_err: 0.05
-    pf_z: 0.99
-    recovery_alpha_fast: 0.0
-    recovery_alpha_slow: 0.0
-    resample_interval: 1
-    robot_model_type: "differential"
-    save_pose_rate: 0.5
-    sigma_hit: 0.2
-    tf_broadcast: true
-    transform_tolerance: 1.0
-    update_min_a: 0.2
-    update_min_d: 0.25
-    z_hit: 0.5
-    z_max: 0.05
-    z_rand: 0.5
-    z_short: 0.05
-    scan_topic: scan
+    use_sim_time: false
 
-# =============================================================================
-# 规划器：寻找全局最优路径
-# =============================================================================
-planner_server:
-  ros__parameters:
-    expected_planner_frequency: 5.0
-    planner_plugins: ["GridBased"]
-    GridBased:
-      plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
-      use_astar: false  # A* 在低算力平台上更快
-      allow_unknown: true
-
-# =============================================================================
-# 控制器：实时避障与路径跟随 (MPPI 极致优化版)
-# =============================================================================
-controller_server:
-  ros__parameters:
-    controller_frequency: 10.0 # 降低频率减轻树莓派负担
-    min_x_velocity_threshold: 0.001
-    min_theta_velocity_threshold: 0.001
-    controller_plugins: ["FollowPath"]
-    FollowPath:
-      plugin: "nav2_mppi_controller::MPPIController"
-      time_steps: 30          # 预测时间步长缩短
-      model_dt: 0.1
-      batch_size: 400         # 关键：从2000降至400，防止CPU炸满
-      vx_max: 0.5
-      vx_min: -0.2
-      wz_max: 1.0
-      iteration_count: 1
-      visualize: false        # 树莓派必须关闭可视化
-      motion_model: "DiffDrive"
-      critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "PathAlignCritic"]
-      CostCritic:
-        cost_weight: 5.0
-        critical_cost: 300.0
-
-# =============================================================================
-# 局部代价地图：实时障碍物识别 (接收 PointCloud2)
-# =============================================================================
-local_costmap:
-  local_costmap:
-    ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
-      global_frame: odom
-      robot_base_frame: base_link
-      rolling_window: true
-      width: 3
-      height: 3
-      resolution: 0.05
-      robot_radius: 0.22
-      plugins: ["voxel_layer", "inflation_layer"]
-      # filters: ["keepout_filter"]
-      # keepout_filter:
-      #   plugin: "nav2_costmap_2d::KeepoutFilter"
-      #   enabled: KEEPOUT_ZONE_ENABLED
-      #   filter_info_topic: "keepout_costmap_filter_info"
-      #   override_lethal_cost: True
-      #   lethal_override_cost: 200
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.70
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: True
-        observation_sources: pointcloud
-        pointcloud:
-          topic: /slam3/map_points
-          max_obstacle_height: 2.0
-          min_obstacle_height: 0.0
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 3.0
-          obstacle_min_range: 0.0
-          inf_is_valid: True
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
-      voxel_layer:
-        plugin: "nav2_costmap_2d::VoxelLayer"
-        enabled: True
-        publish_voxel_map: True
-        origin_z: 0.0
-        z_resolution: 0.05
-        z_voxels: 16
-        max_obstacle_height: 2.0
-        mark_threshold: 0
-        observation_sources: pointcloud
-        pointcloud:
-          topic: /slam3/map_points
-          max_obstacle_height: 2.0
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.03
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.03
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-      always_send_full_costmap: True
-      introspection_mode: "disabled"
-
-# =============================================================================
-# 全局代价地图：宏观环境感知
-# =============================================================================
-global_costmap:
-  global_costmap:
-    ros__parameters:     
-      update_frequency: 1.0
-      publish_frequency: 1.0
-      global_frame: map
-      robot_base_frame: base_link
-      use_sim_time: False
-      #robot_radius: 0.5
-      footprint: "[[0.30, 0.22], [0.30, -0.22], [-0.30, -0.22], [-0.30, 0.22]]"
-      resolution: 0.05
-      track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: True
-        observation_sources: pointcloud
-        pointcloud:
-          topic: /slam3/map_points
-          max_obstacle_height: 2.0
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 3.0
-          obstacle_min_range: 0.0
-          obstacle_max_range: 3.0
-          obstacle_min_range: 0.0
- 
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.6
-      always_send_full_costmap: True
-  global_costmap_client:
-    ros__parameters:
-      use_sim_time: False
-  global_costmap_rclcpp_node:
-    ros__parameters:
-      use_sim_time: False
-
-# =============================================================================
-# 行为树导航：任务调度
-# =============================================================================
 bt_navigator:
   ros__parameters:
+    use_sim_time: false
     global_frame: map
     robot_base_frame: base_link
     odom_topic: /ekf/odom
+
+    default_nav_to_pose_bt_xml: "navigate_to_pose_w_replanning_and_recovery.xml"
     bt_loop_duration: 10
-    filter_duration: 0.3
     default_server_timeout: 20
-    wait_for_service_timeout: 1000
-    introspection_mode: "disabled"
-    navigators: ["navigate_to_pose", "navigate_through_poses"]
-    navigate_to_pose:
-      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
-      enable_groot_monitoring: false
-      groot_server_port: 1667
-    navigate_through_poses:
-      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
-      enable_groot_monitoring: false
-      groot_server_port: 1669
-    bt_search_directories:
-      - $(find-pkg-share nav2_bt_navigator)/behavior_trees
-    # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
-    # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
-    # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
-    # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
 
-    # plugin_lib_names is used to add custom BT plugins to the executor (vector of strings).
-    # Built-in plugins are added automatically
-    # plugin_lib_names: []
-
-    error_code_name_prefixes:
-      - assisted_teleop
-      - backup
-      - compute_path
-      - dock_robot
-      - drive_on_heading
-      - follow_object
-      - follow_path
-      - nav_thru_poses
-      - nav_to_pose
-      - route
-      - spin
-      - smoother
-      - undock_robot
-      - wait
-
-# =============================================================================
-# 碰撞监控：底层保护
-# =============================================================================
-collision_monitor:
+planner_server:
   ros__parameters:
-    base_frame_id: "base_link"
-    odom_frame_id: "odom"
-    cmd_vel_in_topic: "cmd_vel_smoothed"
-    cmd_vel_out_topic: "cmd_vel"
-    polygons: ["FootprintApproach"]
-    FootprintApproach:
-      type: "polygon"
-      action_type: "approach"
-      time_before_collision: 1.0
-    observation_sources: ["pointcloud_scan"]
-    pointcloud_scan:
-      type: "pointcloud"
-      topic: "/slam3/map_points"
-      min_height: 0.1
-      max_height: 1.8
+    use_sim_time: false
+    expected_planner_frequency: 5.0
+    planner_plugins: ["GridBased"]
 
-docking_server:
+    GridBased:
+      plugin: "nav2_navfn_planner::NavfnPlanner"
+      use_astar: false
+      tolerance: 0.5
+      allow_unknown: true
+
+controller_server:
   ros__parameters:
-    controller_frequency: 50.0
-    initial_perception_timeout: 5.0
-    wait_charge_timeout: 5.0
-    dock_approach_timeout: 30.0
-    undock_linear_tolerance: 0.05
-    undock_angular_tolerance: 0.1
-    max_retries: 3
-    base_frame: "base_link"
-    fixed_frame: "odom"
-    dock_prestaging_tolerance: 0.5
-    introspection_mode: "disabled"
+    use_sim_time: false
+    controller_frequency: 20.0
+    controller_plugins: ["FollowPath"]
 
-    # Types of docks
-    dock_plugins: ["simple_charging_dock"]
-    simple_charging_dock:
-      plugin: "opennav_docking::SimpleChargingDock"
-      docking_threshold: 0.05
-      staging_x_offset: -0.7
-      use_external_detection_pose: true
-      use_battery_status: false # true
-      use_stall_detection: false # true
-      dock_direction: "forward"
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      motion_model: "DiffDrive"
 
-      external_detection_timeout: 1.0
-      external_detection_translation_x: -0.18
-      external_detection_translation_y: 0.0
-      external_detection_rotation_roll: -1.57
-      external_detection_rotation_pitch: -1.57
-      external_detection_rotation_yaw: 0.0
-      filter_coef: 0.1
+      time_steps: 40
+      model_dt: 0.05
+      batch_size: 1500
 
-    # Dock instances
-    # The following example illustrates configuring dock instances.
-    # docks: ['home_dock']  # Input your docks here
-    # home_dock:
-    #   type: 'simple_charging_dock'
-    #   frame: map
-    #   pose: [0.0, 0.0, 0.0]
+      vx_max: 0.5
+      vx_min: 0.0
+      wz_max: 1.8
 
-    controller:
-      k_phi: 3.0
-      k_delta: 2.0
-      v_linear_min: 0.15
-      v_linear_max: 0.15
-      use_collision_detection: true
-      costmap_topic: "local_costmap/costmap_raw"
-      footprint_topic: "local_costmap/published_footprint"
-      transform_tolerance: 0.1
-      projection_time: 5.0
-      simulation_step: 0.1
-      dock_collision_threshold: 0.3
-# =============================================================================
-# 冗余组件简化
-# =============================================================================
-# velocity_smoother:
-#   ros__parameters:
-#     max_velocity: [0.5, 0.0, 1.0]
-#     max_accel: [1.0, 0.0, 1.0]
+      vx_std: 0.2
+      wz_std: 0.4
 
-map_server:
+      prune_distance: 1.5
+      temperature: 0.3
+      gamma: 0.015
+
+      critics:
+        [
+          "CostCritic",
+          "PathAlignCritic",
+          "PathFollowCritic",
+          "GoalCritic",
+          "PreferForwardCritic"
+        ]
+
+      CostCritic:
+        cost_weight: 3.5
+        collision_cost: 1e6
+
+      PreferForwardCritic:
+        cost_weight: 5.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: false
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+
+      width: 3.0
+      height: 3.0
+      resolution: 0.05
+      robot_radius: 0.25
+
+      update_frequency: 5.0
+      publish_frequency: 2.0
+
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        observation_sources: scan
+        scan:
+          topic: scan   # ← YOLO-Seg 输出
+          data_type: LaserScan
+          marking: true
+          clearing: true
+          obstacle_max_range: 2.5
+          raytrace_max_range: 3.0
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.6
+        cost_scaling_factor: 3.0
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: false
+      global_frame: map
+      robot_base_frame: base_link
+      resolution: 0.05
+      robot_radius: 0.25
+
+      update_frequency: 1.0
+      publish_frequency: 1.0
+
+      plugins: ["static_layer", "inflation_layer"]
+
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.7
+        cost_scaling_factor: 3.0
+
+behavior_server:
   ros__parameters:
-    yaml_filename: ""
-    introspection_mode: "disabled"
+    use_sim_time: false
+    behavior_plugins: ["spin", "backup", "wait"]
 
-# behavior_server:
-#   ros__parameters:
-#     behavior_plugins: ["spin", "backup", "wait"]
+    spin:
+      plugin: "nav2_behaviors::Spin"
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+    wait:
+      plugin: "nav2_behaviors::Wait"
