@@ -14,19 +14,19 @@ ekf_filter_node:
     # ========================
     # 1. SLAM 里程计输入
     # ========================
-    odom0: /slam3/odom
-    odom0_config: [
-      false, false, false,  # x, y, z
-      false, false, false,  # roll, pitch, yaw
-      true,  true,  false,  # vx, vy, vz (开启：使用SLAM计算的水平线速度)
-      false, false, true,   # vroll, vpitch, vyaw (开启：使用SLAM计算的偏航角速度)
-      false, false, false   # ax, ay, az
-    ]
+    # odom0: /slam3/odom
+    # odom0_config: [
+    #   false, false, false,  # x, y, z
+    #   false, false, false,  # roll, pitch, yaw
+    #   true,  true,  false,  # vx, vy, vz (开启：使用SLAM计算的水平线速度)
+    #   false, false, true,   # vroll, vpitch, vyaw (开启：使用SLAM计算的偏航角速度)
+    #   false, false, false   # ax, ay, az
+    # ]
 
-    odom0_queue_size: 10
-    odom0_nodelay: true
-    odom0_differential: false
-    odom0_relative: false
+    # odom0_queue_size: 10
+    # odom0_nodelay: true
+    # odom0_differential: false
+    # odom0_relative: false
 
     # ========================
     # 3. 轮式里程计输入 (来自 Gazebo Ackermann 插件)

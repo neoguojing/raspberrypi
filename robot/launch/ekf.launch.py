@@ -23,8 +23,8 @@ def generate_launch_description():
         parameters=[ekf_config_path, {'use_sim_time': use_sim_time}], # 仿真环境设为 True
         remappings=[
             ('/odometry/filtered', '/ekf/odom'), # 将 EKF 输出的滤波里程计重命名为 /odom
-            ('/tf', '/ekf/tf'),
-            ('/tf_static', '/ekf/tf_static')
+            ('/tf', '/tf'),
+            ('/tf_static', '/tf_static')
         ]
     )
 

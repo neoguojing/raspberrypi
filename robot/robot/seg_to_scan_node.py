@@ -88,7 +88,7 @@ class SegScanNode(Node):
                 frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
                             
             # 检测并投影
-            uv_points = self.detector.get_ground_contact_points(frame)
+            uv_points, annotated_frame = self.detector.get_ground_contact_points(frame, render=True)
             scan_ranges = np.full(self.num_readings, np.inf)
 
             for u, v in uv_points:
