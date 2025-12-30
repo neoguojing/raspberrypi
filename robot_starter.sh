@@ -3,9 +3,6 @@ set -e
 
 echo "[INFO] starting robot stack..."
 
-# ===== 1. source ROS2 =====
-source /opt/ros/humble/setup.bash
-
 # ===== 2. Zenoh bridge (client) =====
 echo "[INFO] starting zenoh bridge..."
 zenoh-bridge-ros2dds --mode client --connect tcp/127.0.0.1:7447&
