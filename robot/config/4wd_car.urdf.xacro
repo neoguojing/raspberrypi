@@ -42,11 +42,11 @@
   <!-- ===================== -->
   <link name="base_link">
     <visual>
-      <geometry><box size="0.21 0.09 0.065"/></geometry>
+      <geometry><box size="0.21 0.09 0.021"/></geometry>
       <material name="n20_sg90_robot_white"/>
     </visual>
     <collision>
-      <geometry><box size="0.21 0.09 0.065"/></geometry>
+      <geometry><box size="0.21 0.09 0.021"/></geometry>
     </collision>
     <inertial>
       <mass value="${body_mass}"/>
