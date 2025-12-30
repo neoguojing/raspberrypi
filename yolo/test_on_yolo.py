@@ -17,7 +17,6 @@ def zenoh_subscriber():
         print(f"Zenoh Subscriber received: {sample.key_expr} -> {data}")
     
     sub = session.declare_subscriber("rt/test_ros2_to_zenoh", callback)
-    sub1 = session.declare_subscriber("/test_ros2_to_zenoh", callback)
 
     try:
         while True:
@@ -32,14 +31,12 @@ def zenoh_publisher():
     config = zenoh.Config()
     session = zenoh.open(config)
     pub = session.declare_publisher("rt/test_zenoh_to_ros2")
-    pub1 = session.declare_publisher("/test_zenoh_to_ros2")
 
     count = 0
     try:
         while True:
             msg = f"Hello from Zenoh {count}"
             pub.put(msg.encode())
-            pub1.put(msg.encode())
             print(f"Zenoh Published: {msg}")
             count += 1
             time.sleep(1)
