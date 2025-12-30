@@ -136,6 +136,8 @@ RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyri
     libsdformat14-dev \
     # 仿真控制
     ros-jazzy-teleop-twist-keyboard \
+    # 外部通信
+    ros-jazzy-zenoh-bridge-ros2dds \
     gdb \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -146,6 +148,14 @@ ENV ROS_DISTRO=jazzy
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV GZ_PARTITION=sim
 
-CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
+# 放到你真正要执行的目录
+ADD robot_starter.sh /home/ros_user/ros2_ws/starter.sh
+
+# 确保可执行（双保险）
+RUN chmod +x /home/ros_user/ros2_ws/starter.sh
+
+CMD ["/home/ros_user/ros2_ws/starter.sh"]
+
+# CMD ["ros2", "launch", "foxglove_bridge", "foxglove_bridge_launch.xml"]
 
 
