@@ -34,7 +34,8 @@ class ZenohSegScan:
         
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
-        self.session = zenoh.open()
+        config = zenoh.Config()
+        self.session = zenoh.open(config)
         
         # 话题定义 (对应 ROS 2 Bridge 映射路径)
         # 假设 ROS 2 话题是 /camera/image_raw/compressed
