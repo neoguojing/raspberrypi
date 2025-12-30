@@ -39,7 +39,7 @@ class Ros2Subscriber(Node):
 # Zenoh Subscriber (B)
 # =============================
 def zenoh_subscriber():
-    config = zenoh.Config()
+    config = zenoh.Config({"mode": "client", "peer": "tcp/127.0.0.1:7447"})
     session = zenoh.open(config)
     print("Zenoh Subscriber connected")
     
@@ -58,7 +58,7 @@ def zenoh_subscriber():
 # Zenoh Publisher (C)
 # =============================
 def zenoh_publisher():
-    config = zenoh.Config()
+    config = zenoh.Config({"mode": "client", "peer": "tcp/127.0.0.1:7447"})
     session = zenoh.open(config)
     pub = session.declare_publisher("rt/test_zenoh_to_ros2")
     count = 0
