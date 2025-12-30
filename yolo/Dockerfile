@@ -3,11 +3,11 @@
 # =========================================================
 FROM ultralytics/ultralytics:latest
 
-# =========================================================
-# Environment
-# =========================================================
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+
+# Ultralytics 模型缓存目录
+ENV YOLO_MODELS_DIR=/root/.cache/ultralytics
 
 # =========================================================
 # System dependencies
@@ -39,19 +39,21 @@ RUN mkdir -p /etc/apt/keyrings \
 RUN pip install --no-cache-dir eclipse-zenoh
 
 # =========================================================
-# (Optional) Copy your YOLO + Zenoh application
+# Download YOLO11 Segmentation model at build time
 # =========================================================
-# 示例：你可以后续再加
-# COPY yolo_zenoh_app.py /app/yolo_zenoh_app.py
-# WORKDIR /app
+RUN python3 - << 'EOF'
+from ultralytics.utils.downloads import attempt_download_asset
+path = attempt_download_asset("yolo11n-seg.pt")
+print(f"[OK] downloaded: {path}")
+EOF
+
 
 # =========================================================
-# Expose Zenoh default port (optional, host mode不用)
+# Expose Zenoh port (optional)
 # =========================================================
 EXPOSE 7447
 
 # =========================================================
-# Start Zenoh Router
+# Start Zenoh Router (PID 1)
 # =========================================================
-# zenohd 必须是 PID 1，绑定容器生命周期
 CMD ["zenohd"]
