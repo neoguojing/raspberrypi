@@ -8,6 +8,7 @@ PIP = $(VENV_DIR)/bin/pip
 PYTHON_EXEC = $(VENV_DIR)/bin/python
 PROJECT_ROOT := $(shell pwd)
 ROBOT_DIR = $(PROJECT_ROOT)/robot
+YOLO_DIR = $(PROJECT_ROOT)/yolo
 SLAM3_APP_ROOT = /home/ros_user/orbslam3
 ROS_DISTRO := jazzy
 # APT packages needed for the project
@@ -82,6 +83,9 @@ slam3:
 
 image:
 	docker build -t guojingneo/robot_rtabmap_slam3_jazzy:pi5 -f $(ROBOT_DIR)/Dockerfile .
+
+yolo:
+	docker build -t guojingneo/yolo_zenoh:pi5 -f $(YOLO_DIR)/Dockerfile .
 
 runtime:
 	docker run -d --rm \
