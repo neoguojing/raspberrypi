@@ -184,7 +184,7 @@ ros2_clean:
 
 # 用于启动键盘控制仿真模型
 ros2_ctl:
-	ros2 run teleop_twist_keyboard teleop_twist_keyboard
+	ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.1 -p turn:=0.5
 
 sim:
 	export GZ_PARTITION=sim && gz sim -r tugbot_depot.sdf

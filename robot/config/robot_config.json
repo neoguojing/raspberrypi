@@ -24,18 +24,18 @@
         },
         "base_link": {
             "parent": "base_footprint",
-            "offset": { "x": 0.0, "y": 0.0, "z": 0.03, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
-            "_desc": "物理本体坐标系。Z=0.03 表示底盘离地间隙（Ground Clearance）为3cm。"
+            "offset": { "x": 0.0, "y": 0.0, "z": 0.021, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
+            "_desc": "物理本体坐标系。Z=0.021表示底盘离地间隙（Ground Clearance）为2.1cm。"
         },
         "imu_link": {
             "parent": "base_link",
-            "offset": { "x": 0.0, "y": 0.0, "z": 0.02, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
+            "offset": { "x": 0.0, "y": 0.0, "z": 0.03, "roll": 0.0, "pitch": 0.0, "yaw": 0.0 },
             "_desc": "惯性测量单元。建议安装在base_link的正上方，减少旋转时的向心加速度误差。"
         },
         "camera_link": {
             "parent": "base_link",
             "offset": { 
-                "x": 0.08, 
+                "x": 0.1, 
                 "y": 0.0, 
                 "z": 0.05, 
                 "roll": 0.0, 
