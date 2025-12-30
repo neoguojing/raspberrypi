@@ -9,7 +9,7 @@
   <!-- 轮子宽度 -->
   <xacro:property name="wheel_width" value="0.018"/>
   <!-- 前后轮轴距 -->
-  <xacro:property name="wheel_base" value="0.14"/>
+  <xacro:property name="wheel_base" value="0.097"/>
   <!-- 左右轮距 -->
   <xacro:property name="track_width" value="0.12"/>
   <!-- 车体质量 -->
@@ -34,7 +34,7 @@
     <parent link="base_footprint"/>
     <child link="base_link"/>
     <!-- base_link 抬高一个轮子半径 -->
-    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+    <origin xyz="0 0 0.021" rpy="0 0 0"/>
   </joint>
 
   <!-- ===================== -->
@@ -42,11 +42,11 @@
   <!-- ===================== -->
   <link name="base_link">
     <visual>
-      <geometry><box size="0.18 0.1 0.04"/></geometry>
+      <geometry><box size="0.21 0.09 0.065"/></geometry>
       <material name="n20_sg90_robot_white"/>
     </visual>
     <collision>
-      <geometry><box size="0.18 0.1 0.04"/></geometry>
+      <geometry><box size="0.21 0.09 0.065"/></geometry>
     </collision>
     <inertial>
       <mass value="${body_mass}"/>
@@ -161,7 +161,7 @@
   <joint name="imu_joint" type="fixed">
     <parent link="base_link"/>
     <child link="imu_link"/>
-    <origin xyz="0 0 0.02"/>
+    <origin xyz="0 0 0.03"/>
   </joint>
 
   <!-- ===================== -->
@@ -169,7 +169,7 @@
   <!-- ===================== -->
   <link name="camera_link">
     <visual>
-      <geometry><box size="0.01 0.03 0.03"/></geometry>
+      <geometry><box size="0.018 0.025 0.025"/></geometry>
       <material name="n20_sg90_robot_red"/>
     </visual>
   </link>
@@ -177,7 +177,7 @@
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.08 0 0.05"/>
+    <origin xyz="0.1 0 0.05" rpy="0 0.1484 0"/>
   </joint>
 
   <!-- ROS 标准 optical frame -->
@@ -205,6 +205,8 @@
       <rear_right_joint>rear_right_wheel_joint</rear_right_joint>
       <wheel_separation>${track_width}</wheel_separation>
       <wheel_radius>${wheel_radius}</wheel_radius>
+      <kingpin_width>${track_width}</kingpin_width>
+      <steering_limit>0.52</steering_limit>
       <topic>/cmd_vel</topic>
       <odom_topic>/wheel_odom</odom_topic>
       <frame_id>odom</frame_id>
@@ -264,8 +266,7 @@
       <topic>/camera/image_raw</topic>
       <gz_frame_id>camera_link_optical</gz_frame_id>
       <camera>
-        <horizontal_fov>1.0733</horizontal_fov>
-      
+        <horizontal_fov>1.815</horizontal_fov>
         <image>
           <width>1280</width>
           <height>720</height>
