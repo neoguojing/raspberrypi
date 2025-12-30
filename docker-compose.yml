@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  # ======================================================
+  # ROS2 + RTABMAP + ORB-SLAM3
+  # ======================================================
+  ros2:
+    image: guojingneo/robot_rtabmap_slam3_jazzy:pi5
+    container_name: ros2_container
+    network_mode: host
+    privileged: true
+    ipc: host
+    restart: unless-stopped
+
+    volumes:
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+      - ${PWD}:/home/ros_user/ros2_ws
+      - ${PWD}/../ORB_SLAM3_ROS2:/home/ros_user/orbslam3
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority:ro
+
+    environment:
+      DISPLAY: ${DISPLAY}
+      QT_X11_NO_MITSHM: "1"
+
+    # GPU 版本（如果启用 profile=gpu）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    profiles:
+      - gpu
+      - default
+    depends_on:
+      yolo:
+        condition: service_healthy
+      
+
+  # ======================================================
+  # YOLO + Zenoh Router
+  # ======================================================
+  yolo:
+    image: guojingneo/yolo_zenoh:pi5
+    container_name: yolo_zenoh
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ZENOH_LOG: info
+    volumes:
+      - ${PWD}:/home/zenoh
+    healthcheck:
+      test: ["CMD", "zenoh", "scout"]
+      interval: 2s
+      retries: 10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    profiles:
+      - gpu
+      - default

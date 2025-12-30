@@ -87,5 +87,41 @@ class SegDetector:
             # 假设你已经通过之前的逻辑算出了 contact_pixels
             for pt in contact_pixels:
                 cv2.circle(annotated_frame, (int(pt[0]), int(pt[1])), 5, (0, 0, 255), -1)
+            
+            output_path = "annotated_result.jpg"  # 或者使用绝对路径
+            success = cv2.imwrite(output_path, annotated_frame)
+            if success:
+                print(f"✅ 保存成功: {output_path}")
+            else:
+                print(f"❌ 保存失败: {output_path}")
+
 
         return (contact_pixels , annotated_frame)
+    
+def main():
+    # 1️⃣ 初始化检测器
+    detector = SegDetector(model_name="yolo11n-seg.pt", model_dir="./models", conf=0.45)
+    
+    # 2️⃣ 读取测试图像
+    test_image_path = "test.jpeg"  # 替换为你本地测试图片路径
+    if not os.path.exists(test_image_path):
+        print(f"❌ 测试图片不存在: {test_image_path}")
+        return
+    
+    frame = cv2.imread(test_image_path)
+    if frame is None:
+        print(f"❌ 无法读取图像: {test_image_path}")
+        return
+    print(f"🖼 成功读取测试图像: {frame.shape}")
+    
+    # 3️⃣ 获取接触点并可视化
+    contact_pixels, _ = detector.get_ground_contact_points(frame, render=True)
+    
+    print(f"🔹 检测到 {len(contact_pixels)} 个接触点:")
+    for i, pt in enumerate(contact_pixels):
+        print(f"  点 {i}: x={pt[0]:.2f}, y={pt[1]:.2f}")
+
+
+if __name__ == "__main__":
+    main()
+
