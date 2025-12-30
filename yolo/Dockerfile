@@ -41,11 +41,8 @@ RUN pip install --no-cache-dir eclipse-zenoh
 # =========================================================
 # Download YOLO11 Segmentation model at build time
 # =========================================================
-RUN python3 - << 'EOF'
-from ultralytics.utils.downloads import attempt_download_asset
-path = attempt_download_asset("yolo11n-seg.pt")
-print(f"[OK] downloaded: {path}")
-EOF
+RUN python3 -c "from ultralytics.utils.downloads import attempt_download_asset; \
+                attempt_download_asset('yolo11n-seg.pt')"
 
 
 # =========================================================
