@@ -44,10 +44,10 @@ def generate_launch_description():
     )
 
     # 包含 seg 节点 安装包不兼容,需要从外部zenoh 写入
-    # seg_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'seg.launch.py')),
-    #     launch_arguments=common_args
-    # )
+    seg_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'seg.launch.py')),
+        launch_arguments=common_args
+    )
 
     return LaunchDescription([
         declare_use_sim_time,
@@ -55,5 +55,5 @@ def generate_launch_description():
         # nv2_launch,
         efk_launch,
         slam3_launch,
-        # seg_launch
+        seg_launch
     ])

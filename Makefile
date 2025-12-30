@@ -28,7 +28,7 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
-.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim ros2_ctl yolo
+.PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim ros2_ctl yolo up
 
 all: help
 
@@ -113,6 +113,8 @@ dev:
 		$(if $(HAS_NVIDIA),--gpus all --env="NVIDIA_DRIVER_CAPABILITIES=all",) \
 		guojingneo/robot_rtabmap_slam3_jazzy:pi5 
 
+up:
+	$(if $(HAS_NVIDIA),docker compose --profile gpu up -d,docker compose up -d)
 # Target to list audio devices
 list-audio: requirements
 	@echo "Listing audio devices..."
@@ -181,3 +183,6 @@ ros2_ctl:
 
 sim:
 	export GZ_PARTITION=sim && gz sim -r tugbot_depot.sdf
+
+yolo_run:
+	python3 -m yolo.zen_seg --config robot/config/imx219.json

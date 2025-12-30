@@ -50,6 +50,8 @@ RUN python3 -c "from ultralytics.utils.downloads import attempt_download_asset; 
 # =========================================================
 EXPOSE 7447
 
+WORKDIR /home/zenoh
+
 # =========================================================
 # Start Zenoh Router (PID 1)
 # =========================================================
