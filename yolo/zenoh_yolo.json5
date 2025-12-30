@@ -1,0 +1,17 @@
+{
+  plugins: {
+    rest: {                        // activate and configure the REST plugin
+      http_port: 25000              // with HTTP server listening on port 8000
+    },
+    storage_manager: {             // activate and configure the storage_manager plugin
+      storages: {
+        robot: {                  // configure a "myhome" storage
+          key_expr: "robot/**",   // which subscribes and replies to query on myhome/**
+          volume: {                // and using the "memory" volume (always present by default)
+            id: "memory"
+          }
+        }
+      }
+    }
+  }
+}
