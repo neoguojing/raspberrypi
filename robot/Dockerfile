@@ -164,6 +164,7 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV GZ_PARTITION=sim
 
 # 放到你真正要执行的目录
+ARG name=1
 ADD robot_starter.sh /home/ros_user/starter.sh
 
 # 确保可执行（双保险）
