@@ -6,7 +6,7 @@ import json
 import math
 import time
 import sys
-from robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
+from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
 
 class ZenohSegScan:
     def __init__(self, config_path='config.json'):
