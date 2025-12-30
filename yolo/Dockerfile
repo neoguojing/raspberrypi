@@ -55,10 +55,4 @@ WORKDIR /home/zenoh
 # =========================================================
 # Start Zenoh Router (PID 1)
 # =========================================================
-RUN mkdir -p /etc/zenoh/
-
-# 2. 将宿主机的配置文件拷贝到镜像内
-COPY yolo/zenoh_yolo.json5 /etc/zenoh/zenoh_yolo.json5
-
-# 3. 指定启动命令
-CMD ["zenohd", "-c", "/etc/zenoh/zenoh_yolo.json5"]
+CMD ["zenohd]

@@ -5,7 +5,8 @@ echo "[INFO] starting robot stack..."
 
 # ===== 2. Zenoh bridge (client) =====
 echo "[INFO] starting zenoh bridge..."
-zenoh-bridge-ros2dds --connect tcp/127.0.0.1:7447 client&
+zenoh-bridge-ros2dds --rest-http-port 25000
+# zenoh-bridge-ros2dds --connect tcp/127.0.0.1:7447 client&
 
 ZENOH_PID=$!
 sleep 1
