@@ -155,8 +155,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     zenoh-bridge-ros2dds || true && \
     rm -rf /var/lib/apt/lists/*
-    
-RUN pip install --no-cache-dir eclipse-zenoh
+
+RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir eclipse-zenoh
 
 ENV ROS_DOMAIN_ID=42
 ENV ROS_DISTRO=jazzy
