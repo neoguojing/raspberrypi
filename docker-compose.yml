@@ -51,9 +51,10 @@ services:
     volumes:
       - ${PWD}:/home/zenoh
     healthcheck:
-      test: ["CMD", "zenoh", "scout"]
-      interval: 2s
-      retries: 10
+      # 检查是否有建立到 7447 端口的连接 (需要容器内安装了 iproute2 或 procps)
+      test: ["CMD-SHELL", "ss -antp | grep 7447 || exit 1"]
+      interval: 10s
+      retries: 3
     deploy:
       resources:
         reservations:
