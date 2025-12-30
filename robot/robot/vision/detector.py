@@ -103,7 +103,7 @@ def main():
     detector = SegDetector(model_name="yolo11n-seg.pt", model_dir="./models", conf=0.45)
     
     # 2️⃣ 读取测试图像
-    test_image_path = "test.jpeg"  # 替换为你本地测试图片路径
+    test_image_path = "asset/test.jpeg"  # 替换为你本地测试图片路径
     if not os.path.exists(test_image_path):
         print(f"❌ 测试图片不存在: {test_image_path}")
         return
