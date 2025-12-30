@@ -149,10 +149,12 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] \
 https://download.eclipse.org/zenoh/debian-repo/ /" \
     > /etc/apt/sources.list.d/zenoh.list
 
-# --- 安装 zenoh bridge ---
-RUN apt-get update && apt-get install -y \
-    zenoh-bridge-ros2dds \
- && rm -rf /var/lib/apt/lists/*
+# 避免 systemd 相关脚本失败
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+    zenoh-bridge-ros2dds || true && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DOMAIN_ID=42
 ENV ROS_DISTRO=jazzy
