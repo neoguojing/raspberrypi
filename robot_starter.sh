@@ -8,9 +8,7 @@ source /opt/ros/humble/setup.bash
 
 # ===== 2. Zenoh bridge (client) =====
 echo "[INFO] starting zenoh bridge..."
-ros2 run zenoh_bridge_ros2dds zenoh_bridge_ros2dds \
-  --mode client \
-  --connect tcp/127.0.0.1:7447 &
+zenoh-bridge-ros2dds --mode client --connect tcp/127.0.0.1:7447&
 
 ZENOH_PID=$!
 sleep 1

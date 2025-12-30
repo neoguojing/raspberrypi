@@ -136,10 +136,23 @@ RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyri
     libsdformat14-dev \
     # 仿真控制
     ros-jazzy-teleop-twist-keyboard \
-    # 外部通信
-    ros-jazzy-zenoh-bridge-ros2dds \
     gdb \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# --- 添加 Zenoh 官方 GPG key ---
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key \
+    | gpg --dearmor -o /etc/apt/keyrings/zenoh-public-key.gpg
+
+# --- 添加 Zenoh APT 源 ---
+RUN echo "deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] \
+https://download.eclipse.org/zenoh/debian-repo/ /" \
+    > /etc/apt/sources.list.d/zenoh.list
+
+# --- 安装 zenoh bridge ---
+RUN apt-get update && apt-get install -y \
+    zenoh-bridge-ros2dds \
+ && rm -rf /var/lib/apt/lists/*
 
 ENV ROS_DOMAIN_ID=42
 ENV ROS_DISTRO=jazzy
