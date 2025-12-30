@@ -33,9 +33,9 @@ services:
     profiles:
       - gpu
       - default
-    depends_on:
-      yolo:
-        condition: service_healthy
+    # depends_on:
+    #   yolo:
+    #     condition: service_healthy
       
 
   # ======================================================
@@ -50,11 +50,11 @@ services:
       ZENOH_LOG: info
     volumes:
       - ${PWD}:/home/zenoh
-    healthcheck:
-      # 检查是否有建立到 7447 端口的连接 (需要容器内安装了 iproute2 或 procps)
-      test: ["CMD-SHELL", "ss -antp | grep 7447 || exit 1"]
-      interval: 10s
-      retries: 3
+    # healthcheck:
+    #   # 检查是否有建立到 7447 端口的连接 (需要容器内安装了 iproute2 或 procps)
+    #   test: ["CMD-SHELL", "ss -antp | grep 7447 || exit 1"]
+    #   interval: 10s
+    #   retries: 3
     deploy:
       resources:
         reservations:
