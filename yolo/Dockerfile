@@ -55,4 +55,5 @@ WORKDIR /home/zenoh
 # =========================================================
 # Start Zenoh Router (PID 1)
 # =========================================================
-CMD ["zenohd]
+# CMD ["zenohd]
+CMD ["sh", "-c", "while true; do sleep 1000; done"]
