@@ -1,7 +1,7 @@
 ekf_filter_node:
   ros__parameters:
 
-    frequency: 100.0
+    frequency: 50.0
     sensor_timeout: 0.1
     two_d_mode: true   # 小车！非常重要
 
@@ -52,7 +52,7 @@ ekf_filter_node:
       false, false, false,  # roll, pitch, yaw (姿态：防止磁力计干扰，通常设为false)
       false, false, false,  # vx, vy, vz (线速度：ICM20948不提供，必须为false)
       true,  true,  true,   # vroll, vpitch, vyaw (角速度：开启)
-      true,  true,  false   # ax, ay, az (线性加速度：开启x和y，z通常有重力干扰设为false)
+      true,  true,  true   # ax, ay, az (线性加速度：开启x和y，z通常有重力干扰设为false)
     ]
 
     imu0_differential: false
@@ -87,4 +87,7 @@ ekf_filter_node:
     # 速度项: 设为较小值，因为启动时小车通常是静止的。
     # 未观测项 ($z, roll, pitch, az$): 设为较大值（如 1e-6 到 1.0），表示完全不关心这些轴。
     # 顺序：x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
-    initial_estimate_covariance: [0.1,  0.1,  1e-9, 1e-9, 1e-9, 0.1,1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9, 1e-9]
+    initial_estimate_covariance: [
+      1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 
+      1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 
+      1e-2, 1e-2, 1e-2]
