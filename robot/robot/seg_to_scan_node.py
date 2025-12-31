@@ -23,7 +23,8 @@ class ZenohToLaserScan(Node):
 
         # 3. 初始化 Zenoh 会话
         self.get_logger().info(f'🔗 正在连接 Zenoh 并订阅: {zenoh_topic}')
-        self.session = zenoh.open()
+        config = zenoh.Config()
+        self.session = zenoh.open(config)
         
         # 4. 订阅 Zenoh 话题
         # 使用 lambda 保证回调能访问 self
