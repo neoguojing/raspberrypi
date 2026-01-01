@@ -88,7 +88,7 @@ class ICM20948Node(Node):
         # 一次性读取 12 字节（Acc X/Y/Z + Gyro X/Y/Z）
         raw_data = self.read_regs(0x2D, 12)
         if all(d == 0 or d == 255 for d in raw_data):
-            # self.get_logger().warn("SPI Read suspect - all zeros/ones")
+            self.get_logger().warn("SPI 读取可疑: 全为 0 或 255，请检查接线或 Bank 设置", throttle_duration_sec=1.0)
             return
         
         # 解析 16 位补码
@@ -96,31 +96,46 @@ class ICM20948Node(Node):
             val = (high << 8) | low
             return val - 65536 if val > 32767 else val
 
-        ax, ay, az = to_signed(raw_data[0], raw_data[1]), to_signed(raw_data[2], raw_data[3]), to_signed(raw_data[4], raw_data[5])
-        gx, gy, gz = to_signed(raw_data[6], raw_data[7]), to_signed(raw_data[8], raw_data[9]), to_signed(raw_data[10], raw_data[11])
+        ax_raw, ay_raw, az_raw = to_signed(raw_data[0], raw_data[1]), to_signed(raw_data[2], raw_data[3]), to_signed(raw_data[4], raw_data[5])
+        gx_raw, gy_raw, gz_raw = to_signed(raw_data[6], raw_data[7]), to_signed(raw_data[8], raw_data[9]), to_signed(raw_data[10], raw_data[11])
+
+        # 换算单位
+        g_to_ms2 = 9.80665
+        dps_to_rads = np.pi / 180.0
+
+        ax = (ax_raw / 16384.0) * g_to_ms2
+        ay = (ay_raw / 16384.0) * g_to_ms2
+        az = (az_raw / 16384.0) * g_to_ms2
+
+        gx = (gx_raw / 131.0) * dps_to_rads
+        gy = (gy_raw / 131.0) * dps_to_rads
+        gz = (gz_raw / 131.0) * dps_to_rads
+
+        # --- 添加验证打印 ---
+        # 每隔 1 秒打印一次数据，用于观察量级是否正确
+        self.get_logger().info(
+            f'\n[IMU 数据验证]\n'
+            f'Raw Acc: {ax_raw}, {ay_raw}, {az_raw}\n'
+            f'Acc (m/s²): x={ax:.3f}, y={ay:.3f}, z={az:.3f}\n'
+            f'Gyro (rad/s): x={gx:.3f}, y={gy:.3f}, z={gz:.3f}',
+            throttle_duration_sec=1.0
+        )
 
         msg = Imu()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'imu_link'
 
-        # 换算系数：
-        # Acc ±2g: 16384 LSB/g
-        # Gyro ±250dps: 131 LSB/(deg/s)
-        g_to_ms2 = 9.80665
-        dps_to_rads = np.pi / 180.0
-
-        msg.linear_acceleration.x = (ax / 16384.0) * g_to_ms2
-        msg.linear_acceleration.y = (ay / 16384.0) * g_to_ms2
-        msg.linear_acceleration.z = (az / 16384.0) * g_to_ms2
-
-        msg.angular_velocity.x = (gx / 131.0) * dps_to_rads
-        msg.angular_velocity.y = (gy / 131.0) * dps_to_rads
-        msg.angular_velocity.z = (gz / 131.0) * dps_to_rads
+        msg.linear_acceleration.x = ax
+        msg.linear_acceleration.y = ay
+        msg.linear_acceleration.z = az
+        msg.angular_velocity.x = gx
+        msg.angular_velocity.y = gy
+        msg.angular_velocity.z = gz
         
-        # 协方差填充 (根据电机环境适当放大)
+        # 协方差填充... (保持你之前的设置)
         msg.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
         msg.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-        msg.orientation_covariance = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # -1表示不提供姿态
+        msg.orientation_covariance = [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         self.publisher_.publish(msg)
 
