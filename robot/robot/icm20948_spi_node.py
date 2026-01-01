@@ -31,7 +31,10 @@ class ICM20948Node(Node):
         # 参数设置
         self.declare_parameter('imu_frequency', 100)
         self.imu_frequency = self.get_parameter('imu_frequency').get_parameter_value().double_value
-        
+        if self.imu_frequency <= 0 or self.imu_frequency > 1000:
+            self.get_logger().warn("imu_frequency 参数不合法，重置为 100Hz")
+            self.imu_frequency = 100
+            
         # 2. 传感器初始化
         self.init_icm20948()
         
