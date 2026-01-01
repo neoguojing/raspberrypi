@@ -7,7 +7,7 @@ import numpy as np
 
 # 模块引脚,树莓派 5 引脚,备注
 # VCC,Pin 1 (3.3V),电源
-# GND,Pin 6 (GND),地
+# GND,Pin 14 (GND),地
 # SCL,Pin 23 (GPIO 11),SPI SCK (时钟)
 # SDA,Pin 19 (GPIO 10),SPI MOSI (数据输出)
 # ADO,Pin 21 (GPIO 9),SPI MISO (数据输入)
@@ -30,14 +30,14 @@ class ICM20948Node(Node):
 
         # 参数设置
         self.declare_parameter('imu_frequency', 100)
-        self.camera_frequency = self.get_parameter('imu_frequency').get_parameter_value().double_value
+        self.imu_frequency = self.get_parameter('imu_frequency').get_parameter_value().double_value
         
         # 2. 传感器初始化
         self.init_icm20948()
         
         # 3. ROS 2 发布者
         self.publisher_ = self.create_publisher(Imu, '/imu/data_raw', 10)
-        self.timer = self.create_timer(1/self.camera_frequency, self.timer_callback) # 100Hz
+        self.timer = self.create_timer(1/self.imu_frequency, self.timer_callback) # 100Hz
         self.get_logger().info('ICM-20948 SPI Node Started')
 
     def write_reg(self, reg, value):
