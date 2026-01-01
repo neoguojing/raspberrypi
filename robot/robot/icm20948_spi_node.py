@@ -118,7 +118,7 @@ class ICM20948Node(Node):
             f'Raw Acc: {ax_raw}, {ay_raw}, {az_raw}\n'
             f'Acc (m/s²): x={ax:.3f}, y={ay:.3f}, z={az:.3f}\n'
             f'Gyro (rad/s): x={gx:.3f}, y={gy:.3f}, z={gz:.3f}',
-            throttle_duration_sec=1.0
+            throttle_duration_sec=0.1
         )
 
         msg = Imu()
