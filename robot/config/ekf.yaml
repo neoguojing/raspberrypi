@@ -39,7 +39,7 @@ ekf_filter_node:
       false, false, false,  # 10-12: 角速度 (v_r, v_p, v_y)
       false, false, false   # 13-15: 加速度 (ax, ay, az)
     ]
-    odom1_differential: true
+    odom1_differential: false
     odom1_relative: true
     odom1_queue_size: 10
 

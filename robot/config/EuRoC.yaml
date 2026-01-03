@@ -74,7 +74,7 @@ IMU.AccWalk: 0.001       # 加速度计偏置随机游走
 
 # IMU 采样频率
 # 必须与 URDF 中 <update_rate>100</update_rate> 一致
-IMU.Frequency: 200
+IMU.Frequency: 100
 
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
