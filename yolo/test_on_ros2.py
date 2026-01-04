@@ -1,7 +1,3 @@
-import threading
-import time
-import json
-
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -31,8 +27,25 @@ class Ros2Subscriber(Node):
     def __init__(self):
         super().__init__('ros2_sub')
         self.sub = self.create_subscription(String, '/test_zenoh_to_ros2', self.callback, 10)
+        self.pub = self.create_publisher(String, '/test_zenoh_to_ros2', 10)
+        config = zenoh.Config()
+        config.insert_json5(
+            "connect/endpoints",
+            '["tcp/127.0.0.1:7447"]'
+        )
+
+        session = zenoh.open(config)
+        def callback(sample):
+            data = bytes(sample.payload).decode("utf-8")
+            print(f"Zenoh Subscriber received: {sample.key_expr} -> {data}")
+            msg = String()
+            msg.data = data
+            self.pub.publish(msg)
+    
+        sub = session.declare_subscriber("rt/test_zenoh_to_ros2", callback)
 
     def callback(self, msg):
+
         self.get_logger().info(f'ROS2 Received: {msg.data}')
 
 
