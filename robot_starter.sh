@@ -11,5 +11,5 @@ sleep 1
 
 # ===== 2. Zenoh bridge (client) =====
 echo "[INFO] starting zenoh bridge..."
-zenoh-bridge-ros2dds --rest-http-port 25000 --namespace /rt --no-multicast-scouting
+zenoh-bridge-ros2dds --rest-http-port 25000 --namespace /rt
 
