@@ -53,6 +53,7 @@ WORKDIR /home/ros_user
 # --------------------------
 # 步骤 4: 编译 ORB-SLAM3
 # --------------------------
+ARG name=2
 RUN git clone https://github.com/neoguojing/ORB-SLAM3-STEREO-FIXED.git ORB_SLAM3
 WORKDIR /home/ros_user/ORB_SLAM3
 
