@@ -6,10 +6,15 @@ import json
 import math
 import time
 import sys
+import struct
 from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
 
 class ZenohSegScan:
     def __init__(self, config_path='config.json'):
+        
+        self.frame_count = 0
+        self.skip_n = 3 # 每 3 帧处理 1 帧
+        
         # --- 1. 参数设置 (模拟 ROS 2 Parameter) ---
         self.camera_x_offset = 0.08
         self.camera_y_offset = 0.0
@@ -43,16 +48,18 @@ class ZenohSegScan:
         
         # 话题定义 (对应 ROS 2 Bridge 映射路径)
         # 假设 ROS 2 话题是 /camera/image_raw/compressed
-        self.image_topic = "rt/camera/image_raw/compressed"
+        self.image_topic = "rt/camera/image_raw"
+        self.image_topic_compress = "rt/camera/image_raw/compressed"
         self.scan_topic = "rt/scan"
 
         # 订阅图像
         self.sub = self.session.declare_subscriber(self.image_topic, self.on_image_data)
-        
+        self.sub_compress = self.session.declare_subscriber(self.image_topic_compress, self.on_image_data)
+
         # 定义发布者 (发送处理后的 JSON)
         self.pub = self.session.declare_publisher(self.scan_topic)
-        
-        print(f"✅ 节点已就绪. 订阅: {self.image_topic}, 发布: {self.scan_topic}")
+
+        print(f"✅ 节点已就绪. 订阅: {self.image_topic},{self.image_topic_compress}, 发布: {self.scan_topic}")
 
     def load_sensor_config(self, path):
         with open(path, 'r') as f:
@@ -64,23 +71,29 @@ class ZenohSegScan:
     def on_image_data(self, sample):
         """Zenoh 订阅回调"""
         try:
+            self.frame_count += 1
+            if self.frame_count % self.skip_n != 0:
+                return
             # 1. 解码图像 (假设是 CompressedImage 字节流) 或者 Image字节流
             # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
             # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
             # 如果解码失败，可能需要跳过前几个字节的 ROS Header
-            print("🔹 收到新图像数据，大小:", len(sample.payload), "bytes")
+            payload_bytes = sample.payload.to_bytes() 
+        
+            # print("🔹 收到新图像数据，大小:", len(payload_bytes), "bytes")
+            
             # 1. 解码图像并获取时间戳
-            frame, stamp = self.decode_ros2_image(sample.payload, default_shape=(480, 640, 3))
+            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(1280, 720, 3))
             if frame is None:
                 print("⚠ 无法解码图像")
                 return
-            print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
+            # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
             # 2. 推理检测
-            uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
-            print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+            uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
+            # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
             # 3. 激光数据初始化
-            scan_ranges = np.full(self.num_readings, np.float('inf'))
+            scan_ranges = np.full(self.num_readings, np.inf)
 
             # 4. 投影逻辑 (逻辑与原代码一致)
             valid_points = 0
@@ -103,48 +116,72 @@ class ZenohSegScan:
                         if 0 <= j < self.num_readings:
                             scan_ranges[j] = min(scan_ranges[j], dist)
                     valid_points += 1
-            print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}")
-            # 5. 发布结果 (封装为 JSON，方便 ROS 2 侧解析)
-            self.publish_as_json(scan_ranges,stamp)
+            # 5. 条件发布
+            if valid_points > 0:
+                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...")
+                self.publish_as_json(scan_ranges, stamp)
+            else:
+                # 这种情况直接跳过，不做任何网络传输
+                # print(f"ℹ 帧内无有效接触点（valid_points=0），跳过发布。")
+                pass
             
         except Exception as e:
             print(f"处理错误: {e}")
 
     def decode_ros2_image(self, payload, default_shape=(480, 640, 3)):
-        """
-        自动判定 ROS2 消息类型 (CompressedImage / Image)，返回 frame 和时间戳
-        frame: np.ndarray (H, W, 3)
-        stamp: float, Unix timestamp
-        """
-        import struct, time
-        frame = None
-        stamp = time.time()  # 默认使用当前时间
+        # 关键修复 1: 确保进入函数的是 bytes 类型，或者是支持切片的视图
+        if hasattr(payload, 'to_bytes'):
+            payload = payload.to_bytes()
 
-        # --- 1. 检测 JPEG 开头 (CompressedImage) ---
-        if payload[:2] == b'\xff\xd8':  # JPEG SOI
-            # 尝试解析前 8 字节为 ROS2 Header stamp
-            if len(payload) >= 8:
-                try:
-                    sec, nsec = struct.unpack_from('<II', payload, 0)
+        stamp = time.time()
+        frame = None
+
+        # --- 1. 处理 ROS 2 消息头 (DDS 序列化通常会有额外开销) ---
+        # ROS2 CompressedImage 的一般布局: 
+        # [8字节 Stamp] [Frame_ID 长度 + 字符串] [Format 长度 + 字符串 "jpeg"] [数据]
+        
+        # 尝试寻找 JPEG 魔法数字 (0xFF, 0xD8)
+        # 通常 JPEG 在 payload 中的偏移量在 40-100 字节之间
+        idx = payload.find(b'\xff\xd8')
+
+        if idx != -1:
+            # 找到了 JPEG 开头，说明是压缩图像
+            try:
+                # 尝试提取时间戳：通常在消息最开始的 8 字节 (sec, nsec)
+                # 注意：某些 Bridge 会在最前面加 4 字节的 CDR 封装头，如果是这样，偏移就是 4
+                # 这里先尝试 0，如果时间戳看起来很离谱，可以尝试偏移 4 或 8
+                sec, nsec = struct.unpack_from('<II', payload, 0)
+                if 1e8 < sec < 2e9:  # 合法的时间戳范围检查
                     stamp = sec + nsec * 1e-9
-                    # 找真正 JPEG 开头
-                    idx = payload.find(b'\xff\xd8', 8)
-                    if idx != -1:
-                        payload = payload[idx:]
-                except Exception:
-                    print("⚠ Header 时间戳解析失败，使用本地时间")
-            nparr = np.frombuffer(payload, np.uint8)
+                else:
+                    # 尝试 CDR 偏移量
+                    sec, nsec = struct.unpack_from('<II', payload, 4)
+                    if 1e8 < sec < 2e9:
+                        stamp = sec + nsec * 1e-9
+            except Exception:
+                pass
+
+            # 解码 JPEG
+            jpeg_data = payload[idx:]
+            nparr = np.frombuffer(jpeg_data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             return frame, stamp
 
         # --- 2. 尝试 raw Image ---
+        # 如果没找到 JPEG 头，可能是 raw 格式
+        # 注意：Raw Image 也有 Header，payload 需要跳过 Header 才能正确 reshape
+        # 假设 Header 长度约为 48 字节 (视 frame_id 长度而定)
         try:
-            frame = np.frombuffer(payload, np.uint8).reshape(default_shape)
-            return frame, stamp
-        except Exception:
-            print("⚠ raw Image reshape 失败")
+            # 这是一个 Trick：从末尾向前取数据，规避前面变长的 Header
+            raw_data = np.frombuffer(payload, np.uint8)
+            num_pixels = default_shape[0] * default_shape[1] * default_shape[2]
+            
+            if len(raw_data) >= num_pixels:
+                frame = raw_data[-num_pixels:].reshape(default_shape)
+                return frame, stamp
+        except Exception as e:
+            print(f"⚠ raw Image reshape 失败: {e}")
 
-        # --- 3. fallback ---
         return None, stamp
     
     def publish_as_json(self, ranges,stamp):
