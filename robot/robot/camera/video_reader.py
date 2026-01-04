@@ -4,79 +4,108 @@ import queue
 import time
 
 class VideoReader:
-    def __init__(self, video_path, to_rgb=True, queue_size=100):
+    def __init__(self, source, to_rgb=True, queue_size=50):
         """
-        :param video_path: 视频文件路径
-        :param to_rgb: 默认初始化是否转换 RGB
-        :param queue_size: 队列最大长度，防止内存溢出
+        :param source: 可以是文件路径 (str), RTSP地址 (str), 或摄像头索引 (int)
+        :param to_rgb: 是否返回 RGB 格式
+        :param queue_size: 缓冲队列大小
         """
-        self.cap = cv2.VideoCapture(video_path)
-        if not self.cap.isOpened():
-            raise ValueError(f"无法打开视频: {video_path}")
-
+        self.source = source
         self.to_rgb = to_rgb
         
-        # 线程安全队列
+        # 判断是否为实时流 (RTSP 或 摄像头)
+        self.is_stream = str(source).startswith(('rtsp', 'rtmp', 'http')) or isinstance(source, int)
+        
+        self.cap = cv2.VideoCapture(source)
+        if not self.cap.isOpened():
+            raise ValueError(f"无法打开视频源: {source}")
+
+        # 对于 RTSP 流，限制底层缓冲区以降低延迟
+        if self.is_stream:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            # 实时流通常不需要太大的队列，1-5 即可，确保新鲜度
+            queue_size = min(queue_size, 5)
+
         self.frame_queue = queue.Queue(maxsize=queue_size)
         self.running = True
         
-        # 启动后台读取线程
         self.read_thread = threading.Thread(target=self._update, daemon=True)
         self.read_thread.start()
 
     def _update(self):
-        """后台线程：不断读取帧并存入队列"""
+        """后台读取线程"""
         while self.running:
-            if not self.frame_queue.full():
-                ret, frame = self.cap.read()
-                if not ret:
+            ret, frame = self.cap.read()
+            
+            if not ret:
+                if not self.is_stream:
+                    # 文件读取完毕
                     self.running = False
                     break
-                
-                # 放入队列（若队列满会阻塞直到有空位）
+                else:
+                    # 流断开，尝试重连
+                    print(f"流断开，正在尝试重连: {self.source}")
+                    self.cap.open(self.source)
+                    time.sleep(1)
+                    continue
+
+            # 核心策略：实时流丢弃旧帧，文件流阻塞等待
+            if self.is_stream:
+                if self.frame_queue.full():
+                    try:
+                        self.frame_queue.get_nowait() # 移除最旧的一帧
+                    except queue.Empty:
+                        pass
                 self.frame_queue.put(frame)
             else:
-                # 队列满时稍微休眠，减少 CPU 占用
-                time.sleep(0.01)
-        
-        self.cap.release()
+                # 文件模式：队列满时阻塞，确保每一帧都处理到
+                self.frame_queue.put(frame, block=True)
 
-    def get_frame(self, rgb=True):
+    def get_frame(self, rgb=None):
         """
-        外部调用的接口
-        :param rgb: 是否转换为 RGB (覆盖初始化设置)
-        :return: Numpy 数组或 None (读取完毕时)
+        获取一帧
+        :param rgb: 覆盖初始化的 to_rgb 设置
+        :return: frame 或 None
         """
+        use_rgb = rgb if rgb is not None else self.to_rgb
         try:
-            # 从队列获取一帧 (设置超时防止永久阻塞)
-            frame = self.frame_queue.get(timeout=2)
+            # 等待时间根据是否是流来调整
+            wait_time = 0.5 if self.is_stream else 5.0
+            frame = self.frame_queue.get(timeout=wait_time)
             
-            if rgb:
+            if use_rgb:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             return frame
         except queue.Empty:
             return None
 
     def stop(self):
-        """手动停止读取"""
         self.running = False
         if self.read_thread.is_alive():
             self.read_thread.join()
+        if self.cap.isOpened():
+            self.cap.release()
 
     def __del__(self):
         self.stop()
 
 # --- 使用示例 ---
 if __name__ == "__main__":
-    reader = VideoReader("test_video.mp4")
+    # 示例 1: 读取本地文件
+    # reader = VideoReader("data/test.mp4")
     
-    while True:
-        frame = reader.get_frame(rgb=True)
-        if frame is None:
-            print("视频读取完毕或超时")
-            break
-            
-        # 在这里进行你的处理
-        # print(f"获取到帧，形状: {frame.shape}")
-        
-    reader.stop()
+    # 示例 2: 读取 RTSP 流
+    reader = VideoReader("rtsp://admin:123456@192.168.1.10:554/h264")
+    
+    try:
+        while True:
+            frame = reader.get_frame(rgb=True)
+            if frame is None:
+                if not reader.running: break # 文件读完退出
+                continue # 流等待中
+                
+            # 这里进行你的图像处理
+            # cv2.imshow("Frame", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            # if cv2.waitKey(1) & 0xFF == ord('q'): break
+    finally:
+        reader.stop()
