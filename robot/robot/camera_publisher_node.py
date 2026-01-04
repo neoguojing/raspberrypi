@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image,CompressedImage
 from cv_bridge import CvBridge
-from robot.camera.camera import RpiCamera
+from robot.camera.camera import RpiCamera 
 import cv2
 
 class CameraPublisherNode(Node):
@@ -12,12 +12,16 @@ class CameraPublisherNode(Node):
         self.declare_parameter('camera_frequency', 15.0)
         self.camera_frequency = self.get_parameter('camera_frequency').get_parameter_value().double_value
 
+        self.declare_parameter('is_camera', True)
+        self.is_camera = self.get_parameter('is_camera').get_parameter_value().bool_value
+
+        self.declare_parameter('source', '')
+        self.source = self.get_parameter('source').get_parameter_value().string_value
+
         self.get_logger().info('📷 摄像头发布节点启动...')
         self.compressed=compressed
         
         self.bridge = CvBridge()
-        self.camera_driver = RpiCamera()
-
         # 发布器：发布图像帧
         if self.compressed:
             self.image_publisher = self.create_publisher(CompressedImage, '/camera/image_raw/compressed', 10)
@@ -28,7 +32,12 @@ class CameraPublisherNode(Node):
         # 定时器：周期性发布图像帧
         self.timer = self.create_timer(1.0 / self.camera_frequency, self.image_timer_callback)
 
-        self.camera_driver.start()
+        if self.is_camera:
+            self.camera_driver = RpiCamera()
+            self.camera_driver.start()
+        else:
+            from robot.camera.video_reader import VideoReader
+            self.camera_driver = VideoReader(self.source)
     
     def image_timer_callback(self):
         """定时器触发，用于周期性地发布 Image 数据。"""

@@ -14,7 +14,7 @@ class VideoReader:
         self.to_rgb = to_rgb
         
         # 判断是否为实时流 (RTSP 或 摄像头)
-        self.is_stream = str(source).startswith(('rtsp', 'rtmp', 'http')) or isinstance(source, int)
+        self.is_stream = str(source).startswith(('rtsp', 'rtmp', 'http'))
         
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
@@ -61,7 +61,7 @@ class VideoReader:
                 # 文件模式：队列满时阻塞，确保每一帧都处理到
                 self.frame_queue.put(frame, block=True)
 
-    def get_frame(self, rgb=None):
+    def get_frame(self, rgb=True):
         """
         获取一帧
         :param rgb: 覆盖初始化的 to_rgb 设置

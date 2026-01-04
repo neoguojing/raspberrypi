@@ -51,6 +51,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'camera_frequency': 15.0},
+            {'is_camera': False},
+            {'source': ''},
         ]
     )
 
