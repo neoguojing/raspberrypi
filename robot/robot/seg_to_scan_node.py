@@ -42,21 +42,14 @@ class ZenohToLaserScan(Node):
     def zenoh_callback(self, sample):
         try:
             # 解析 JSON 负载
-            data = json.loads(sample.payload.decode('utf-8'))
+            data = json.loads(bytes(sample.payload).decode("utf-8"))
             
             # 构造 LaserScan 消息
             scan_msg = LaserScan()
             
             # 使用当前 ROS 时间或 JSON 中的时间戳
-            # 如果 JSON 里有时间戳，可以这样转换：
-            # scan_msg.header.stamp = self.get_clock().now().to_msg() 
-            from builtin_interfaces.msg import Time
-            t = data.get('stamp', time.time())
-            sec = int(t)
-            nanosec = int((t - sec) * 1e9)
-            scan_msg.header.stamp = Time(sec=sec, nanosec=nanosec)
-            
-            scan_msg.header.frame_id = data.get('frame_id', self.target_frame)
+            scan_msg.header.stamp = self.get_clock().now().to_msg()
+            scan_msg.header.frame_id = self.get_clock().now().to_msg()
             
             # 填充雷达几何参数
             scan_msg.angle_min = float(data['angle_min'])

@@ -25,29 +25,69 @@ class Ros2Publisher(Node):
 # =============================
 class Ros2Subscriber(Node):
     def __init__(self):
-        super().__init__('ros2_sub')
-        self.sub = self.create_subscription(String, '/test_zenoh_to_ros2', self.callback, 10)
-        self.pub = self.create_publisher(String, '/test_zenoh_to_ros2', 10)
+        super().__init__('zenoh_to_ros2_bridge')
+
+        # ROS2 Publisher
+        self.pub = self.create_publisher(
+            String,
+            '/test_zenoh_to_ros2',
+            10
+        )
+
+        # Zenoh session
         config = zenoh.Config()
         config.insert_json5(
             "connect/endpoints",
             '["tcp/127.0.0.1:7447"]'
         )
+        self.session = zenoh.open(config)
 
-        session = zenoh.open(config)
-        def callback(sample):
+        self.get_logger().info('Connected to Zenoh')
+
+        # Zenoh subscriber
+        self.sub = self.session.declare_subscriber(
+            "rt/test_zenoh_to_ros2",
+            self.zenoh_callback
+        )
+
+    def zenoh_callback(self, sample):
+        try:
+            # Zenoh payload 是 ZBytes
             data = bytes(sample.payload).decode("utf-8")
-            print(f"Zenoh Subscriber received: {sample.key_expr} -> {data}")
+
+            self.get_logger().info(
+                f'Zenoh received: {sample.key_expr} -> {data}'
+            )
+
+            # 封装成 ROS2 消息
             msg = String()
             msg.data = data
+
             self.pub.publish(msg)
-    
-        sub = session.declare_subscriber("rt/test_zenoh_to_ros2", callback)
+
+        except Exception as e:
+            self.get_logger().error(f'Zenoh decode failed: {e}')
+
+    def destroy_node(self):
+        self.session.close()
+        super().destroy_node()
+
+
+class Ros2Printer(Node):
+    def __init__(self):
+        super().__init__('ros2_printer')
+
+        self.sub = self.create_subscription(
+            String,
+            '/test_zenoh_to_ros2',
+            self.callback,
+            10
+        )
 
     def callback(self, msg):
-
-        self.get_logger().info(f'ROS2 Received: {msg.data}')
-
+        self.get_logger().info(
+            f'ROS2 received: {msg.data}'
+        )
 
 # =============================
 # Main
@@ -57,17 +97,22 @@ def main():
     
     ros2_pub_node = Ros2Publisher()
     ros2_sub_node = Ros2Subscriber()
+    ros2_printer_node = Ros2Printer()
 
     try:
         executor = rclpy.executors.MultiThreadedExecutor()
         executor.add_node(ros2_pub_node)
         executor.add_node(ros2_sub_node)
+        executor.add_node(ros2_printer_node)
+
         executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
         ros2_pub_node.destroy_node()
         ros2_sub_node.destroy_node()
+        ros2_printer_node.destroy_node()
+
         rclpy.shutdown()
 
 if __name__ == '__main__':
