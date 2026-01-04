@@ -219,7 +219,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--config', 
         type=str, 
-        default='config.json', 
+        default='robot/config/imx219.json', 
         help='Path to the camera configuration JSON file (default: config.json)'
     )
     
