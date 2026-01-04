@@ -11,9 +11,7 @@ def zenoh_subscriber():
     config = zenoh.Config()
     session = zenoh.open(config)
     print("Zenoh Subscriber connected")
-    print("Zenoh Subscriber connected")
     print("Session id:", session.id)
-    print("Connected peers:", session.connected_peers)
     def callback(sample):
         data = sample.payload.decode()
         print(f"Zenoh Subscriber received: {sample.key_expr} -> {data}")
