@@ -6,24 +6,10 @@ class SegDetector:
     def __init__(
         self,
         model_name="yolo11n-seg.pt",
-        model_dir="./models",
         conf=0.45
     ):
         self.conf = conf
-
-        os.makedirs(model_dir, exist_ok=True)
-        self.model_path = os.path.join(model_dir, model_name)
-
-        # 1. 本地不存在 → 触发自动下载
-        if not os.path.exists(self.model_path):
-            print(f"[SegDetector] Model not found, downloading: {model_name}")
-            self.model = YOLO(model_name)        # 触发 Ultralytics 下载
-            self.model.save(self.model_path)     # 保存到指定目录
-        else:
-            print(f"[SegDetector] Loading local model: {self.model_path}")
-            self.model = YOLO(self.model_path)
-
-        # 2. 避障关心的 COCO 类别
+        self.model = YOLO(model_name)        # 触发 Ultralytics 下载
         self.obstacle_ids = [
             0, 1, 2, 3, 5, 7, 24, 26, 32, 39, 41, 64, 67
         ]
