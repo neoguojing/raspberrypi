@@ -89,7 +89,7 @@ local_costmap:
         observation_sources: scan slam_points
         enabled: true         # ← 显式开启
         scan:
-          topic: scan   # ← YOLO-Seg 输出
+          topic: /seg/scan   # ← YOLO-Seg 输出
           data_type: LaserScan
           marking: true
           clearing: true

@@ -11,7 +11,7 @@ class ZenohToLaserScan(Node):
         
         # 1. 声明 ROS 2 参数
         self.declare_parameter('zenoh_topic', 'rt/scan')
-        self.declare_parameter('ros_topic', '/scan')
+        self.declare_parameter('ros_topic', '/seg/scan')
         self.declare_parameter('frame_id', 'base_link')
 
         zenoh_topic = self.get_parameter('zenoh_topic').get_parameter_value().string_value
@@ -43,7 +43,9 @@ class ZenohToLaserScan(Node):
         try:
             # 解析 JSON 负载
             data = json.loads(bytes(sample.payload).decode("utf-8"))
-            
+            self.get_logger().info(
+                f'ZenohToLaserScan received: {data}'
+            )
             # 构造 LaserScan 消息
             scan_msg = LaserScan()
             
