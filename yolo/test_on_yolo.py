@@ -9,6 +9,11 @@ import zenoh
 # =============================
 def zenoh_subscriber():
     config = zenoh.Config()
+    config.insert_json5(
+        "connect/endpoints",
+        '["tcp/127.0.0.1:7447"]'
+    )
+
     session = zenoh.open(config)
     print("Zenoh Subscriber connected")
     print("Session id:", session.id)
@@ -29,6 +34,11 @@ def zenoh_subscriber():
 # =============================
 def zenoh_publisher():
     config = zenoh.Config()
+    config.insert_json5(
+        "connect/endpoints",
+        '["tcp/127.0.0.1:7447"]'
+    )
+
     session = zenoh.open(config)
     pub = session.declare_publisher("rt/test_zenoh_to_ros2")
 
