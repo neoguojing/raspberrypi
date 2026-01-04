@@ -31,5 +31,5 @@ WORKDIR /home/zenoh
 # =========================================================
 # Start Zenoh Router (PID 1)
 # =========================================================
-# CMD ["zenohd]
-CMD ["sh", "-c", "while true; do sleep 1000; done"]
+CMD ["python","-m","yolo.zen_seg"]
+# CMD ["sh", "-c", "while true; do sleep 1000; done"]
