@@ -35,6 +35,10 @@ class ZenohSegScan:
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
         config = zenoh.Config()
+        config.insert_json5(
+            "connect/endpoints",
+            '["tcp/127.0.0.1:7447"]'
+        )
         self.session = zenoh.open(config)
         
         # 话题定义 (对应 ROS 2 Bridge 映射路径)
@@ -158,7 +162,9 @@ class ZenohSegScan:
             "range_min": self.range_min,
             "range_max": self.range_max
         }
-        self.pub.put(json.dumps(msg).encode('utf-8'))
+        payload = json.dumps(msg).encode("utf-8")
+        self.pub.put(payload=payload,
+                        encoding="application/json")
 
      # 像素坐标到，ros坐标的转换，参考系base_footprint
     def pixel_to_base(self, u, v):

@@ -46,7 +46,7 @@ def zenoh_publisher():
     try:
         while True:
             msg = f"Hello from Zenoh {count}"
-            pub.put(msg.encode())
+            pub.put(payload=msg.encode("utf-8"))
             print(f"Zenoh Published: {msg}")
             count += 1
             time.sleep(1)
