@@ -164,7 +164,13 @@ ENV ROS_DISTRO=jazzy
 # ENV CYCLONEDDS_URI=file:///etc/ros/cyclonedds/config.xml
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV GZ_PARTITION=sim
-ARG name=5
+
+# 拷贝 CycloneDDS 配置
+COPY cyclonedds.xml /etc/cyclonedds.xml
+
+# 设置环境变量（所有 ROS2 进程都会生效）
+ENV CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+
 # 放到你真正要执行的目录
 ADD robot_starter.sh /home/ros_user/starter.sh
 

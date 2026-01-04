@@ -24,6 +24,10 @@ class ZenohToLaserScan(Node):
         # 3. 初始化 Zenoh 会话
         self.get_logger().info(f'🔗 正在连接 Zenoh 并订阅: {zenoh_topic}')
         config = zenoh.Config()
+        config.insert_json5(
+            "connect/endpoints",
+            '["tcp/127.0.0.1:7447"]'
+        )
         self.session = zenoh.open(config)
         
         # 4. 订阅 Zenoh 话题
