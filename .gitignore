@@ -13,7 +13,7 @@ test.jpg
 test.mp4
 # C extensions
 *.so
-
+yolo11n-seg.pt
 # Distribution / packaging
 .Python
 build/
