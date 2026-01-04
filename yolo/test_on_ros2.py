@@ -30,7 +30,7 @@ class Ros2Subscriber(Node):
         # ROS2 Publisher
         self.pub = self.create_publisher(
             String,
-            '/test_zenoh_to_ros2',
+            '/test_zenoh_to_ros2_print',
             10
         )
 
@@ -79,7 +79,7 @@ class Ros2Printer(Node):
 
         self.sub = self.create_subscription(
             String,
-            '/test_zenoh_to_ros2',
+            '/test_zenoh_to_ros2_print',
             self.callback,
             10
         )
