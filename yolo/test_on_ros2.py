@@ -46,9 +46,10 @@ def main():
     ros2_sub_node = Ros2Subscriber()
 
     try:
-        # spin ROS2 nodes
-        rclpy.spin(ros2_pub_node)
-        rclpy.spin(ros2_sub_node)
+        executor = rclpy.executors.MultiThreadedExecutor()
+        executor.add_node(ros2_pub_node)
+        executor.add_node(ros2_sub_node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

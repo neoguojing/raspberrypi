@@ -13,7 +13,7 @@ def zenoh_subscriber():
     print("Zenoh Subscriber connected")
     print("Session id:", session.id)
     def callback(sample):
-        data = sample.payload.decode()
+        data = bytes(sample.payload).decode("utf-8")
         print(f"Zenoh Subscriber received: {sample.key_expr} -> {data}")
     
     sub = session.declare_subscriber("rt/test_ros2_to_zenoh", callback)
