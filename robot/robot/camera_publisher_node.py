@@ -17,7 +17,7 @@ class CameraPublisherNode(Node):
         self.declare_parameter('source', '')
         self.source = self.get_parameter('source').get_parameter_value().string_value
 
-        self.declare_parameter('compressed', '')
+        self.declare_parameter('compressed', True)
         self.compressed = self.get_parameter('compressed').get_parameter_value().bool_value
 
         self.get_logger().info('📷 摄像头发布节点启动...')
