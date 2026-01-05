@@ -170,6 +170,13 @@ ros2_sim: ros2_build
 	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
 	ros2 launch robot full.sim.launch.py
 
+ros2_offline: ros2_build
+	@echo "启动模拟系统..."
+	# 使用 . 代替 source，并确保在项目根目录执行
+	cd $(PROJECT_ROOT) && . install/setup.bash && \
+	cd $(SLAM3_APP_ROOT) && . install/setup.bash && \
+	ros2 launch robot offline.launch.py
+
 ros2_full: ros2_build
 	@echo "启动生产系统..."
 	# 使用 . 代替 source，并确保在项目根目录执行

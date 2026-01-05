@@ -67,6 +67,8 @@ class ZenohSegScan:
         self.K = np.array(config['camera_matrix'], dtype=np.float32)
         self.dist_coeffs = np.array(config['dist_coeffs'], dtype=np.float32)
         self.cy = self.K[1, 2]
+        self.width = config['width']
+        self.height = config['height']
 
     def on_image_data(self, sample):
         """Zenoh 订阅回调"""
@@ -83,7 +85,7 @@ class ZenohSegScan:
             # print("🔹 收到新图像数据，大小:", len(payload_bytes), "bytes")
             
             # 1. 解码图像并获取时间戳
-            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(1280, 720, 3))
+            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.width, self.height, 3))
             if frame is None:
                 print("⚠ 无法解码图像")
                 return
