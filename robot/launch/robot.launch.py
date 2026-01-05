@@ -69,7 +69,7 @@ def generate_launch_description():
 
     # 3. 返回启动描述
     return LaunchDescription([
-        static_tf_pub_node,
+        # static_tf_pub_node,
         car_driver_node,
         camera_publisher_node,
         # icm20948_spi_node

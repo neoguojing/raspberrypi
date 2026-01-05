@@ -26,9 +26,9 @@ class SegDetector:
         classes = results.boxes.cls.cpu().numpy().astype(int)
         
         for i, mask in enumerate(results.masks.xy):
-            # 1. 类别过滤
-            if classes[i] not in self.obstacle_ids:
-                continue
+            # 1. 类别过滤，无需过滤，地面不会被检测到
+            # if classes[i] not in self.obstacle_ids:
+            #     continue
 
             # 2. 几何完整性过滤
             if mask.shape[0] < 20: # 稍微放宽，防止过滤掉远处的小障碍物
@@ -86,7 +86,7 @@ class SegDetector:
     
 def main():
     # 1️⃣ 初始化检测器
-    detector = SegDetector(model_name="yolo11n-seg.pt", model_dir="./models", conf=0.45)
+    detector = SegDetector(model_name="yolo11n-seg.pt", conf=0.45)
     
     # 2️⃣ 读取测试图像
     test_image_path = "asset/test.jpeg"  # 替换为你本地测试图片路径
