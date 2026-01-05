@@ -19,7 +19,7 @@ class SegDetector:
         contact_pixels = []
 
         if results.masks is None:
-            return contact_pixels
+            return contact_pixels,None
 
         # 获取所有类别的索引和掩码
         # 一次性获取所有 cls 以减少循环内计算
