@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image,CompressedImage
 from cv_bridge import CvBridge
-from robot.camera.camera import RpiCamera 
 import cv2
 
 class CameraPublisherNode(Node):
@@ -33,6 +32,7 @@ class CameraPublisherNode(Node):
         self.timer = self.create_timer(1.0 / self.camera_frequency, self.image_timer_callback)
 
         if self.is_camera:
+            from robot.camera.camera import RpiCamera 
             self.camera_driver = RpiCamera()
             self.camera_driver.start()
         else:
