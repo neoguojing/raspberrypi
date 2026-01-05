@@ -122,3 +122,6 @@ camera_link_optical,0.08,0,0.071,光学中心： 位置同上，但坐标轴已�
 1. 使用 YOLOv8-Seg,将分割出的非地面区域（障碍物）通过几何投影映射到地平面的极坐标系，伪造出 /scan (LaserScan) 用于局部代价地图  TODO
 3.直接在图像上运行目标检测（YOLO），当检测到“人”或“障碍物”且其在图像底部的像素坐标超过安全阈值时（图像越靠下，障碍物离机器人越近），直接给 collision_monitor 发送一个虚拟的距离信号或触发底盘停止。TODO
 2.单目深度估计 (Monocular Depth Estimation):Depth-Anything 或 MiDaS 模型，将单目 RGB 图实时转化为“伪深度图”。配合 depthimage_to_laserscan 插件，将伪深度图转化为标准的 /scan 信号 REJECT （模型太大，算力要求极高）
+
+
+curl http://127.0.0.1:25000/@/local/ros2/node/**
