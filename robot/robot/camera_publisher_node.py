@@ -5,7 +5,7 @@ from cv_bridge import CvBridge
 import cv2
 
 class CameraPublisherNode(Node):
-    def __init__(self,compressed=True):
+    def __init__(self):
         super().__init__('camera_publisher_node')
 
         self.declare_parameter('camera_frequency', 15.0)
@@ -17,8 +17,10 @@ class CameraPublisherNode(Node):
         self.declare_parameter('source', '')
         self.source = self.get_parameter('source').get_parameter_value().string_value
 
+        self.declare_parameter('compressed', '')
+        self.compressed = self.get_parameter('compressed').get_parameter_value().bool_value
+
         self.get_logger().info('📷 摄像头发布节点启动...')
-        self.compressed=compressed
         
         self.bridge = CvBridge()
         # 发布器：发布图像帧

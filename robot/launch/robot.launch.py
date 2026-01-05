@@ -53,6 +53,7 @@ def generate_launch_description():
             {'camera_frequency': 15.0},
             {'is_camera': True},
             {'source': ''},
+            {'compressed': True},
         ]
     )
 
