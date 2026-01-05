@@ -1,0 +1,287 @@
+静态tf
+{
+  "transforms": [
+    {
+      "header": {
+        "stamp": {
+          "sec": 0,
+          "nsec": 0
+        },
+        "frame_id": "base_footprint"
+      },
+      "child_frame_id": "base_link",
+      "transform": {
+        "translation": {
+          "x": 0,
+          "y": 0,
+          "z": 0.021
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 0,
+          "nsec": 0
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "camera_link",
+      "transform": {
+        "translation": {
+          "x": 0.1,
+          "y": 0,
+          "z": 0.05
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.074131932325841,
+          "z": 0,
+          "w": 0.9972484427712268
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 0,
+          "nsec": 0
+        },
+        "frame_id": "camera_link"
+      },
+      "child_frame_id": "camera_link_optical",
+      "transform": {
+        "translation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0.5,
+          "y": -0.4999999999999999,
+          "z": 0.5,
+          "w": -0.5000000000000001
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 0,
+          "nsec": 0
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "imu_link",
+      "transform": {
+        "translation": {
+          "x": 0,
+          "y": 0,
+          "z": 0.03
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "w": 1
+        }
+      }
+    }
+  ]
+}
+
+模拟小车发布的动态tf
+
+{
+  "transforms": [
+    {
+      "header": {
+        "stamp": {
+          "sec": 733,
+          "nsec": 540000000
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "front_left_steer_link",
+      "transform": {
+        "translation": {
+          "x": 0.0485,
+          "y": 0.06,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 4.999999864624746e-10,
+          "w": 1
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 733,
+          "nsec": 540000000
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "front_right_steer_link",
+      "transform": {
+        "translation": {
+          "x": 0.0485,
+          "y": -0.06,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 5.000000158229988e-10,
+          "w": 1
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 733,
+          "nsec": 540000000
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "rear_left_wheel",
+      "transform": {
+        "translation": {
+          "x": -0.0485,
+          "y": 0.06,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.9307254594827421,
+          "z": 0,
+          "w": -0.3657186337481842
+        }
+      }
+    },
+    {
+      "header": {
+        "stamp": {
+          "sec": 733,
+          "nsec": 540000000
+        },
+        "frame_id": "base_link"
+      },
+      "child_frame_id": "rear_right_wheel",
+      "transform": {
+        "translation": {
+          "x": -0.0485,
+          "y": -0.06,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.8535772450051391,
+          "z": 0,
+          "w": 0.5209663010305338
+        }
+      }
+    }
+  ]
+}
+
+ekf发布的动态tf
+{
+  "transforms": [
+    {
+      "header": {
+        "stamp": {
+          "sec": 1324,
+          "nsec": 560000000
+        },
+        "frame_id": "odom"
+      },
+      "child_frame_id": "base_footprint",
+      "transform": {
+        "translation": {
+          "x": 1.2815570677535573,
+          "y": -4.4823611084487744,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0.9999329642590566,
+          "w": 0.01157872998631885
+        }
+      }
+    }
+  ]
+}
+
+slam3发布的动态tf
+{
+  "transforms": [
+    {
+      "STUDIO_DIFF___DELETED": {
+        "STUDIO_DIFF___ID": {
+          "child_frame_id": "odom"
+        },
+        "header": {
+          "stamp": {
+            "sec": 1397,
+            "nsec": 420000000
+          },
+          "frame_id": "map"
+        },
+        "child_frame_id": "odom",
+        "transform": {
+          "translation": {
+            "x": 1.0170825095209033,
+            "y": -4.4068064015020605,
+            "z": 0.02898676861343763
+          },
+          "rotation": {
+            "x": 0.805553947637655,
+            "y": 0.1177076949826314,
+            "z": -0.5801546137922828,
+            "w": 0.025462915834473823
+          }
+        }
+      }
+    },
+    {
+      "STUDIO_DIFF___ADDED": {
+        "STUDIO_DIFF___ID": {
+          "child_frame_id": "base_footprint"
+        },
+        "header": {
+          "stamp": {
+            "sec": 1397,
+            "nsec": 440000000
+          },
+          "frame_id": "odom"
+        },
+        "child_frame_id": "base_footprint",
+        "transform": {
+          "translation": {
+            "x": 0.5438572865762307,
+            "y": -4.465378643626912,
+            "z": 0
+          },
+          "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0.9999340916334177,
+            "w": 0.011480957680074394
+          }
+        }
+      }
+    }
+  ]
+}
