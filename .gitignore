@@ -14,6 +14,7 @@ test.mp4
 # C extensions
 *.so
 yolo11n-seg.pt
+samples
 # Distribution / packaging
 .Python
 build/
