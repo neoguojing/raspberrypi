@@ -7,6 +7,8 @@ import math
 import time
 import sys
 import struct
+import os
+import glob
 from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
 
 class ZenohSegScan:
@@ -35,7 +37,7 @@ class ZenohSegScan:
         self.load_sensor_config(config_path)
 
         # 初始化检测器
-        self.detector = SegDetector(conf=0.1)
+        self.detector = SegDetector(conf=0.05)
         
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
@@ -80,12 +82,9 @@ class ZenohSegScan:
             # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
             # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
             # 如果解码失败，可能需要跳过前几个字节的 ROS Header
-            payload_bytes = sample.payload.to_bytes() 
-        
-            # print("🔹 收到新图像数据，大小:", len(payload_bytes), "bytes")
-            
+            payload_bytes = sample.payload.to_bytes()           
             # 1. 解码图像并获取时间戳
-            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.width, self.height, 3))
+            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
             if frame is None:
                 print("⚠ 无法解码图像")
                 return
@@ -135,9 +134,53 @@ class ZenohSegScan:
         if hasattr(payload, 'to_bytes'):
             payload = payload.to_bytes()
 
+        payload_len = len(payload)
+        h, w, c = default_shape
+        num_pixels = h * w * c
+    
         stamp = time.time()
         frame = None
+        def save_image(decode_type, max_files=50):
+            # --- 3. 保存验证 ---
+            if frame is None:
+                return
 
+            debug_dir = 'debug_images'
+            if not os.path.exists(debug_dir):
+                os.makedirs(debug_dir)
+
+            # 1. 数量限制检查
+            files = sorted(glob.glob(os.path.join(debug_dir, "*.jpg")))
+            if len(files) >= max_files:
+                # 删除最早的一张 (按文件名排序)
+                try:
+                    os.remove(files[0])
+                except Exception:
+                    pass
+            # 3. 执行保存
+            filename = f"{debug_dir}/frame_{int(time.time()*1000)}_{decode_type}.jpg"
+            cv2.imwrite(filename, frame)
+        # print(f"✅ 已保存验证图片: {filename}")
+        
+        # --- 2. 尝试 raw Image ---
+        # 如果没找到 JPEG 头，可能是 raw 格式
+        # 注意：Raw Image 也有 Header，payload 需要跳过 Header 才能正确 reshape
+        # 假设 Header 长度约为 48 字节 (视 frame_id 长度而定)
+        if payload_len >= num_pixels:
+            try:
+                
+                # 这是一个 Trick：从末尾向前取数据，规避前面变长的 Header
+                raw_data = np.frombuffer(payload, np.uint8)
+                num_pixels = default_shape[0] * default_shape[1] * default_shape[2]
+        
+                if len(raw_data) >= num_pixels:
+                    frame = raw_data[-num_pixels:].reshape(default_shape)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    # save_image('rgb')
+                    return frame, stamp
+            except Exception as e:
+                print(f"⚠ raw Image reshape 失败: {e}")
+        
         # --- 1. 处理 ROS 2 消息头 (DDS 序列化通常会有额外开销) ---
         # ROS2 CompressedImage 的一般布局: 
         # [8字节 Stamp] [Frame_ID 长度 + 字符串] [Format 长度 + 字符串 "jpeg"] [数据]
@@ -145,7 +188,6 @@ class ZenohSegScan:
         # 尝试寻找 JPEG 魔法数字 (0xFF, 0xD8)
         # 通常 JPEG 在 payload 中的偏移量在 40-100 字节之间
         idx = payload.find(b'\xff\xd8')
-
         if idx != -1:
             # 找到了 JPEG 开头，说明是压缩图像
             try:
@@ -160,30 +202,16 @@ class ZenohSegScan:
                     sec, nsec = struct.unpack_from('<II', payload, 4)
                     if 1e8 < sec < 2e9:
                         stamp = sec + nsec * 1e-9
-            except Exception:
-                pass
-
-            # 解码 JPEG
-            jpeg_data = payload[idx:]
-            nparr = np.frombuffer(jpeg_data, np.uint8)
-            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            return frame, stamp
-
-        # --- 2. 尝试 raw Image ---
-        # 如果没找到 JPEG 头，可能是 raw 格式
-        # 注意：Raw Image 也有 Header，payload 需要跳过 Header 才能正确 reshape
-        # 假设 Header 长度约为 48 字节 (视 frame_id 长度而定)
-        try:
-            # 这是一个 Trick：从末尾向前取数据，规避前面变长的 Header
-            raw_data = np.frombuffer(payload, np.uint8)
-            num_pixels = default_shape[0] * default_shape[1] * default_shape[2]
-            
-            if len(raw_data) >= num_pixels:
-                frame = raw_data[-num_pixels:].reshape(default_shape)
-                return frame, stamp
-        except Exception as e:
-            print(f"⚠ raw Image reshape 失败: {e}")
-
+                print(f"的点点滴滴的")
+                # 解码 JPEG
+                jpeg_data = payload[idx:]
+                nparr = np.frombuffer(jpeg_data, np.uint8)
+                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                # save_image('compressed')
+                if frame is not None:
+                    return frame, stamp
+            except Exception as e:
+                print(f"⚠ jpeg Image reshape 失败: {e}")
         return None, stamp
     
     def publish_as_json(self, ranges,stamp):

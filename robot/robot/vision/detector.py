@@ -15,7 +15,12 @@ class SegDetector:
         ]
 
     def get_ground_contact_points(self, frame, render=True):
-        results = self.model(frame, verbose=False, conf=self.conf)[0]
+        results = self.model(frame, verbose=False, conf=self.conf)[0].cpu()
+        num_objects = len(results.boxes)
+        if num_objects > 0:
+            # results.names 是类别字典，例如 {0: 'person', 1: 'car'}
+            counts = results.verbose() 
+            print(f"检测详情: {counts}")
         contact_pixels = []
 
         # 获取所有类别的索引和掩码
@@ -85,7 +90,7 @@ class SegDetector:
         # ========== [新增] 如果 mask 失败，使用 box ==========
         if len(contact_pixels) < 3:
             contact_pixels.clear()
-            print("⚠️ mask 点不足，使用 box 兜底")
+            # print("⚠️ mask 点不足，使用 box 兜底")
             box_ground_contact()
 
         contact_pixels = list(set(
