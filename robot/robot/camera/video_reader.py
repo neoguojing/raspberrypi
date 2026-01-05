@@ -56,10 +56,12 @@ class VideoReader:
                         self.frame_queue.get_nowait() # 移除最旧的一帧
                     except queue.Empty:
                         pass
-                self.frame_queue.put(frame)
+                ts = time.time()
+                self.frame_queue.put((ts,frame))
             else:
                 # 文件模式：队列满时阻塞，确保每一帧都处理到
-                self.frame_queue.put(frame, block=True)
+                ts = time.time()
+                self.frame_queue.put((ts,frame), block=True)
 
     def get_frame(self, rgb=True):
         """
@@ -71,13 +73,13 @@ class VideoReader:
         try:
             # 等待时间根据是否是流来调整
             wait_time = 0.5 if self.is_stream else 5.0
-            frame = self.frame_queue.get(timeout=wait_time)
+            ts,frame = self.frame_queue.get(timeout=wait_time)
             
             if use_rgb:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            return frame
+            return ts,frame
         except queue.Empty:
-            return None
+            return None,None
 
     def stop(self):
         self.running = False

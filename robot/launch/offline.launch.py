@@ -22,6 +22,7 @@ def generate_launch_description():
             {'camera_frequency': 15.0},
             {'is_camera': False},
             {'source': '/home/ros_user/ros2_ws/asset/fpv-demo-50-2.mp4'},
+            {'compressed': False},
         ]
     )
     
