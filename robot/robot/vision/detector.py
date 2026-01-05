@@ -91,6 +91,7 @@ class SegDetector:
         contact_pixels = list(set(
             (int(p[0]), int(p[1])) for p in contact_pixels
         ))
+        
         annotated_frame = None
         if render:
             # 初始化自定义属性（如果尚未定义）
@@ -130,7 +131,7 @@ def main():
     detector = SegDetector(model_name="yolo11n-seg.pt", conf=0.45)
     
     # 2️⃣ 读取测试图像
-    test_image_path = "asset/test.jpeg"  # 替换为你本地测试图片路径
+    test_image_path = "asset/test.png"  # 替换为你本地测试图片路径
     if not os.path.exists(test_image_path):
         print(f"❌ 测试图片不存在: {test_image_path}")
         return
