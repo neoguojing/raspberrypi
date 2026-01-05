@@ -93,7 +93,7 @@ class ZenohSegScan:
 
             # 2. 推理检测
             uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
-            # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+            print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
             # 3. 激光数据初始化
             scan_ranges = np.full(self.num_readings, np.inf)
 
