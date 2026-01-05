@@ -48,7 +48,7 @@ class ZenohSegScan:
         
         # 话题定义 (对应 ROS 2 Bridge 映射路径)
         # 假设 ROS 2 话题是 /camera/image_raw/compressed
-        self.image_topic = "rt/camera/image_raw"
+        self.image_topic = "/camera/image_raw"
         self.image_topic_compress = "rt/camera/image_raw/compressed"
         self.scan_topic = "rt/scan"
 
