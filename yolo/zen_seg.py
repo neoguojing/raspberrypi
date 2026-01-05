@@ -35,7 +35,7 @@ class ZenohSegScan:
         self.load_sensor_config(config_path)
 
         # 初始化检测器
-        self.detector = SegDetector()
+        self.detector = SegDetector(conf=0.1)
         
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
