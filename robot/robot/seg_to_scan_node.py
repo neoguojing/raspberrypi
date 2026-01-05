@@ -42,7 +42,8 @@ class ZenohToLaserScan(Node):
     def zenoh_callback(self, sample):
         try:
             # 解析 JSON 负载
-            data = json.loads(bytes(sample.payload).decode("utf-8"))
+            payload_bytes = sample.payload.to_bytes()
+            data = json.loads(payload_bytes.decode("utf-8"))
             self.get_logger().info(
                 f'ZenohToLaserScan received: {data}'
             )
