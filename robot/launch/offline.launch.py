@@ -21,7 +21,7 @@ def generate_launch_description():
         parameters=[
             {'camera_frequency': 15.0},
             {'is_camera': False},
-            {'source': 'asset/fpv-demo-50-2.mp4'},
+            {'source': '../asset/fpv-demo-50-2.mp4'},
         ]
     )
     
