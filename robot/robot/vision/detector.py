@@ -18,69 +18,109 @@ class SegDetector:
         results = self.model(frame, verbose=False, conf=self.conf)[0]
         contact_pixels = []
 
-        if results.masks is None:
-            print(f"🖼 未检测到任何信息: {results}")
-            return contact_pixels,None
-
         # 获取所有类别的索引和掩码
         # 一次性获取所有 cls 以减少循环内计算
-        classes = results.boxes.cls.cpu().numpy().astype(int)
+        # classes = results.boxes.cls.cpu().numpy().astype(int)
         
-        for i, mask in enumerate(results.masks.xy):
-            # 1. 类别过滤，无需过滤，地面不会被检测到
-            # if classes[i] not in self.obstacle_ids:
-            #     continue
+        # ========== [新增] Box Ground Contact 兜底函数 ==========
+        def box_ground_contact():
+            if results.boxes is None:
+                return
+            for box in results.boxes:
+                x1, y1, x2, y2 = box.xyxy[0]
+                yb = int(y2)
 
-            # 2. 几何完整性过滤
-            if mask.shape[0] < 20: # 稍微放宽，防止过滤掉远处的小障碍物
-                continue
+                # 忽略极小 box（远处噪声）
+                if (y2 - y1) < 8 or (x2 - x1) < 8:
+                    continue
 
-            y_min, y_max = np.min(mask[:, 1]), np.max(mask[:, 1])
-            h = y_max - y_min
-            
-            # 忽略过扁的异常 Mask (可能是地面线)
-            if h < 8:
-                continue
+                # 在 box 底边均匀采样 3 个点
+                num = max(3, int((x2 - x1) / 20))
+                xs = np.linspace(x1, x2, num=num)
+                for x in xs:
+                    contact_pixels.append((float(x), float(yb)))
 
-            # 3. 提取底部带状区域
-            # 0.15h 保证了采样鲁棒性，max(5, ...) 保证了小目标的采样厚度
-            band_height = max(5, int(0.15 * h))
-            mask_bottom_indices = mask[:, 1] > (y_max - band_height)
-            bottom_points = mask[mask_bottom_indices]
+        def mask_ground_contact():
+            if results.masks is None:
+                return         
+            for i, mask in enumerate(results.masks.xy):
+                # 1. 类别过滤，无需过滤，地面不会被检测到
+                # if classes[i] not in self.obstacle_ids:
+                #     continue
 
-            if len(bottom_points) < 3:
-                continue
+                # 2. 几何完整性过滤
+                if mask.shape[0] < 20: # 稍微放宽，防止过滤掉远处的小障碍物
+                    continue
 
-            # 4. 精准三点采样：根据 x 轴排序
-            # 排序是为了找到物体的左边界和右边界
-            sorted_indices = np.argsort(bottom_points[:, 0])
-            left_idx = sorted_indices[0]
-            right_idx = sorted_indices[-1]
-            mid_idx = sorted_indices[len(sorted_indices) // 2]
+                y_min, y_max = np.min(mask[:, 1]), np.max(mask[:, 1])
+                h = y_max - y_min
+                
+                # 忽略过扁的异常 Mask (可能是地面线)
+                if h < 8:
+                    continue
 
-            # 采样点：左边缘、中间点、右边缘
-            # 保持为 numpy 数组或简单列表，方便后续 pixel_to_base 调用
-            contact_pixels.append(bottom_points[left_idx])
-            contact_pixels.append(bottom_points[mid_idx])
-            contact_pixels.append(bottom_points[right_idx])
+                # 3. 提取底部带状区域
+                # 0.15h 保证了采样鲁棒性，max(5, ...) 保证了小目标的采样厚度
+                band_height = max(5, int(0.15 * h))
+                mask_bottom_indices = mask[:, 1] > (y_max - band_height)
+                bottom_points = mask[mask_bottom_indices]
+
+                if len(bottom_points) < 3:
+                    continue
+
+                # 4. 精准三点采样：根据 x 轴排序
+                # 排序是为了找到物体的左边界和右边界
+                sorted_indices = np.argsort(bottom_points[:, 0])
+                left_idx = sorted_indices[0]
+                right_idx = sorted_indices[-1]
+                mid_idx = sorted_indices[len(sorted_indices) // 2]
+
+                # 采样点：左边缘、中间点、右边缘
+                # 保持为 numpy 数组或简单列表，方便后续 pixel_to_base 调用
+                contact_pixels.append(bottom_points[left_idx])
+                contact_pixels.append(bottom_points[mid_idx])
+                contact_pixels.append(bottom_points[right_idx])
         
+        mask_ground_contact()
+        # ========== [新增] 如果 mask 失败，使用 box ==========
+        if len(contact_pixels) < 3:
+            contact_pixels.clear()
+            print("⚠️ mask 点不足，使用 box 兜底")
+            box_ground_contact()
+
+        contact_pixels = list(set(
+            (int(p[0]), int(p[1])) for p in contact_pixels
+        ))
         annotated_frame = None
         if render:
-            # 1. 先让 YOLO 帮你画好基础的 Mask 和 框
-            # labels=True 显示类别, boxes=True 显示方框
+            # 初始化自定义属性（如果尚未定义）
+            if not hasattr(self, 'saved_images_count'):
+                self.saved_images_count = 0  # 已保存的数量
+                self.frame_counter = 0       # 经历的总帧数
+                self.max_save_count = 10     # 最大保存上限
+                self.save_interval = 20      # 采样间隔：每隔多少帧存一张
+
+            self.frame_counter += 1
             annotated_frame = results.plot(labels=True, boxes=True)
 
-            # 2. 在 YOLO 画好的图上，叠加你自己的三个采样点
-            # 假设你已经通过之前的逻辑算出了 contact_pixels
+            # 渲染采样点
             for pt in contact_pixels:
                 cv2.circle(annotated_frame, (int(pt[0]), int(pt[1])), 5, (0, 0, 255), -1)
-            
-            output_path = "annotated_result.jpg"  # 或者使用绝对路径
-            success = cv2.imwrite(output_path, annotated_frame)
-            if success:
-                print(f"✅ 保存成功: {output_path}")
-            else:
-                print(f"❌ 保存失败: {output_path}")
+
+            # 判定条件：每隔固定帧数采样，且总数不超过 10 张
+            if self.saved_images_count < self.max_save_count and self.frame_counter % self.save_interval == 0:
+                self.saved_images_count += 1
+                
+                save_dir = "samples"
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+
+                # 文件名：包含序列号
+                output_path = os.path.join(save_dir, f"sample_{self.saved_images_count}.jpg")
+                
+                success = cv2.imwrite(output_path, annotated_frame)
+                if success:
+                    print(f"📸 已采样 ({self.saved_images_count}/{self.max_save_count}): {output_path}")
 
 
         return (contact_pixels , annotated_frame)
