@@ -201,3 +201,15 @@ sim:
 
 yolo_run:
 	python3 -m yolo.zen_seg --config robot/config/imx219.json
+
+.PHONY: record play
+record:
+	ros2 bag record -o rtabmap_mono_test \
+			/camera/image_raw \
+			/camera/camera_info \
+			/imu/data_raw \
+			/ekf/odom \
+			/tf \
+			/tf_static
+play:
+	ros2 bag play rtabmap_mono_test --clock

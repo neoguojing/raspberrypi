@@ -31,4 +31,4 @@ WORKDIR /home/zenoh
 
 # 推荐使用脚本启动，以便同时管理 zenohd 和 推理程序
 # 如果你只需要跑推理，直接运行 python
-CMD ["python3", "-m", "yolo.seg_scan"]
+CMD ["python3", "-m", "yolo.zen_seg"]
