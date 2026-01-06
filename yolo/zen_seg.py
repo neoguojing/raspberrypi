@@ -9,7 +9,8 @@ import sys
 import struct
 import os
 import glob
-from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
+# from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
+from robot.robot.vision.segformer import SegFormerDetector 
 
 class ZenohSegScan:
     def __init__(self, config_path='config.json'):
@@ -37,7 +38,8 @@ class ZenohSegScan:
         self.load_sensor_config(config_path)
 
         # 初始化检测器
-        self.detector = SegDetector(conf=0.05)
+        # self.detector = SegDetector(conf=0.05)
+        self.detector = SegFormerDetector()
         
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
