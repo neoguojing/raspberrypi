@@ -37,6 +37,7 @@ def generate_launch_description():
             # TF 发布策略（⚠️关键）
             'publish_tf': True,                # 只发布 map->odom
             'publish_odom': False,             # ❌ 不发布 odom->base
+            
             'odom_frame_id': 'odom',
             'map_frame_id': 'map',
 
