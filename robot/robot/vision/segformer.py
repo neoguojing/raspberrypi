@@ -21,7 +21,7 @@ class SegFormerDetector:
         if self.device == "cuda":
             self.model.half()
         self.model.eval()
-
+        print(f"model classes: {self.get_labels()}")
         # ADE20K 地面类别定义
         self.ground_classes = [3, 6, 11, 28, 52, 94] 
         # 新增：用于时域平滑的队列，存储最近 3 帧的 ground_mask
@@ -81,10 +81,38 @@ class SegFormerDetector:
         
         # 获取分类预测图
         pred_map = upsampled_logits.argmax(dim=1)[0].cpu().numpy()
-        
+        self.print_detected_categories(pred_map)
         # 生成二值化的地面掩码
         return np.isin(pred_map, self.ground_classes).astype(np.uint8)
 
+    def print_detected_categories(self, pred_map):
+        """
+        输入推理得到的 pred_map [H, W]
+        打印当前画面中出现的所有类别名称
+        """
+        # 1. 获取图中存在的所有唯一 ID
+        unique_ids = np.unique(pred_map)
+        
+        # 2. 获取映射表
+        id2label = self.model.config.id2label
+        
+        print("\n🔍 当前帧检测到以下类型:")
+        print("-" * 30)
+        for cls_id in unique_ids:
+            label = id2label.get(cls_id, f"Unknown({cls_id})")
+            # 统计该类别的像素占比，判断是否为主要特征
+            pixel_count = np.sum(pred_map == cls_id)
+            percentage = (pixel_count / pred_map.size) * 100
+            
+            # 标注该类别是否被你归类为“地面”
+            is_ground = " [地面✅]" if cls_id in self.ground_classes else ""
+            
+            print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
+              
+    def get_labels(self):
+        """返回所有类别的字典 {id: "label_name"}"""
+        return self.model.config.id2label
+    
     def _extract_boundary_points(self, ground_mask):
         contact_pixels = []
         h, w = ground_mask.shape
@@ -121,7 +149,7 @@ class SegFormerDetector:
             
         return canvas
 
-    def save_sample_image(self, image, folder="samples_segformer", max_count=10, interval=20):
+    def save_sample_image(self, image, folder="samples", max_count=10, interval=20):
         """
         [独立函数] 外部调用此函数来决定是否保存采样图片
         """
@@ -154,8 +182,8 @@ def main():
         detector.save_sample_image(visual_frame, max_count=5, interval=1)
         
         print(f"🔹 检测到 {len(contact_pixels)} 个接触点")
-        cv2.imshow("Optimized SegFormer", visual_frame)
-        cv2.waitKey(0)
+        # cv2.imshow("Optimized SegFormer", visual_frame)
+        # cv2.waitKey(0)
 
 if __name__ == "__main__":
     main()
