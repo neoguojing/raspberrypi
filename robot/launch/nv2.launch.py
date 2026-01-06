@@ -40,15 +40,16 @@ def generate_launch_description():
             # 定位与地图控制
             'slam': 'False',         # 关闭 Nav2 自带的 SLAM，因为你有 ORB-SLAM3
             'amcl': 'False',         # 核心：必须关闭，防止 TF 冲突
-            'map': 'False', # 如果你有建好的地图就填路径，没有就填 'False'
-            
             # 性能优化
             'use_composition': 'True', # 建议开启，提升性能
             'use_respawn': 'True',     # 如果某个节点崩溃，尝试自动重启
-            
+            'use_map_server': 'False',  # 启动地图服务器
+            'use_amcl': 'False',        # 启动 AMCL 定位
+
             # 命名空间控制（多机运行才需要修改）
             'namespace': '',
             'use_namespace': 'False',
+            'autostart': 'True',
         }.items(),
     )
 

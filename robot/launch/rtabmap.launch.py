@@ -23,6 +23,7 @@ def generate_launch_description():
 
             'subscribe_rgb': True,
             'subscribe_depth': False,          # 单目
+            'subscribe_rgbd': False,
             'subscribe_stereo': False,
             'subscribe_imu': True,
 
@@ -42,7 +43,7 @@ def generate_launch_description():
             'map_frame_id': 'map',
 
             # 点云（供 Nav2 / 调试）
-            'Publish/Clouds': True,             # /cloud_map, /cloud_obstacles
+            'Publish/Clouds': 'True',             # /cloud_map, /cloud_obstacles
 
             # 禁止内部视觉里程计（必须）
             'visual_odometry': False,
@@ -51,70 +52,83 @@ def generate_launch_description():
             # ======================
             # 2. 单目视觉前端（PC 级性能）
             # ======================
-            'Mem/StereoFromMotion': True,       # 单目核心机制
+            'Mem/StereoFromMotion': 'True',       # 单目核心机制
+            'Stereo/MinDisparity': '1.0',    # 最小视差，影响三角化精度
+            'Stereo/MaxDisparity': '100.0',
 
-            'Vis/EstimationType': 0,            # 2D-2D 极线几何（单目最稳）
-            'Vis/FeatureType': 8,               # ORB
-            'Vis/MaxFeatures': 1000,
-            'Vis/MinInliers': 15,               # 单目地面场景更稳（防 TF 跳变）
+            # 1. 改变估计类型（最关键！）
+            # 默认是 0 (3D->3D)，要求两帧都有深度。
+            # 改为 1 (3D->2D)，只要有一帧有深度就能回环。
+            'Vis/EstimationType': '1',            # 2D-2D 极线几何（单目最稳）
+            'Vis/FeatureType': '8',               # ORB
+            'Kp/DetectorStrategy': '8',
+            'Vis/MaxFeatures': '600',
+            'Vis/MinInliers': '10',               # 单目地面场景更稳（防 TF 跳变）
+            'Vis/InlierDistance': '0.1',    # 增加容错，单目尺度不准，距离阈值稍微大一点点
 
-            'Vis/BundleAdjustment': 1,          # 开启 BA
-            'Vis/CorType': 0,                   # 特征匹配（非光流）
-            'Vis/PnPFlags': 0,
+            'Vis/BundleAdjustment': '1',          # 开启 BA
+            'Vis/CorType': '0',                   # 特征匹配（非光流）
+            'Vis/PnPFlags': '0',
 
-
+            # 1. 强制单目生成 3D 点云的关键（极其重要）
+            'Vis/EstimationType': '1',      # 0=3D->2D (需深度), 1=2D->2D (单目专用)
+            'Vis/ForwardEstOnly': 'True',   # 单目通常只支持前向估计
+            'Vis/CorGuessWinSize': '0',      # 设置为 0 表示不限制搜索窗口，让它在全图找匹配
             # ======================
             # 3. Grid Map（⚠️单目专用配置）
             # ======================
-            'Grid/3D': False,                   # 2D 地图
-            'Grid/FromDepth': False,            # ❌ 单目无真实深度
-            'Grid/FromLaserScan': False,
+            'Grid/3D': 'False',                   # 2D 地图
+            'Grid/FromDepth': 'False',            # ❌ 单目无真实深度
+            'Grid/FromLaserScan': 'False',
 
-            'Grid/RangeMax': 3.0,
-            'Grid/CellSize': 0.05,              # 5cm
-            'Grid/RayTracing': True,             # 清除假障碍（非常重要）
-            'Grid/ClusterRadius': 0.05,
-            'Grid/NormalSegmentation': False,
+            'Grid/RangeMax': '3.0',
+            'Grid/CellSize': '0.05',              # 5cm
+            'Grid/RayTracing': 'True',             # 清除假障碍（非常重要）
+            'Grid/ClusterRadius': '0.05',
+            'Grid/NormalSegmentation': 'False',
 
 
             # ======================
             # 4. 回环检测与约束优化（单目跑车关键）
             # ======================
-            'Kp/MaxFeatures': 800,
+            'Kp/MaxFeatures': '400',
 
             # 使用 EKF odom 精细化闭环（防误匹配）
-            'RGBD/NeighborLinkRefining': True,
+            'RGBD/NeighborLinkRefining': 'True',
 
             # 回到空间相近位置时主动尝试闭环
-            'RGBD/ProximityBySpace': True,
+            'RGBD/ProximityBySpace': 'True',
 
-            'RGBD/OptimizeFromGraphEnd': True,
-            'RGBD/PlanarScan': False,
+            'RGBD/OptimizeFromGraphEnd': 'True',
+            'RGBD/PlanarScan': 'False',
 
             # 强制视觉注册（无雷达 / 无真实深度）
-            'Reg/Strategy': 0,
+            'Reg/Strategy': '0',
 
             # 只做 2D SLAM（⚠️轮式机器人必开）
-            'Optimizer/Slam2d': True,
+            'Optimizer/Slam2d': 'True',
 
             # 图优化器
-            'Optimizer/Strategy': 1,             # gtsam（PC 更稳）
+            'Optimizer/Strategy': '1',             # gtsam（PC 更稳）
 
 
             # ======================
             # 5. 内存 / 运行策略（长期运行）
             # ======================
-            'Rtabmap/DetectionRate': 2.0,         # 2 Hz（稳定优先）
+            'Rtabmap/DetectionRate': '2.0',         # 2 Hz（稳定优先）
 
-            'Mem/IncrementalMemory': True,
-            'Mem/NotLinkedNodesKept': True
+            'Mem/IncrementalMemory': 'True',
+            'Mem/NotLinkedNodesKept': 'True',
+            'Mem/IncrementalDictionary': 'True', # 确保词典是增量构建的
+            'Mem/InitWMWithAllNodes': 'False',   # 不要尝试加载历史节点
+            'Mem/ImagePostExtraction': 'True', # 确保回环时能重新提取特征
         }],
         remappings=[
             ('rgb/image', '/camera/image_raw'),
             ('rgb/camera_info', '/camera/camera_info'),
             ('imu', '/imu/data_raw'),
             ('odom', '/ekf/odom'),
-            ('grid_map', '/map'),
+            # ('grid_map', '/map'),
         ],
     )
 
