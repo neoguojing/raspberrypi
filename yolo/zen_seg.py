@@ -131,6 +131,7 @@ class ZenohSegScan:
         except Exception as e:
             print(f"处理错误: {e}")
 
+    # 输出统一为bgr
     def decode_ros2_image(self, payload, default_shape=(480, 640, 3)):
         # 关键修复 1: 确保进入函数的是 bytes 类型，或者是支持切片的视图
         if hasattr(payload, 'to_bytes'):
@@ -177,6 +178,7 @@ class ZenohSegScan:
         
                 if len(raw_data) >= num_pixels:
                     frame = raw_data[-num_pixels:].reshape(default_shape)
+                    # 默认为RGB
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                     # save_image('rgb')
                     return frame, stamp
