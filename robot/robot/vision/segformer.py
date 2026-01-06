@@ -23,7 +23,8 @@ class SegFormerDetector:
         self.model.eval()
         print(f"model classes: {self.get_labels()}")
         # ADE20K 地面类别定义
-        self.ground_classes = [3, 6, 11, 28, 52, 94] 
+        # 核心通行类：地板、马路、人行道、小径、土地、地毯、土地
+        self.ground_classes = [3, 6, 11, 13, 28, 52, 91, 94]
         # 新增：用于时域平滑的队列，存储最近 3 帧的 ground_mask
         self.mask_buffer = deque(maxlen=3)
         # 统计相关
@@ -62,9 +63,7 @@ class SegFormerDetector:
     def _inference(self, frame):
         """[内部函数] 处理模型推理"""
         # 颜色空间转换
-        # img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img_rgb = frame
-        
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)        
         # 预处理并转为半精度
         inputs = self.processor(images=img_rgb, return_tensors="pt").to(self.device)
         if self.device == "cuda":
