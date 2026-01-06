@@ -42,7 +42,8 @@ services:
   # YOLO + Zenoh Router
   # ======================================================
   yolo:
-    image: guojingneo/yolo_zenoh:pi5
+    # image: guojingneo/yolo_zenoh:pi5
+    image: guojingneo/seg_zenoh:pi5
     container_name: yolo_zenoh
     network_mode: host
     restart: unless-stopped
