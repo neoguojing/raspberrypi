@@ -1,4 +1,3 @@
-from ultralytics import YOLO
 import numpy as np
 import os
 import cv2
@@ -9,6 +8,7 @@ class SegDetector:
         conf=0.45
     ):
         self.conf = conf
+        from ultralytics import YOLO
         self.model = YOLO(model_name)        # 触发 Ultralytics 下载
         self.obstacle_ids = [
             0, 1, 2, 3, 5, 7, 24, 26, 32, 39, 41, 64, 67
