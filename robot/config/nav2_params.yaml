@@ -86,7 +86,7 @@ local_costmap:
 
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        observation_sources: scan slam_points
+        observation_sources: scan slam_points rtabmap_obstacles
         enabled: true         # ← 显式开启
         scan:
           topic: /seg/scan   # ← YOLO-Seg 输出
@@ -105,6 +105,14 @@ local_costmap:
           raytrace_range: 0.0
           max_obstacle_height: 1.2
           min_obstacle_height: 0.05
+
+        rtabmap_obstacles:
+          topic: /cloud_obstacles
+          data_type: PointCloud2
+          marking: true
+          clearing: false
+          obstacle_range: 3.0
+          max_obstacle_height: 1.2
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -127,7 +135,7 @@ global_costmap:
 
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: true
+        map_subscribe_transient_local: true  #定于rtabmap发布的map
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"

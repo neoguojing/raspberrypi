@@ -58,7 +58,7 @@ slam3 (ORB-SLAM3) --
     subscribes: /camera/image_raw, /camera/camera_info, /imu/data_raw (if visual-inertial)
     publishes:
         /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map
-        /slam3/odom             (nav_msgs/Odometry)           odom->base_link  线速度偏移较大 TODO
+        /slam3/odom             (nav_msgs/Odometry)           odom->odom  线速度偏移较大 TODO
         /slam3/map_points       (sensor_msgs/PointCloud2)     （供可视化或稠密化）
         /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove)
     broadcasts:

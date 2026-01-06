@@ -26,6 +26,9 @@ def generate_launch_description():
             'approx_sync': True,
             'queue_size': 50,               # 内存充足，增大队列缓冲
             'wait_imu_to_init': True,
+            'Publish/Clouds': 'true',         # /cloud_obstacles
+            'publish_tf': False,
+            'publish_odom': False,
 
             # ======================
             # 2. 视觉增强（PC级性能）

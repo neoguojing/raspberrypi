@@ -19,17 +19,10 @@ def generate_launch_description():
     # 2. 统一定义需要传递给子 Launch 的参数字典
     common_args = {'use_sim_time': use_sim_time}.items()
 
-    # 包含 rtabmap 节点
-    map_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
+    slam3_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')),
         launch_arguments=common_args
     )
-
-    # 包含 nv2 节点
-    # nv2_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
-    #     launch_arguments=common_args
-    # )
 
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
@@ -37,11 +30,7 @@ def generate_launch_description():
         launch_arguments=common_args
     )
 
-    # 包含 efk 节点
-    slam3_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')),
-        launch_arguments=common_args
-    )
+    
 
     # 包含 seg 节点 安装包不兼容,需要从外部zenoh 写入
     seg_launch = IncludeLaunchDescription(
@@ -49,11 +38,23 @@ def generate_launch_description():
         launch_arguments=common_args
     )
 
+    # 包含 rtabmap 节点
+    map_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
+        launch_arguments=common_args
+    )
+
+    # 包含 nv2 节点
+    nv2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
+        launch_arguments=common_args
+    )
+
     return LaunchDescription([
         declare_use_sim_time,
         slam3_launch,
-        # seg_launch,
         efk_launch,
+        # seg_launch,
         # map_launch,
         # nv2_launch,        
     ])
