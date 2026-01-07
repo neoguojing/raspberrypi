@@ -51,7 +51,7 @@ def generate_launch_description():
             # 命名空间控制（多机运行才需要修改）
             'namespace': '',
             'use_namespace': 'false',
-            'log_level': 'info'
+            'log_level': 'debug'
             
         }.items(),
     )
