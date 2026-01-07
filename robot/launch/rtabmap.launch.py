@@ -128,7 +128,6 @@ def generate_launch_description():
             ('rgb/camera_info', '/camera/camera_info'),
             ('imu', '/imu/data_raw'),
             ('odom', '/ekf/odom'),
-            # ('grid_map', '/map'),
         ],
     )
 
