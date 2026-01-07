@@ -65,6 +65,7 @@ def generate_launch_description():
             'use_respawn': 'True',
             'namespace': '',
             'use_namespace': 'False',
+            'log_level': 'debug'
         }.items(),
     )
 
