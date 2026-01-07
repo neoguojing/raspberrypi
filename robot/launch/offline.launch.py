@@ -23,7 +23,7 @@ def generate_launch_description():
             {'is_camera': False},
             {'source': '/home/ros_user/ros2_ws/asset/fpv-demo-50-2.mp4'},
             {'compressed': False},
-            {'camera_config': camera_config_path},
+            {'camera_config': ''},
         ]
     )
     
