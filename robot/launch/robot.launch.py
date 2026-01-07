@@ -13,14 +13,20 @@ def generate_launch_description():
     pkg_share = get_package_share_directory(package_name)
 
     # 1. 获取 JSON 文件路径 (假设放在你功能包的 config 目录下)
-    config_path = os.path.join(
+    robot_config_path = os.path.join(
         pkg_share,
         'config',
         'robot_config.json'
     )
 
+    camera_config_path = os.path.join(
+        pkg_share,
+        'config',
+        'imx219.json'
+    )
+
     # 2. 读取并解析 JSON 
-    with open(config_path, 'r') as f:
+    with open(robot_config_path, 'r') as f:
         robot_config = json.load(f)
 
     # 1. 配置 CarDriverNode
@@ -54,6 +60,7 @@ def generate_launch_description():
             {'is_camera': True},
             {'source': ''},
             {'compressed': True},
+            {'camera_config': camera_config_path},
         ]
     )
 

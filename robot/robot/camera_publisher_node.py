@@ -1,8 +1,11 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image,CompressedImage
+from sensor_msgs.msg import Image,CompressedImage,CameraInfo
 from cv_bridge import CvBridge
 import cv2
+import json
+import numpy as np
+from copy import deepcopy
 
 class CameraPublisherNode(Node):
     def __init__(self):
@@ -20,8 +23,14 @@ class CameraPublisherNode(Node):
         self.declare_parameter('compressed', True)
         self.compressed = self.get_parameter('compressed').get_parameter_value().bool_value
 
+        self.declare_parameter('camera_config', '')
+        self.camera_config = self.get_parameter('camera_config').get_parameter_value().string_value
+
         self.get_logger().info('📷 摄像头发布节点启动...')
         
+        self.load_sensor_config(self.camera_config)
+        self.camera_info_template = self.build_camera_info_template()
+
         self.bridge = CvBridge()
         # 发布器：发布图像帧
         if self.compressed:
@@ -29,6 +38,8 @@ class CameraPublisherNode(Node):
         else:
             self.image_publisher = self.create_publisher(Image, '/camera/image_raw', 10)
         
+        self.camera_info_publisher = self.create_publisher(CameraInfo, '/camera/camera_info', 10)
+
         
         # 定时器：周期性发布图像帧
         self.timer = self.create_timer(1.0 / self.camera_frequency, self.image_timer_callback)
@@ -41,6 +52,65 @@ class CameraPublisherNode(Node):
             from robot.camera.video_reader import VideoReader
             self.camera_driver = VideoReader(self.source)
     
+    def load_sensor_config(self, path):
+        with open(path, 'r') as f:
+            config = json.load(f)
+        self.K = np.array(config['camera_matrix'], dtype=np.float32)
+        self.dist_coeffs = np.array(config['dist_coeffs'], dtype=np.float32)
+        self.cy = self.K[1, 2]
+        self.width = config['width']
+        self.height = config['height']
+
+    def build_camera_info_template(self):
+        msg = CameraInfo()
+        msg.header.frame_id = 'camera_optical_frame'
+
+        msg.width = self.width
+        msg.height = self.height
+
+        msg.distortion_model = 'plumb_bob'
+
+        # ---- D: 畸变参数（必须大写 D）----
+        d = self.dist_coeffs.flatten().tolist()
+        if len(d) < 5:
+            d.extend([0.0] * (5 - len(d)))
+        msg.D = d[:5]   # k1, k2, t1, t2, k3
+
+        fx = float(self.K[0, 0])
+        fy = float(self.K[1, 1])
+        cx = float(self.K[0, 2])
+        cy = float(self.K[1, 2])
+
+        # ---- K: 相机内参矩阵（3x3）----
+        msg.K = [
+            fx, 0.0, cx,
+            0.0, fy, cy,
+            0.0, 0.0, 1.0
+        ]
+
+        # ---- R: 单目相机 = 单位阵 ----
+        msg.R = [
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0
+        ]
+
+        # ---- P: 投影矩阵（3x4），单目无 baseline ----
+        msg.P = [
+            fx, 0.0, cx, 0.0,
+            0.0, fy, cy, 0.0,
+            0.0, 0.0, 1.0, 0.0
+        ]
+
+        return msg
+
+    def publish_camera_info(self, stamp):
+        msg = deepcopy(self.camera_info_template)
+        msg.header.stamp = stamp
+
+        self.camera_info_publisher.publish(msg)
+
+
     def image_timer_callback(self):
         """定时器触发，用于周期性地发布 Image 数据。"""
         current_time = self.get_clock().now().to_msg()
@@ -86,7 +156,8 @@ class CameraPublisherNode(Node):
                 # 4. 发布消息
                 self.image_publisher.publish(image_msg)
                 print(f"image_publisher: image_msg: {image_msg.header}") # 看看输出是什么
-
+            # 发布摄像头信息 
+            self.publish_camera_info(timestamp)
         except Exception as e:
             self.get_logger().error(f'发布图像失败: {e}')
     
