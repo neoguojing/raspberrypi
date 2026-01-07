@@ -27,7 +27,7 @@ class CameraPublisherNode(Node):
         self.camera_config = self.get_parameter('camera_config').get_parameter_value().string_value
 
         self.get_logger().info('📷 摄像头发布节点启动...')
-        
+        self.camera_config_loaded = False
         self.load_sensor_config(self.camera_config)
         self.camera_info_template = self.build_camera_info_template()
 
@@ -53,6 +53,9 @@ class CameraPublisherNode(Node):
             self.camera_driver = VideoReader(self.source)
     
     def load_sensor_config(self, path):
+        if not path:
+            return 
+        
         with open(path, 'r') as f:
             config = json.load(f)
         self.K = np.array(config['camera_matrix'], dtype=np.float32)
@@ -61,7 +64,12 @@ class CameraPublisherNode(Node):
         self.width = config['width']
         self.height = config['height']
 
+        self.camera_config_loaded = True
+
     def build_camera_info_template(self):
+        if not self.camera_config_loaded:
+            return None
+        
         msg = CameraInfo()
         msg.header.frame_id = 'camera_optical_frame'
 
@@ -105,6 +113,9 @@ class CameraPublisherNode(Node):
         return msg
 
     def publish_camera_info(self, stamp):
+        if self.camera_info_template is None:
+            return 
+        
         msg = deepcopy(self.camera_info_template)
         msg.header.stamp = stamp
 
