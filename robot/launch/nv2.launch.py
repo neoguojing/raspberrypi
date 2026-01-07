@@ -44,8 +44,8 @@ def generate_launch_description():
             'use_localization': 'False',         # 关闭 Nav2 自带的 SLAM，因为你有 ORB-SLAM3
             'slam': 'False',
             # 性能优化
-            'use_composition': 'true', # 建议开启，提升性能
-            'use_respawn': 'true',     # 如果某个节点崩溃，尝试自动重启
+            'use_composition': 'True', # 建议开启，提升性能
+            'use_respawn': 'True',     # 如果某个节点崩溃，尝试自动重启
             'autostart': 'true',
 
             # 命名空间控制（多机运行才需要修改）
