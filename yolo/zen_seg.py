@@ -104,9 +104,11 @@ class ZenohSegScan:
                 res = self.pixel_to_base(u, v)
                 if res:
                     x, y = res
+                    # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
                     dist = math.hypot(x, y)
                     if dist < self.range_min or dist > self.range_max:
                         continue
+                    # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
                     angle = math.atan2(y, x)
                     if not (self.angle_min <= angle <= self.angle_max):
                         continue
