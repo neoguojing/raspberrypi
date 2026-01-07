@@ -189,75 +189,74 @@ controller_server:
 # local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
 # 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
 local_costmap:
-  local_costmap:
-    ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
-      global_frame: odom
-      robot_base_frame: base_link
-      rolling_window: true
-      width: 3
-      height: 3
-      resolution: 0.05
-      robot_radius: 0.22
-      plugins: ["voxel_layer", "inflation_layer"]
-      filters: ["keepout_filter"]
-      keepout_filter:
-        plugin: "nav2_costmap_2d::KeepoutFilter"
-        enabled: KEEPOUT_ZONE_ENABLED
-        filter_info_topic: "keepout_costmap_filter_info"
-        override_lethal_cost: True
-        lethal_override_cost: 200
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.70
-      voxel_layer:
-        plugin: "nav2_costmap_2d::VoxelLayer"
-        enabled: True
-        publish_voxel_map: True
-        origin_z: 0.0
-        z_resolution: 0.05
-        z_voxels: 16
+  ros__parameters:
+    update_frequency: 5.0
+    publish_frequency: 2.0
+    global_frame: odom
+    robot_base_frame: base_link
+    rolling_window: true
+    width: 3
+    height: 3
+    resolution: 0.05
+    robot_radius: 0.22
+    plugins: ["voxel_layer", "inflation_layer"]
+    filters: ["keepout_filter"]
+    keepout_filter:
+      plugin: "nav2_costmap_2d::KeepoutFilter"
+      enabled: KEEPOUT_ZONE_ENABLED
+      filter_info_topic: "keepout_costmap_filter_info"
+      override_lethal_cost: True
+      lethal_override_cost: 200
+    inflation_layer:
+      plugin: "nav2_costmap_2d::InflationLayer"
+      cost_scaling_factor: 3.0
+      inflation_radius: 0.70
+    voxel_layer:
+      plugin: "nav2_costmap_2d::VoxelLayer"
+      enabled: True
+      publish_voxel_map: True
+      origin_z: 0.0
+      z_resolution: 0.05
+      z_voxels: 16
+      max_obstacle_height: 2.0
+      mark_threshold: 0
+      observation_sources: scan slam_points rtabmap_obstacles
+      scan:
+        # A relative topic will be appended to the parent of the local_costmap namespace.
+        # For example:
+        #   * User chosen namespace is `tb4`.
+        #   * User chosen topic is `scan`.
+        #   * Topic will be remapped to `/tb4/scan` without `local_costmap`.
+        #   * Use global topic `/scan` if you do not wish the node namespace to apply
+        topic: /seg/scan # ← YOLO-Seg 输出
         max_obstacle_height: 2.0
-        mark_threshold: 0
-        observation_sources: scan slam_points rtabmap_obstacles
-        scan:
-          # A relative topic will be appended to the parent of the local_costmap namespace.
-          # For example:
-          #   * User chosen namespace is `tb4`.
-          #   * User chosen topic is `scan`.
-          #   * Topic will be remapped to `/tb4/scan` without `local_costmap`.
-          #   * Use global topic `/scan` if you do not wish the node namespace to apply
-          topic: /seg/scan # ← YOLO-Seg 输出
-          max_obstacle_height: 2.0
-          clearing: True
-          marking: True
-          data_type: "LaserScan"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
-        slam_points:
-          topic: /slam3/map_points
-          data_type: PointCloud2
-          marking: true
-          clearing: false     # ❗非常重要
-          obstacle_range: 3.0
-          raytrace_range: 0.0
-          max_obstacle_height: 1.2
-          min_obstacle_height: 0.05
+        clearing: True
+        marking: True
+        data_type: "LaserScan"
+        raytrace_max_range: 3.0
+        raytrace_min_range: 0.0
+        obstacle_max_range: 2.5
+        obstacle_min_range: 0.0
+      slam_points:
+        topic: /slam3/map_points
+        data_type: PointCloud2
+        marking: true
+        clearing: false     # ❗非常重要
+        obstacle_range: 3.0
+        raytrace_range: 0.0
+        max_obstacle_height: 1.2
+        min_obstacle_height: 0.05
 
-        rtabmap_obstacles:
-          topic: /cloud_obstacles
-          data_type: PointCloud2
-          marking: true
-          clearing: false
-          obstacle_range: 3.0
-          max_obstacle_height: 1.2
-          
-      always_send_full_costmap: True
-      introspection_mode: "disabled"
+      rtabmap_obstacles:
+        topic: /cloud_obstacles
+        data_type: PointCloud2
+        marking: true
+        clearing: false
+        obstacle_range: 3.0
+        max_obstacle_height: 1.2
+        
+    always_send_full_costmap: True
+    introspection_mode: "disabled"
 
 # global_costmap 是机器人的全局上帝视角。 它以静态地图为底色，叠加实时雷达数据（obstacle_layer）和人工规则（keepout/speed filter），
 # 最终通过膨胀算法生成一张让规划器“看清全局风险”的代价网格。
