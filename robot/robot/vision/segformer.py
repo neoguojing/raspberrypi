@@ -57,6 +57,7 @@ class SegFormerDetector:
         if render:
             # 使用平滑后的结果进行可视化
             annotated_frame = self._render_visualization(frame, smoothed_mask, contact_pixels)
+            self.save_sample_image(annotated_frame)
 
         return contact_pixels, annotated_frame
 

@@ -208,7 +208,6 @@ class ZenohSegScan:
                     sec, nsec = struct.unpack_from('<II', payload, 4)
                     if 1e8 < sec < 2e9:
                         stamp = sec + nsec * 1e-9
-                print(f"的点点滴滴的")
                 # 解码 JPEG
                 jpeg_data = payload[idx:]
                 nparr = np.frombuffer(jpeg_data, np.uint8)
