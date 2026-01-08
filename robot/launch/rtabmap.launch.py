@@ -19,7 +19,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
-
+            # 'rgb_transport': 'compressed', #用于支持压缩图片
             # ======================
             # 1. 订阅与 TF / 时间同步
             # ======================
@@ -67,7 +67,7 @@ def generate_launch_description():
             'Vis/FeatureType': '8',               # ORB
             'Kp/DetectorStrategy': '8',
             'Vis/MaxFeatures': '600',
-            'Vis/MinInliers': '10',               # 单目地面场景更稳（防 TF 跳变）
+            'Vis/MinInliers': '6',               # 单目地面场景更稳（防 TF 跳变）
             'Vis/InlierDistance': '0.1',    # 增加容错，单目尺度不准，距离阈值稍微大一点点
 
             'Vis/BundleAdjustment': '1',          # 开启 BA
@@ -134,11 +134,10 @@ def generate_launch_description():
             ('odom', '/ekf/odom'),
             clock_topic,
         ],
-        parameters=[{
-            # 'rgb_transport': 'compressed', #用于支持压缩图片
-        }],
         arguments=[
-            '--delete_db_on_start'
+            '--delete_db_on_start',
+            '--ros-args', 
+            '--log-level', 'rtabmap:=error'  # 设置 RTAB-Map 日志级别为 error
         ]
     )
 

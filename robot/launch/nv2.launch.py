@@ -51,30 +51,38 @@ def generate_launch_description():
             # 命名空间控制（多机运行才需要修改）
             'namespace': '',
             'use_namespace': 'false',
-            'log_level': 'info'
+            'log_level': 'warn'
             
         }.items(),
     )
 
-    # nav2_bringup_launch = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         os.path.join(nav2_bringup_dir, 'launch', 'navigation_launch.py')
-    #     ),
-    #     launch_arguments={
-    #         'use_sim_time': use_sim_time,
-    #         'params_file': params_file,
-    #         'autostart': 'True',
-    #         'use_composition': 'True',
-    #         'use_respawn': 'True',
-    #         'namespace': '',
-    #         'use_namespace': 'False',
-    #         'log_level': 'debug'
-    #     }.items(),
-    # )
+    # 1. 启动地图保存服务节点
+    map_saver_server_node = Node(
+        package='nav2_map_server',
+        executable='map_saver_server',
+        name='map_saver_server',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}] # 仿真环境必加
+    )
+
+    # 2. 必须由生命周期管理器激活它，否则服务（Service）不会出现
+    lifecycle_manager_map_saver = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_map_saver',
+        output='screen',
+        parameters=[{
+            'use_sim_time': use_sim_time,
+            'autostart': True,
+            'node_names': ['map_saver_server']
+        }]
+    )
 
     # --- 4. 返回 LaunchDescription ---
     return LaunchDescription([
         declare_use_sim_time,
         declare_params_file_cmd,
-        nav2_bringup_launch
+        nav2_bringup_launch,
+        map_saver_server_node,
+        lifecycle_manager_map_saver,
     ])

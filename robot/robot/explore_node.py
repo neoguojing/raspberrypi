@@ -163,7 +163,7 @@ class FinalExploreNode(Node):
         self.get_logger().info(f"正在保存地图至: {self.MAP_SAVE_PATH}...")
         
         # 检查服务是否存在
-        if not self.save_map_cli.wait_for_service(timeout_sec=2.0):
+        if not self.save_map_cli.wait_for_service(timeout_sec=5.0):
             self.get_logger().error('无法连接到保存地图服务，请检查 map_saver_server 是否启动！')
             return
 
@@ -181,19 +181,47 @@ class FinalExploreNode(Node):
         else:
             self.get_logger().error('地图保存操作执行失败。')
 
+    def wait_for_nav2_ready(self):
+        """
+        手动检查 Nav2 核心 Action Server 是否就绪，而不依赖 AMCL
+        """
+        self.get_logger().info("正在等待 Nav2 核心控制器 (controller_server)...")
+        
+        # 1. 等待最关键的导航 Action Server
+        # 这是 Nav2 执行移动的核心接口
+        while not self.navigator._action_client.wait_for_server(timeout_sec=1.0):
+            self.get_logger().info("Nav2 导航服务尚未启动，继续等待...")
+            if not rclpy.ok():
+                return False
+                
+        # 2. (可选) 等待地图话题有数据发布
+        self.get_logger().info("检测到导航服务，正在等待 SLAM 发布初始地图...")
+        while self.map_msg is None:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if not rclpy.ok():
+                return False
+                
+        self.get_logger().info("Nav2 与地图环境已就绪！")
+        return True
+
     def exploration_loop(self):
         """探索主线程状态机"""
-        self.navigator.waitUntilNav2Active()
+        # self.navigator.waitUntilNav2Active()
         
         # 预热：等待定位数据（TF map -> base_link）生效
-        while rclpy.ok() and self.navigator.getRobotPose() is None:
+        rx, ry = self.get_current_pose()
+        while rclpy.ok() and rx is None and not self.wait_for_nav2_ready():
             self.get_logger().info("等待机器人定位就绪...")
             time.sleep(1.0)
 
         while rclpy.ok():
             # 获取地图统计数据
-            unknown_ratio = self.get_unknown_ratio()
-            self.get_logger().info(f"当前地图未知区域占比: {unknown_ratio:.2%}")
+            unknown_ratio, known_count = self.get_unknown_ratio()
+            self.get_logger().info(f"当前地图未知区域占比: {unknown_ratio:.2%},{known_count} 已知像素点")
+            if known_count < 500: 
+                self.get_logger().warn(f"SLAM 未初始化或地图太小 (已知像素: {known_count})，等待中...", once=True)
+                time.sleep(1.0)
+                continue
             if not self.is_navigating:
                 # 1. 计算当前最优边界点
                 target = self.get_best_frontier()
@@ -257,7 +285,7 @@ class FinalExploreNode(Node):
         unknown = np.count_nonzero(data == -1)
         known = np.count_nonzero(data != -1)
         if (unknown + known) == 0: return 1.0
-        return unknown / (unknown + known)
+        return unknown / (unknown + known), known
 
     def _make_pose(self, x, y, yaw):
         """快捷生成 PoseStamped 消息"""
@@ -274,8 +302,13 @@ class FinalExploreNode(Node):
 def main():
     rclpy.init()
     node = FinalExploreNode()
+    
+    # 使用多线程执行器
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(node)
+    
     try:
-        rclpy.spin(node)
+        executor.spin() # 使用 executor 替代 rclpy.spin
     except KeyboardInterrupt:
         pass
     finally:
