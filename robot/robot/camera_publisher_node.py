@@ -154,7 +154,7 @@ class CameraPublisherNode(Node):
                 if success:
                     msg.data = buffer.tobytes()
                     self.image_publisher.publish(msg)
-                    print(f"image_publisher: CompressedImage: {msg.header}") # 看看输出是什么
+                    self.get_logger().debug(f"image_publisher: CompressedImage: {msg.header}")
             else:
                 # 2. 使用 cv_bridge 转换为 ROS 2 Image 消息，指定 'bgr8' 编码
                 # image_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8')
@@ -166,7 +166,7 @@ class CameraPublisherNode(Node):
 
                 # 4. 发布消息
                 self.image_publisher.publish(image_msg)
-                print(f"image_publisher: image_msg: {image_msg.header}") # 看看输出是什么
+                self.get_logger().debug(f"image_publisher: image_msg: {image_msg.header}") # 看看输出是什么
             # 发布摄像头信息 
             self.publish_camera_info(timestamp)
         except Exception as e:
