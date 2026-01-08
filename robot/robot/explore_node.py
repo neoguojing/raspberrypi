@@ -13,6 +13,11 @@ import time
 import math
 from collections import deque
 
+# 导入 TF 相关库
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
 class FinalExploreNode(Node):
     def __init__(self):
         super().__init__('final_explore_node')
@@ -22,6 +27,10 @@ class FinalExploreNode(Node):
         # 初始化 Nav2 简单导航接口
         self.navigator = BasicNavigator()
         
+        # 2. 初始化 TF 监听器 (替代 getRobotPose)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         # --- 核心工程参数 ---
         self.SAFE_OFFSET = 0.45       # 安全退避距离：目标点会从边界向自由区回缩 45cm，防止撞墙
         self.NAV_TIMEOUT = 120.0      # 导航超时：防止局部路径规划死循环
@@ -49,6 +58,18 @@ class FinalExploreNode(Node):
         self.timer = self.create_timer(2.0, self._start_logic)
         self.started = False
 
+    def get_current_pose(self):
+        """
+        通过 TF 获取当前机器人位姿，替代已失效的 getRobotPose()
+        """
+        try:
+            # 查找从 map 到 base_link 的变换
+            t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
+            return t.transform.translation.x, t.transform.translation.y
+        except TransformException as ex:
+            self.get_logger().warn(f'无法获取坐标变换: {ex}')
+            return None, None
+        
     def map_callback(self, msg):
         """地图回调：不断更新本地地图快照"""
         self.map_msg = msg
@@ -59,6 +80,11 @@ class FinalExploreNode(Node):
         self.started = True
         self.timer.cancel()
         
+        # 记录起点坐标
+        rx, ry = self.get_current_pose()
+        if rx is not None:
+            self.start_pose_x, self.start_pose_y = rx, ry
+
         # 开启后台线程处理探索逻辑，避免阻塞 ROS2 节点的 spin 回调
         thread = threading.Thread(target=self.exploration_loop)
         thread.daemon = True
@@ -79,9 +105,8 @@ class FinalExploreNode(Node):
         ox, oy = msg.info.origin.position.x, msg.info.origin.position.y
         
         # 获取机器人实时位置用于计算距离得分
-        curr_pose = self.navigator.getRobotPose()
-        if curr_pose is None: return None
-        rx, ry = curr_pose.pose.position.x, curr_pose.pose.position.y
+        rx, ry = self.get_current_pose()
+        if rx is None: return None
 
         # 将栅格地图转换为 OpenCV 格式 (0:障碍, 127:未知, 255:自由)
         data_np = np.array(msg.data).reshape((h, w))
@@ -218,7 +243,7 @@ class FinalExploreNode(Node):
         
         # 第二步：回到机器人起始坐标点 (0,0)
         self.get_logger().info("探索完成，正在指令机器人回到起始点...")
-        self.navigator.goToPose(self.start_pose)
+        self.navigator.goToPose(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
         
         # 等待回航结束
         while not self.navigator.isTaskComplete():
