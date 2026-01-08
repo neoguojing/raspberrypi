@@ -129,6 +129,9 @@ def generate_launch_description():
             ('imu', '/imu/data_raw'),
             ('odom', '/ekf/odom'),
         ],
+        arguments=[
+            '--delete_db_on_start'
+        ]
     )
 
     return LaunchDescription([
