@@ -19,16 +19,14 @@ class ZenohSegScan:
         self.skip_n = 3 # 每 3 帧处理 1 帧
         
         # --- 1. 参数设置 (模拟 ROS 2 Parameter) ---
-        self.camera_x_offset = 0.08
+        self.camera_x_offset = 0.1
         self.camera_y_offset = 0.0
-        self.camera_height = 0.05
-        self.camera_pitch = 0.1484
-        self.max_range = 5.0
-        self.min_range = 0.0
+        self.camera_height = 0.071
+        self.camera_pitch = -0.1484
         
         # 激光雷达模拟参数
-        self.angle_min = -0.8
-        self.angle_max = 0.8
+        self.angle_min = -1.1
+        self.angle_max = 1.1
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = 0.05
@@ -287,10 +285,10 @@ class ZenohSegScan:
         X = (t * rb_x) + self.camera_x_offset
         Y = t * rb_y
 
-        if 0 < X < self.max_range:
+        if 0 < X < self.range_max:
             return X, Y
         
-        print(f"pixel_to_base:x超出max_range:{X}，{self.max_range}")
+        print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
 
         return None
 
