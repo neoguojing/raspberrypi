@@ -153,7 +153,9 @@ https://download.eclipse.org/zenoh/debian-repo/ /" \
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
-    zenoh-bridge-ros2dds || true && \
+    zenoh-bridge-ros2dds || true \
+    #用于支持rtabmap的压缩图片订阅
+    ros-jazzy-image-transport-plugins && \ 
     rm -rf /var/lib/apt/lists/*
 
 RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir eclipse-zenoh

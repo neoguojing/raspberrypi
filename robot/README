@@ -55,30 +55,31 @@ gz sim -v 4 shapes.sdf
 # 架构
 # ORB-/SLAM3 节点（视觉里程计 +地图特征）
 slam3 (ORB-SLAM3) --
-    subscribes: /camera/image_raw, /camera/camera_info, /imu/data_raw (if visual-inertial)
+    subscribes: /camera/image_raw or /camera/image_raw/compressed, /camera/camera_info, /imu/data_raw  
     publishes:
-        /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map
-        /slam3/odom             (nav_msgs/Odometry)           odom->odom  线速度偏移较大 TODO
-        /slam3/map_points       (sensor_msgs/PointCloud2)     （供可视化或稠密化）
-        /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove)
+        /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map 实际对应map->base_link 默认关闭，用于调试
+        /slam3/odom             (nav_msgs/Odometry)           base_link->base_link  提供线速度和角速度，给ekf用于约束，提供视觉轮速
+        /slam3/map_points       (sensor_msgs/PointCloud2)     给nv2，用于局部避障（供可视化或稠密化）
+        /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove) 默认关闭
     broadcasts:
-        TF: map -> map -> odom
+        TF: map -> map -> odom   可选，推荐用rtabmap提供的变化，默认关闭
 
 # robot_localization (EKF) — 融合 IMU + slam3/odom
 ekf_localization_node --
-    subscribes: /imu/data_raw, /slam3/odom
+    subscribes: /imu/data_raw, /slam3/odom  /wheel_odom（模拟环境可用）
     publishes:
-        /odometry/filtered     (nav_msgs/Odometry)         frame_id: odom (-> base_footprint)
+        /odometry/filtered(/ekf/odom)     (nav_msgs/Odometry)         frame_id: odom -> base_footprint
     broadcasts:
-        TF: odom -> base_link
+        TF: odom -> base_footprint
 
 # Nav2 (导航堆栈)
 nav2 (bt_navigator, planner_server, controller_server, costmap) --
     subscribes:
-        /map  (OccupancyGrid): 来自 rtabmap 或 slam_toolbox 的全局地图
-        odom topic (set 为 /odometry/filtered 或 /odom)
-        /scan (LaserScan): 用于 obstacle_layer 避障。
-        /points (PointCloud2): 深度相机数据，用于检测高处或低处障碍物。
+        /map  (OccupancyGrid): 来自 rtabmap 
+        /ekf/odom : 来自于ekf
+        /scan (LaserScan): 用于 obstacle_layer 避障，来自于seg模型伪装
+        /cloud_obstacles (PointCloud2): 来自于rtabmap,用于局部避障
+        /slam3/map_points (PointCloud2): 来自于slam3,用于局部避障
         /initialpose: 用于手动初始化机器人在地图中的位姿。
     publishes:
         cmd_vel -> robot base controller (geometry_msgs/Twist)
@@ -86,20 +87,16 @@ nav2 (bt_navigator, planner_server, controller_server, costmap) --
         /local_plan: 局部控制器生成的轨迹。
     uses tf: map -> odom, odom -> base_link, base_link -> sensors 必须包含完整的坐标变换树。
 
-# collision_monitor (Nav2 或自定义)
-collision_monitor --
-    subscribes: rtabmap pointclouds 或 local_costmap topics
-    triggers safety stops / emergency behaviors -> cmd_vel (or into Nav2 lifecycle)
 
 
 # RTAB-Map 用于生成导航地图（占领网格 / 点云）
-# 废弃，无法使用单目相机生成地图
 rtabmap --
-    subscribes: /camera/image_raw, /camera/camera_info, optionally /slam3/pose or /odom
+    subscribes: /camera/image_raw, /camera/camera_info, /ekf/odom /imu/data_raw 
     publishes:
-        /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map
-        /rtabmap/points         (sensor_msgs/PointCloud2) (map points / obstacles)
-    note: 如果你用 SLAM3 做定位，RTAB-Map 可仅负责稠密重建 / 占用网格生成。
+        /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map   用于nv2地图管理和全局避障
+        /cloud_obstacles        (sensor_msgs/PointCloud2) (map points / obstacles) 用于nv2局部避障
+
+
 ## 目标tf
 map (全局坐标系)
  └── odom (局部连续坐标系)  <-- [由 EKF 发布]

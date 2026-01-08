@@ -8,6 +8,10 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
     declare_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='false')
+    clock_topic = ()
+    if use_sim_time:
+        clock_topic = ('clock', '/clock') #仿真时用
+
 
     rtabmap_node = Node(
         package='rtabmap_slam',
@@ -128,7 +132,11 @@ def generate_launch_description():
             ('rgb/camera_info', '/camera/camera_info'),
             ('imu', '/imu/data_raw'),
             ('odom', '/ekf/odom'),
+            clock_topic,
         ],
+        parameters=[{
+            # 'rgb_transport': 'compressed', #用于支持压缩图片
+        }],
         arguments=[
             '--delete_db_on_start'
         ]
