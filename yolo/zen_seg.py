@@ -277,9 +277,9 @@ class ZenohSegScan:
 
         # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
         # 求 t 使得 h + t * rb_z = 0
-        if rb_z >= -1e-6: 
-            print(f"pixel_to_base:射线水平或朝上:{rb_z}")
-            return None # 射线水平或朝上
+        # if rb_z >= -1e-6: 
+        #     print(f"pixel_to_base:射线水平或朝上:{rb_z}")
+        #     return None # 射线水平或朝上
             
         t = -self.camera_height / rb_z
         
