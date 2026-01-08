@@ -48,11 +48,17 @@ def generate_launch_description():
         launch_arguments=common_args
     )
 
+    explore_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'ctl.launch.py')),
+        launch_arguments=common_args
+    )
+
     return LaunchDescription([
         declare_use_sim_time,
         # slam3_launch,
         # efk_launch,
         seg_launch,
-        # map_launch,
-        # nv2_launch,        
+        map_launch,
+        nv2_launch,    
+        explore_launch,    
     ])
