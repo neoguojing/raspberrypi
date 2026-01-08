@@ -55,10 +55,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
-        # slam3_launch,
-        # efk_launch,
-        # seg_launch,
-        # map_launch,
+        slam3_launch,
+        efk_launch,
+        seg_launch,
+        map_launch,
         nv2_launch,
-        # explore_launch,
+        explore_launch,
     ])

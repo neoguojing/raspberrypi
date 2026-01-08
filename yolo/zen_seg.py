@@ -22,7 +22,7 @@ class ZenohSegScan:
         self.camera_x_offset = 0.1
         self.camera_y_offset = 0.0
         self.camera_height = 0.071
-        self.camera_pitch = -0.1484
+        self.camera_pitch = 0.1484
         
         # 激光雷达模拟参数
         self.angle_min = -1.1

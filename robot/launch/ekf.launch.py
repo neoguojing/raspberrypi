@@ -20,6 +20,7 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
+        arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[ekf_config_path, {'use_sim_time': use_sim_time}], # 仿真环境设为 True
         remappings=[
             ('/odometry/filtered', '/ekf/odom'), # 将 EKF 输出的滤波里程计重命名为 /odom

@@ -8,8 +8,6 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     # --- 1. 路径与参数定义 ---
     pkg_path = get_package_share_directory("robot")
-
-    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     
     sim_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'sim.launch.py')),
@@ -18,7 +16,7 @@ def generate_launch_description():
     algo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'algo.launch.py')),
         launch_arguments={
-            'use_sim_time': use_sim_time,
+            'use_sim_time': 'true',
         }.items()
     )
 
