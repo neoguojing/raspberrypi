@@ -43,7 +43,6 @@ class FinalExploreNode(Node):
         self.failed_goals = deque(maxlen=60) # 失败点黑名单，防止机器人反复尝试不可达区域
         self.is_navigating = False    # 导航任务锁
         self.no_frontier_count = 0    # 空边界计数器
-        self.start_pose = self.navigator.getRobotPose()
         
         # --- 服务客户端：调用 map_server 保存地图 ---
         self.save_map_cli = self.create_client(
