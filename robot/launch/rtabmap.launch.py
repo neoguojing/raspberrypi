@@ -66,7 +66,7 @@ def generate_launch_description():
             'Vis/EstimationType': '1',            # 2D-2D 极线几何（单目最稳）
             'Vis/FeatureType': '8',               # ORB
             'Kp/DetectorStrategy': '8',
-            'Vis/MaxFeatures': '600',
+            'Vis/MaxFeatures': '1000',
             'Vis/MinInliers': '6',               # 单目地面场景更稳（防 TF 跳变）
             'Vis/InlierDistance': '0.1',    # 增加容错，单目尺度不准，距离阈值稍微大一点点
 
@@ -95,8 +95,8 @@ def generate_launch_description():
             # ======================
             # 4. 回环检测与约束优化（单目跑车关键）
             # ======================
-            'Kp/MaxFeatures': '400',
-
+            'Kp/MaxFeatures': '800',
+            'RGBD/Enabled': 'false',
             # 使用 EKF odom 精细化闭环（防误匹配）
             'RGBD/NeighborLinkRefining': 'True',
 
