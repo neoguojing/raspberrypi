@@ -58,7 +58,7 @@ def generate_launch_description():
         # slam3_launch,
         # efk_launch,
         # seg_launch,
-        map_launch,
-        # nv2_launch,
-        # explore_launch,
+        # map_launch,
+        nv2_launch,
+        explore_launch,
     ])

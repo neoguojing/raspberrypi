@@ -92,7 +92,7 @@ class ZenohSegScan:
 
             # 2. 推理检测
             uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
-            print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+            # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
             # 3. 激光数据初始化
             scan_ranges = np.full(self.num_readings, np.inf)
 
@@ -123,7 +123,7 @@ class ZenohSegScan:
                     valid_points += 1
             # 5. 条件发布
             if valid_points > 0:
-                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...")
+                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
                 self.publish_as_json(scan_ranges, stamp)
             else:
                 # 这种情况直接跳过，不做任何网络传输
@@ -242,7 +242,7 @@ class ZenohSegScan:
     def pixel_to_base(self, u, v):
         # 0. 基础过滤：地平线以上不处理
         if v < self.cy: 
-            print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
+            # print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
             return None
 
         # 1. 获取归一化像平面坐标 (xn, yn)
@@ -275,7 +275,7 @@ class ZenohSegScan:
         # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
         # 求 t 使得 h + t * rb_z = 0
         if rb_z >= -1e-6: 
-            print(f"pixel_to_base:射线水平或朝上:{rb_z}")
+            # print(f"pixel_to_base:射线水平或朝上:{rb_z}")
             return None # 射线水平或朝上
             
         t = -self.camera_height / rb_z
@@ -287,7 +287,7 @@ class ZenohSegScan:
         if self.range_min < X < self.range_max:
             return X, Y
         
-        print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
+        # print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
 
         return None
 
