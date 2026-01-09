@@ -81,7 +81,7 @@ class SegFormerDetector:
         
         # 获取分类预测图
         pred_map = upsampled_logits.argmax(dim=1)[0].cpu().numpy()
-        self.print_detected_categories(pred_map)
+        # self.print_detected_categories(pred_map)
         # 生成二值化的地面掩码
         return np.isin(pred_map, self.ground_classes).astype(np.uint8)
 
