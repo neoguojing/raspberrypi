@@ -52,7 +52,7 @@ class ZenohToLaserScan(Node):
             
             # 使用当前 ROS 时间或 JSON 中的时间戳
             scan_msg.header.stamp = self.get_clock().now().to_msg()
-            scan_msg.header.frame_id = "base_link"
+            scan_msg.header.frame_id = "base_footprint"
             
             # 填充雷达几何参数
             scan_msg.angle_min = float(data['angle_min'])

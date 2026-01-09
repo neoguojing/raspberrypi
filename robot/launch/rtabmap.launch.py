@@ -41,6 +41,7 @@ def launch_setup(context, *args, **kwargs):
                 "subscribe_rgb": True,
                 "subscribe_depth": LaunchConfiguration('depth'), # 默认设为 false
                 "subscribe_stereo": False,
+                "subscribe_scan": LaunchConfiguration('subscribe_scan'),
                 "frame_id": LaunchConfiguration('frame_id'),
                 "map_frame_id": LaunchConfiguration('map_frame_id'),
                 "odom_frame_id": LaunchConfiguration('odom_frame_id'), # 对应 EKF 输出的 odom frame
@@ -55,7 +56,10 @@ def launch_setup(context, *args, **kwargs):
                 ("rgb/image", ConditionalText([LaunchConfiguration('rgb_topic'), '_relay'], LaunchConfiguration('rgb_topic'), LaunchConfiguration('compressed')).perform(context)),
                 ("rgb/camera_info", LaunchConfiguration('camera_info_topic')),
                 ("odom", LaunchConfiguration('odom_topic')), # 订阅 EKF 发布的里程计
-                ("map", LaunchConfiguration('map_topic'))],
+                ("map", LaunchConfiguration('map_topic')),
+                ("scan", LaunchConfiguration('scan_topic')),
+                ],
+                
             namespace=ns),
 
         # 3. 可选：视觉里程计 (如果 EKF 已经提供了可靠里程计，此部分可设 visual_odometry 为 false)
@@ -89,6 +93,8 @@ def generate_launch_description():
         DeclareLaunchArgument('namespace',      default_value='rtabmap'),
         DeclareLaunchArgument('use_sim_time',   default_value='false'),
         DeclareLaunchArgument('localization',   default_value='false'),
+        DeclareLaunchArgument('subscribe_scan', default_value='true',       description=''),
+        DeclareLaunchArgument('scan_topic',     default_value='/seg/scan',       description=''),
         
         # TF 与 帧 ID
         DeclareLaunchArgument('frame_id',       default_value='base_footprint'),
@@ -101,6 +107,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic',     default_value='/ekf/odom'), # EKF 输出的里程计话题
         DeclareLaunchArgument('map_topic',      default_value='/map'),
+        DeclareLaunchArgument('scan_topic',      default_value='/seg/scan',       description=''),
         
         # 功能开关
         DeclareLaunchArgument('depth',           default_value='false', description='单目模式通常关闭深度'),
