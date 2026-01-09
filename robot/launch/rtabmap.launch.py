@@ -38,15 +38,15 @@ def launch_setup(context, *args, **kwargs):
                 '--log-level', 'rtabmap:=error'  # 设置 RTAB-Map 日志级别为 error
             ],
             parameters=[{
-                "subscribe_rgb": 'true',
+                "subscribe_rgb": True,
                 "subscribe_depth": LaunchConfiguration('depth'), # 默认设为 false
-                "subscribe_stereo": 'false',
+                "subscribe_stereo": False,
                 "frame_id": LaunchConfiguration('frame_id'),
                 "map_frame_id": LaunchConfiguration('map_frame_id'),
                 "odom_frame_id": LaunchConfiguration('odom_frame_id'), # 对应 EKF 输出的 odom frame
                 "publish_tf": LaunchConfiguration('publish_tf_map'),   # 发布 map -> odom
                 "use_sim_time": LaunchConfiguration('use_sim_time'),
-                "approx_sync": 'true',
+                "approx_sync": True,
                 "queue_size": 10,
                 # 关键修复：加入配置文件路径
                 "config_path": LaunchConfiguration('cfg'),
@@ -68,8 +68,8 @@ def launch_setup(context, *args, **kwargs):
             ],
             parameters=[{
                 "frame_id": LaunchConfiguration('frame_id'),
-                "publish_tf": 'false', # 强制设为 False，由 EKF 发布 odom -> base
-                "approx_sync": 'true',
+                "publish_tf": False, # 强制设为 False，由 EKF 发布 odom -> base
+                "approx_sync": True,
             }],
             remappings=[
                 ("rgb/image", ConditionalText([LaunchConfiguration('rgb_topic'), '_relay'], LaunchConfiguration('rgb_topic'), LaunchConfiguration('compressed')).perform(context)),
