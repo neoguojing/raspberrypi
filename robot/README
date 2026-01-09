@@ -95,6 +95,7 @@ rtabmap --
     publishes:
         /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map   用于nv2地图管理和全局避障
         /cloud_obstacles        (sensor_msgs/PointCloud2) (map points / obstacles) 用于nv2局部避障
+    tf: map -> odom
 
 
 ## 目标tf
