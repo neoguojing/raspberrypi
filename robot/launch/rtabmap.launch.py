@@ -51,32 +51,32 @@ def launch_setup(context, *args, **kwargs):
                 "sync_queue_size": 50,
 
                 # 2. [地图生成控制 - 解决您的警告]
-                "Grid/Sensor": 0,               # 0=从激光雷达创建地图 (消除警告的关键)
-                "Grid/FromDepth": False,        # 明确禁止从深度图生成地图
-                "Grid/RangeMax": 5.0,           # 激光雷达的最大有效探测距离
-                "Grid/RayTracing": True,        # 开启射线追踪以清理空旷区域的障碍物
-                "Grid/CellSize": 0.05,          # 地图分辨率 5cm
+                "Grid/Sensor": "0",               # 0=从激光雷达创建地图 (消除警告的关键)
+                "Grid/FromDepth": "false",        # 明确禁止从深度图生成地图
+                "Grid/RangeMax": "5.0",           # 激光雷达的最大有效探测距离
+                "Grid/RayTracing": "true",        # 开启射线追踪以清理空旷区域的障碍物
+                "Grid/CellSize": "0.05",          # 地图分辨率 5cm
 
                 # 3. [视觉特征提取 - 针对单目增强]
-                "Kp/DetectorStrategy": 2,       # 使用 ORB 特征点，对单目环境更鲁棒 (0=SURF, 2=ORB)
-                "Kp/MaxFeatures": 1000,         # 增加特征点数量以提高闭环匹配成功率
-                "Vis/EstimationType": 2,        # 2=2D->2D (对极几何)，单目运动估计的首选
-                "Vis/FeatureType": 2,           # 视觉特征类型保持与 Kp 一致
+                "Kp/DetectorStrategy": "2",       # 使用 ORB 特征点，对单目环境更鲁棒 (0=SURF, 2=ORB)
+                "Kp/MaxFeatures": "1000",         # 增加特征点数量以提高闭环匹配成功率
+                "Vis/EstimationType": "2",        # 2=2D->2D (对极几何)，单目运动估计的首选
+                "Vis/FeatureType": "2",           # 视觉特征类型保持与 Kp 一致
 
                 # 4. [闭环检测策略]
-                "Reg/Strategy": 0,              # 0=仅视觉匹配，1=ICP，2=视觉+ICP
+                "Reg/Strategy": "0",              # 0=仅视觉匹配，1=ICP，2=视觉+ICP
                 # 如果您希望闭环时用激光雷达精修位姿，建议设为 "2"
-                "Reg/Force3DoF": True,          # 如果是地面小车，强制 3 自由度 (x, y, yaw) 增加稳定性
-                "RGBD/OptimizeMaxError": 3.0,   # 拒绝优化后误差过大的闭环链接
+                "Reg/Force3DoF": "true",          # 如果是地面小车，强制 3 自由度 (x, y, yaw) 增加稳定性
+                "RGBD/OptimizeMaxError": "3.0",   # 拒绝优化后误差过大的闭环链接
 
                 # 5. [内存与更新管理]
-                "RGBD/LinearUpdate": 0.1,       # 机器人移动 0.1m 更新一次地图
-                "RGBD/AngularUpdate": 0.1,      # 机器人旋转约 5.7 度更新一次地图
-                "Mem/IncrementalMemory": True,  # true=建图模式，false=纯定位模式
-                "Mem/STMSize": 30,              # 短期记忆大小，单目模式下建议略微调大
+                "RGBD/LinearUpdate": "0.1",       # 机器人移动 0.1m 更新一次地图
+                "RGBD/AngularUpdate": "0.1",      # 机器人旋转约 5.7 度更新一次地图
+                "Mem/IncrementalMemory": "true",  # true=建图模式，false=纯定位模式
+                "Mem/STMSize": "30",              # 短期记忆大小，单目模式下建议略微调大
 
                 # 6. [单目尺度恢复补丁]
-                "Mem/StereoFromMotion": True,   # 核心参数：利用 EKF 里程计产生的位移来推算单目特征点的深度
+                "Mem/StereoFromMotion": "true",   # 核心参数：利用 EKF 里程计产生的位移来推算单目特征点的深度
             }],
             remappings=[
                 ("rgb/image", ConditionalText([LaunchConfiguration('rgb_topic'), '_relay'], LaunchConfiguration('rgb_topic'), LaunchConfiguration('compressed')).perform(context)),
