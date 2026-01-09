@@ -35,7 +35,7 @@ def launch_setup(context, *args, **kwargs):
             arguments=[
                 '--delete_db_on_start',
                 '--ros-args', 
-                '--log-level', 'rtabmap:=error'  # 设置 RTAB-Map 日志级别为 error
+                '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 error
             ],
             parameters=[{
                 "subscribe_rgb": True,
@@ -64,7 +64,7 @@ def launch_setup(context, *args, **kwargs):
             condition=IfCondition(LaunchConfiguration('visual_odometry')),
             arguments=[
                 '--ros-args', 
-                '--log-level', 'rtabmap:=error'  # 设置 RTAB-Map 日志级别为 error
+                '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 error
             ],
             parameters=[{
                 "frame_id": LaunchConfiguration('frame_id'),
