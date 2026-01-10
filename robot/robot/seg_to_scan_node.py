@@ -12,7 +12,7 @@ class ZenohToLaserScan(Node):
         # 1. 声明 ROS 2 参数
         self.declare_parameter('zenoh_topic', 'rt/scan')
         self.declare_parameter('ros_topic', '/seg/scan')
-        self.declare_parameter('frame_id', 'base_link')
+        self.declare_parameter('frame_id', 'base_footprint')
 
         zenoh_topic = self.get_parameter('zenoh_topic').get_parameter_value().string_value
         ros_topic = self.get_parameter('ros_topic').get_parameter_value().string_value
@@ -44,7 +44,7 @@ class ZenohToLaserScan(Node):
             # 解析 JSON 负载
             payload_bytes = sample.payload.to_bytes()
             data = json.loads(payload_bytes.decode("utf-8"))
-            self.get_logger().info(
+            self.get_logger().debug(
                 f'ZenohToLaserScan received: {data}'
             )
             # 构造 LaserScan 消息
@@ -52,7 +52,7 @@ class ZenohToLaserScan(Node):
             
             # 使用当前 ROS 时间或 JSON 中的时间戳
             scan_msg.header.stamp = self.get_clock().now().to_msg()
-            scan_msg.header.frame_id = "base_footprint"
+            scan_msg.header.frame_id = self.target_frame
             
             # 填充雷达几何参数
             scan_msg.angle_min = float(data['angle_min'])
