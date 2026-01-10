@@ -76,8 +76,6 @@ class ZenohSegScan:
         """Zenoh 订阅回调"""
         try:
             self.frame_count += 1
-            if self.frame_count % self.skip_n != 0:
-                return
             # 1. 解码图像 (假设是 CompressedImage 字节流) 或者 Image字节流
             # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
             # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
@@ -90,45 +88,45 @@ class ZenohSegScan:
                 return
             # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
-            # 2. 推理检测
-            uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
-            # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
             # 3. 激光数据初始化
-            scan_ranges = np.full(self.num_readings, np.inf)
-
-            # 4. 投影逻辑 (逻辑与原代码一致)
+            scan_ranges = np.full(self.num_readings, self.range_max + 1.0)
             valid_points = 0
-            for u, v in uv_points:
-                res = self.pixel_to_base(u, v)
-                if res:
-                    x, y = res
-                    # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
-                    dist = math.hypot(x, y)
-                    if dist < self.range_min or dist > self.range_max:
-                        print(f"on_image_data：距离太远或太近，{dist}")
-                        continue
-                    # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
-                    angle = math.atan2(y, x)
-                    if not (self.angle_min <= angle <= self.angle_max):
-                        print(f"on_image_data：角度偏离，{angle}")
-                        continue
-                        
-                    idx = int(round((angle - self.angle_min) / self.angle_increment))
-                    idx = max(0, min(idx, self.num_readings - 1))
+            uv_points = []
+            
+            # 2. 推理检测
+            if self.frame_count % self.skip_n == 0:
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
+                # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+                # 4. 投影逻辑 (逻辑与原代码一致)
+                valid_points = 0
+                for u, v in uv_points:
+                    res = self.pixel_to_base(u, v)
+                    if res:
+                        x, y = res
+                        # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
+                        dist = math.hypot(x, y)
+                        if dist < self.range_min or dist > self.range_max:
+                            print(f"on_image_data：距离太远或太近，{dist}")
+                            continue
+                        # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
+                        angle = math.atan2(y, x)
+                        if not (self.angle_min <= angle <= self.angle_max):
+                            print(f"on_image_data：角度偏离，{angle}")
+                            continue
+                            
+                        idx = int(round((angle - self.angle_min) / self.angle_increment))
+                        idx = max(0, min(idx, self.num_readings - 1))
 
-                    for di in (-1, 0, 1):
-                        j = idx + di
-                        if 0 <= j < self.num_readings:
-                            scan_ranges[j] = min(scan_ranges[j], dist)
+                        for di in (-1, 0, 1):
+                            j = idx + di
+                            if 0 <= j < self.num_readings:
+                                scan_ranges[j] = min(scan_ranges[j], dist)
                     valid_points += 1
             # 5. 条件发布
-            if valid_points > 0:
-                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
-                self.publish_as_json(scan_ranges, stamp)
-            else:
-                # 这种情况直接跳过，不做任何网络传输
-                print(f"ℹ 帧内无有效接触点（valid_points=0），跳过发布。")
-                pass
+            # if valid_points > 0:
+            print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
+            self.publish_as_json(scan_ranges, stamp)
+
             
         except Exception as e:
             print(f"处理错误: {e}")
@@ -222,8 +220,9 @@ class ZenohSegScan:
     def publish_as_json(self, ranges,stamp):
         """将雷达数据以 JSON 格式发布到 Zenoh"""
         # 替换 inf 为一个大数，因为标准 JSON 不支持 Infinity
-        ranges_list = [r if r != float('inf') else 10.0 for r in ranges]
-        
+        safe_value = self.range_max + 1.0
+        ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
+
         msg = {
             "stamp": stamp,
             "frame_id": "base_link",

@@ -10,7 +10,7 @@ def generate_launch_description():
     config_dir = os.path.join(get_package_share_directory(pkg_name), 'config')
     my_params_file = os.path.join(config_dir, 'nav2_params.yaml')
 
-    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
 
     # 1. 对应你 YAML 中定义的每一个服务节点
     nav2_nodes = [

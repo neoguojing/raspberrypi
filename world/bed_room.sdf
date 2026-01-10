@@ -90,249 +90,6 @@
       <elevation>0</elevation>
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
-    <state world_name='default'>
-      <sim_time>13192 218000000</sim_time>
-      <real_time>480 209291832</real_time>
-      <wall_time>1695257208 814844271</wall_time>
-      <iterations>476528</iterations>
-      <model name='Bookshelf'>
-        <pose>-2 2.4 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-2 2.4 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='Chair'>
-        <pose>1 0.1 0 -4e-06 2e-06 3.1415</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>1 0.1 0 2e-06 4e-06 -1.57088</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='CoffeeTable'>
-        <pose>0 0.1 -0.000129 2e-06 -2e-06 -0</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>0 0.1 -0.000129 2e-06 -2e-06 -0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='FemaleVisitorSit'>
-        <pose>-0.91 0.09 0 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>-0.91 0.09 0 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='LampAndStand'>
-        <pose>-1 -1 0 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>-1 -1 0 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='MaleVisitorSit'>
-        <pose>0 -0.91 0 0 -0 3.1415</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>0 -0.91 0 0 -0 3.1415</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='MiniSofa'>
-        <pose>-1 0.1 -0.000897 -4e-06 -1.2e-05 -3.1415</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>-1 0.1 -0.000897 1.2e-05 -4e-06 1.57088</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='Sofa'>
-        <pose>0.394007 -1.2 0.024684 -7e-06 0.056173 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0.394007 -1.2 0.024684 0.056173 7e-06 3.1415</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='TVStand'>
-        <pose>0 2.2 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='body'>
-          <pose>0 2.2 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='cabinet'>
-        <pose>2.21 2.17 0 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='cabinet_bottom_plate'>
-          <pose>2.21 2.17 0 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='door_08x2m_0'>
-        <pose>-2.495 -1.2 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-2.495 -1.2 1 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='ground_plane'>
-        <pose>0 0 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 0 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='kaiaai_poster'>
-        <pose>-2.45 0 1.5 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-2.45 0 1.5 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='living_room'>
-        <pose>-1.83596 1.40391 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-      </model>
-      <model name='makerspet_poster'>
-        <pose>-2.45 1 1.5 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-2.45 1 1.5 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='red_ball_10in'>
-        <pose>1 1.25 0.127 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>1 1.25 0.127 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='room_wall_2x5'>
-        <pose>-2.5 0 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>-2.5 0 1 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='room_wall_2x5_0'>
-        <pose>2.5 0 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>2.5 0 1 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='room_wall_2x5_1'>
-        <pose>0 -2.45 1 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 -2.45 1 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='room_wall_2x5_2'>
-        <pose>0 2.45 1 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 2.45 1 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='rug_ivory_2m_0'>
-        <pose>0 0.15 0 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 0.15 0 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='tv_65in_emissive'>
-        <pose>0 2.4 0.9 0 -0 1.5707</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 2.4 0.9 0 -0 1.5707</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='window_curtains'>
-        <pose>2.45 1 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>2.45 1 1 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='window_curtains_0'>
-        <pose>2.45 -1 1 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>2.45 -1 1 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-      <light name='sun'>
-        <pose>0 0 10 0 -0 0</pose>
-      </light>
-    </state>
     <model name='Sofa'>
       <static>1</static>
       <link name='link'>
@@ -1293,9 +1050,17 @@
       <pose>-2.1175 -0.31181 0 0 -0 0</pose>
     </model>
     <model name='living_room'>
-      <static>0</static>
-      <allow_auto_disable>1</allow_auto_disable>
-      <pose>-1.83596 1.40391 0 0 -0 0</pose>
+      <static>1</static>
+      <pose>-1.83596 1.40391 0 0 0 0</pose>
+      <link name='dummy_link'>
+        <visual name='dummy_visual'>
+          <geometry>
+            <box>
+              <size>0.01 0.01 0.01</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
     </model>
     <model name='room_wall_2x5'>
       <link name='link'>
@@ -1614,13 +1379,6 @@
               <size>0.05 1.45 0.83</size>
             </box>
           </geometry>
-          <material>
-            <script>
-              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/tv_65in_emissive/4/files/material/script</uri>
-              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/tv_65in_emissive/4/files/material/textures</uri>
-              <name>Custom/tv_emissive</name>
-            </script>
-          </material>
         </visual>
         <self_collide>0</self_collide>
         <enable_wind>0</enable_wind>
