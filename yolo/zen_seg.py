@@ -127,7 +127,7 @@ class ZenohSegScan:
                 self.publish_as_json(scan_ranges, stamp)
             else:
                 # 这种情况直接跳过，不做任何网络传输
-                # print(f"ℹ 帧内无有效接触点（valid_points=0），跳过发布。")
+                print(f"ℹ 帧内无有效接触点（valid_points=0），跳过发布。")
                 pass
             
         except Exception as e:

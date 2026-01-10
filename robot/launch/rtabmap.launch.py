@@ -17,12 +17,13 @@ class ConditionalText(Substitution):
 def launch_setup(context, *args, **kwargs):
     # 获取命名空间
     ns = LaunchConfiguration('namespace')
-
+    use_sim_time_val = LaunchConfiguration('use_sim_time')
     return [
         # 1. 图像解压节点 (针对单目 RGB)
         Node(
             package='image_transport', executable='republish', name='republish_rgb',
             condition=IfCondition(LaunchConfiguration('compressed')),
+            parameters=[{'use_sim_time': use_sim_time_val}],
             remappings=[
                 (['in/', LaunchConfiguration('rgb_image_transport')], [LaunchConfiguration('rgb_topic'), '/', LaunchConfiguration('rgb_image_transport')]),
                 ('out', [LaunchConfiguration('rgb_topic'), '_relay'])],
@@ -38,6 +39,7 @@ def launch_setup(context, *args, **kwargs):
                 '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 error
             ],
             parameters=[{
+                "use_sim_time": use_sim_time_val, # 核心：接收外部传入的时间
                 "subscribe_rgb": True,
                 "subscribe_depth": LaunchConfiguration('depth'), # 默认设为 false
                 "subscribe_stereo": False,
@@ -48,14 +50,16 @@ def launch_setup(context, *args, **kwargs):
                 "publish_tf": LaunchConfiguration('publish_tf_map'),   # 发布 map -> odom
                 "use_sim_time": LaunchConfiguration('use_sim_time'),
                 "approx_sync": True,
-                "sync_queue_size": 50,
+                "sync_queue_size": 100,
 
                 # 2. [地图生成控制 - 解决您的警告]
                 "Grid/Sensor": "0",               # 0=从激光雷达创建地图 (消除警告的关键)
                 "Grid/FromDepth": "false",        # 明确禁止从深度图生成地图
+                "Grid/3D": "false",                  # 强制网格生成器运行在 2D 模式
                 "Grid/RangeMax": "5.0",           # 激光雷达的最大有效探测距离
                 "Grid/RayTracing": "true",        # 开启射线追踪以清理空旷区域的障碍物
                 "Grid/CellSize": "0.05",          # 地图分辨率 5cm
+                "Grid/OctoMap": "false",
 
                 # 3. [视觉特征提取 - 针对单目增强]
                 "Kp/DetectorStrategy": "2",       # 使用 ORB 特征点，对单目环境更鲁棒 (0=SURF, 2=ORB)
@@ -80,10 +84,10 @@ def launch_setup(context, *args, **kwargs):
             }],
             remappings=[
                 ("rgb/image", ConditionalText([LaunchConfiguration('rgb_topic'), '_relay'], LaunchConfiguration('rgb_topic'), LaunchConfiguration('compressed')).perform(context)),
-                ("rgb/camera_info", LaunchConfiguration('camera_info_topic')),
-                ("odom", LaunchConfiguration('odom_topic')), # 订阅 EKF 发布的里程计
-                ("map", LaunchConfiguration('map_topic')),
-                ("scan", LaunchConfiguration('scan_topic')),
+                ("rgb/camera_info", '/camera/camera_info'),
+                ("odom", '/ekf/odom'), # 订阅 EKF 发布的里程计
+                ("map", '/map'),
+                ("scan", '/seg/scan'),
             ],
                 
             namespace=ns),
@@ -94,9 +98,10 @@ def launch_setup(context, *args, **kwargs):
             condition=IfCondition(LaunchConfiguration('visual_odometry')),
             arguments=[
                 '--ros-args', 
-                '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 error
+                '--log-level', 'rtabmap:=info'  # 设置 RTAB-Map 日志级别为 error
             ],
             parameters=[{
+                "use_sim_time": use_sim_time_val, # 核心：接收外部传入的时间
                 "frame_id": LaunchConfiguration('frame_id'),
                 "publish_tf": False, # 强制设为 False，由 EKF 发布 odom -> base
                 "approx_sync": True,
@@ -118,7 +123,6 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time',   default_value='false'),
         DeclareLaunchArgument('localization',   default_value='false'),
         DeclareLaunchArgument('subscribe_scan', default_value='true',       description=''),
-        DeclareLaunchArgument('scan_topic',     default_value='/seg/scan',       description=''),
         
         # TF 与 帧 ID
         DeclareLaunchArgument('frame_id',       default_value='base_footprint'),
