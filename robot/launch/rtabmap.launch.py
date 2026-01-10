@@ -36,7 +36,7 @@ def launch_setup(context, *args, **kwargs):
             arguments=[
                 '--delete_db_on_start',
                 '--ros-args', 
-                '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 error
+                '--log-level', 'rtabmap:=warn'  # 设置 RTAB-Map 日志级别为 warn
             ],
             parameters=[{
                 "use_sim_time": use_sim_time_val, # 核心：接收外部传入的时间
@@ -51,12 +51,13 @@ def launch_setup(context, *args, **kwargs):
                 "use_sim_time": LaunchConfiguration('use_sim_time'),
                 "approx_sync": True,
                 "sync_queue_size": 100,
+                "topic_queue_size": 10,
 
                 # 2. [地图生成控制 - 解决您的警告]
                 "Grid/Sensor": "0",               # 0=从激光雷达创建地图 (消除警告的关键)
                 "Grid/FromDepth": "false",        # 明确禁止从深度图生成地图
                 "Grid/3D": "false",                  # 强制网格生成器运行在 2D 模式
-                "Grid/RangeMax": "5.0",           # 激光雷达的最大有效探测距离
+                "Grid/RangeMax": "4.0",           # 激光雷达的最大有效探测距离
                 "Grid/RayTracing": "true",        # 开启射线追踪以清理空旷区域的障碍物
                 "Grid/CellSize": "0.05",          # 地图分辨率 5cm
                 "Grid/OctoMap": "false",
@@ -65,13 +66,18 @@ def launch_setup(context, *args, **kwargs):
                 "Kp/DetectorStrategy": "2",       # 使用 ORB 特征点，对单目环境更鲁棒 (0=SURF, 2=ORB)
                 "Kp/MaxFeatures": "1000",         # 增加特征点数量以提高闭环匹配成功率
                 "Vis/EstimationType": "2",        # 2=2D->2D (对极几何)，单目运动估计的首选
-                "Vis/FeatureType": "2",           # 视觉特征类型保持与 Kp 一致
+                "Vis/FeatureType": "8",           # 视觉特征类型保持与 Kp 一致
+                "Vis/EpipolarGeometryVar": "0.5",     # 将 0.1 调大到 0.5，允许更大误差的回环
+                "Vis/Iterations": "300",            # 增加 RANSAC 迭代次数，暴力寻找匹配
 
                 # 4. [闭环检测策略]
                 "Reg/Strategy": "0",              # 0=仅视觉匹配，1=ICP，2=视觉+ICP
                 # 如果您希望闭环时用激光雷达精修位姿，建议设为 "2"
                 "Reg/Force3DoF": "true",          # 如果是地面小车，强制 3 自由度 (x, y, yaw) 增加稳定性
-                "RGBD/OptimizeMaxError": "3.0",   # 拒绝优化后误差过大的闭环链接
+                "RGBD/OptimizeMaxError": "5.0",   # 拒绝优化后误差过大的闭环链接
+                "RGBD/NeighborLinkRefining": "true", # 启用邻居链接精修，提升局部一致性
+                "Vis/MinInliers": "8",               # 增加内点数量要求，确保回环更可靠
+                "Vis/InlierDistance": "0.1",        # 增加容差，适应单目深度不准的情况
 
                 # 5. [内存与更新管理]
                 "RGBD/LinearUpdate": "0.1",       # 机器人移动 0.1m 更新一次地图
@@ -126,6 +132,7 @@ def generate_launch_description():
         
         # TF 与 帧 ID
         DeclareLaunchArgument('frame_id',       default_value='base_footprint'),
+        # DeclareLaunchArgument('frame_id',       default_value='base_link'),
         DeclareLaunchArgument('odom_frame_id',  default_value='odom'),
         DeclareLaunchArgument('map_frame_id',   default_value='map'),
         DeclareLaunchArgument('publish_tf_map', default_value='true'), # 发布 map->odom
