@@ -198,8 +198,6 @@ ros2_ctl:
 
 sim:
 # 	export GZ_PARTITION=sim && gz sim -r world/bed_room.sdf
-# 	export GZ_PARTITION=sim && gz sim -r world/living_room.sdf
-# 	export GZ_PARTITION=sim && gz sim -r world/harmonic.sdf
 	export GZ_PARTITION=sim && gz sim -r world/tugbot_depot.sdf
 
 yolo_run:

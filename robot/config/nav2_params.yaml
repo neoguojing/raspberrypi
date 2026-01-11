@@ -33,7 +33,10 @@ bt_navigator:
     # plugin_lib_names is used to add custom BT plugins to the executor (vector of strings).
     # Built-in plugins are added automatically
     # plugin_lib_names: []
-
+    error_code_names: ["follow_path_error_code", "compute_path_error_code"]
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_follow_path_action_bt_node
     error_code_name_prefixes:
       - assisted_teleop
       - backup
@@ -87,7 +90,7 @@ controller_server:
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 56
-      model_dt: 0.05
+      model_dt: 0.1
       batch_size: 2000
       ax_max: 3.0
       ax_min: -3.0
