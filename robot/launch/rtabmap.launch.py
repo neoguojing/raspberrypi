@@ -21,26 +21,55 @@ class ConditionalText:
 
 
 def remap_rgb_image(context) -> List[Tuple[str, str]]:
-    """根据压缩参数返回 rgb/image remap"""
+    """根据压缩参数返回 rgb/image remap
+    压缩模式订阅 republish 输出的 relay topic
+    非压缩模式直接订阅原始 topic
+    """
     rgb_topic = LaunchConfiguration('rgb_topic').perform(context)
     compressed = LaunchConfiguration('compressed').perform(context).lower() in ['true', '1']
-    return [("rgb/image", f"{rgb_topic}/compressed" if compressed else rgb_topic)]
+    # 压缩模式订阅 republish 输出
+    return [("rgb/image", f"{rgb_topic}_relay" if compressed else rgb_topic)]
 
 
 def get_republish_remap(context) -> List[Tuple[str, str]]:
-    """republish 节点的 remap"""
+    """
+    配置 republish 节点的话题映射关系。
+    
+    该节点的作用是：[压缩话题] -> [解压] -> [原始话题(relay)]
+    
+    映射逻辑解释：
+    1. "in/{transport}" : image_transport 节点的标准输入接口。
+       例如：当 transport 为 'compressed' 时，映射 'in/compressed' 
+       对应到实际话题 '/camera/image_raw/compressed'。
+       
+    2. "out" : image_transport 节点的标准输出接口（发布 raw 格式）。
+       映射到 '/camera/image_raw_relay'，供下游 RTAB-Map 节点订阅。
+    """
+    
+    # 获取基础话题名，例如: /camera/image_raw
     rgb_topic = LaunchConfiguration('rgb_topic').perform(context)
-    rgb_transport = LaunchConfiguration('rgb_image_transport').perform(context)
+
     return [
-        (f"in/{rgb_transport}", f"{rgb_topic}/{rgb_transport}"),
+        # 输入：将虚拟的 in/compressed 绑定到真实的 /camera/image_raw/compressed
+        (f"in/compressed", f"{rgb_topic}/compressed"),
+        
+        # 输出：将解压后的 raw 图像发布到后缀为 _relay 的新话题上
         ("out", f"{rgb_topic}_relay")
     ]
 
 
+def print_params(context: LaunchContext, *args, **kwargs):
+    rgb_topic = LaunchConfiguration('rgb_topic').perform(context)
+    compressed = LaunchConfiguration('compressed').perform(context)
+    use_sim_time = LaunchConfiguration('use_sim_time').perform(context)
+    print(f"[Launch Debug] rgb_topic={rgb_topic}, compressed={compressed}, use_sim_time={use_sim_time}")
+    return []
+
 def launch_setup(context, *args, **kwargs):
     ns = LaunchConfiguration('namespace')
     use_sim_time_val = LaunchConfiguration('use_sim_time')
-
+    
+    print_params(context)
     return [
         # ===============================
         # 1. 图像解压节点 (针对单目 RGB 压缩)
@@ -52,7 +81,7 @@ def launch_setup(context, *args, **kwargs):
             condition=IfCondition(LaunchConfiguration('compressed')),
             parameters=[{'use_sim_time': use_sim_time_val}],
             remappings=get_republish_remap(context),
-            arguments=[LaunchConfiguration('rgb_image_transport').perform(context), 'raw'],
+            arguments=['compressed', 'raw'],
             namespace=ns
         ),
 
@@ -149,7 +178,6 @@ def generate_launch_description():
         DeclareLaunchArgument('subscribe_imu', default_value='false'),
         DeclareLaunchArgument('depth', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
-        DeclareLaunchArgument('rgb_image_transport', default_value='compressed'),
 
         # -------------------
         # TF / Frame IDs

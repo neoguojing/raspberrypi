@@ -16,8 +16,17 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
+    image_compressed = LaunchConfiguration('compressed', default='true')
+    declare_image_compressed = DeclareLaunchArgument(
+        'compressed',
+        default_value='true', # 模拟环境默认为 false
+        description='是否压缩图片'
+    )
+
     # 2. 统一定义需要传递给子 Launch 的参数字典
-    common_args = {'use_sim_time': use_sim_time}.items()
+    common_args = {'use_sim_time': use_sim_time,
+                   'compressed': image_compressed
+                }.items()
 
     slam3_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')),
@@ -55,6 +64,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
+        declare_image_compressed,
         # slam3_launch,
         # efk_launch,
         # seg_launch,
