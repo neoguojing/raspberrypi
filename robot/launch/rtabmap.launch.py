@@ -44,6 +44,7 @@ def launch_setup(context, *args, **kwargs):
                 "subscribe_depth": LaunchConfiguration('depth'), # 默认设为 false
                 "subscribe_stereo": False,
                 "subscribe_scan": LaunchConfiguration('subscribe_scan'),
+                "subscribe_odom_info": True,
                 "frame_id": LaunchConfiguration('frame_id'),
                 "map_frame_id": LaunchConfiguration('map_frame_id'),
                 "odom_frame_id": LaunchConfiguration('odom_frame_id'), # 对应 EKF 输出的 odom frame
