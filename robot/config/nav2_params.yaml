@@ -171,8 +171,8 @@ local_costmap:
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
-      width: 4
-      height: 4
+      width: 1
+      height: 1
       resolution: 0.05
       robot_radius: 0.22
       plugins: ["voxel_layer", "inflation_layer"]
@@ -228,7 +228,7 @@ local_costmap:
           topic: /cloud_obstacles
           data_type: PointCloud2
           marking: true           # 视觉障碍主力
-          clearing: false
+          clearing: true
           obstacle_max_range: 3.0
           min_obstacle_height: 0.0
           max_obstacle_height: 1.2
@@ -354,7 +354,7 @@ map_saver:
 planner_server:
   ros__parameters:
     allow_partial_planning: false
-    expected_planner_frequency: 20.0
+    expected_planner_frequency: 10.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 1.0
     introspection_mode: "disabled"

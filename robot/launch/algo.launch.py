@@ -24,9 +24,7 @@ def generate_launch_description():
     )
 
     # 2. 统一定义需要传递给子 Launch 的参数字典
-    common_args = {'use_sim_time': use_sim_time,
-                   'compressed': image_compressed
-                }.items()
+    common_args = {'use_sim_time': use_sim_time}.items()
 
     slam3_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')),
@@ -48,7 +46,9 @@ def generate_launch_description():
     # 包含 rtabmap 节点
     map_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
-        launch_arguments=common_args
+        launch_arguments={'use_sim_time': use_sim_time,
+                   'compressed': image_compressed
+                }.items()
     )
 
     # 包含 nv2 节点
@@ -65,10 +65,10 @@ def generate_launch_description():
     return LaunchDescription([
         declare_use_sim_time,
         declare_image_compressed,
-        # slam3_launch,
-        # efk_launch,
-        # seg_launch,
-        map_launch,
+        slam3_launch,
+        efk_launch,
+        seg_launch,
         nv2_launch,
         explore_launch,
+        map_launch,
     ])
