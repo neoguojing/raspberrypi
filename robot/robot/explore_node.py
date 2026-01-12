@@ -4,6 +4,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose
 from nav2_msgs.srv import SaveMap  # 用于调用地图保存服务
 
 import numpy as np
@@ -25,7 +27,11 @@ class FinalExploreNode(Node):
         self.declare_parameter('save_map_service', '/map_saver/save_map')
 
         # 初始化 Nav2 简单导航接口
-        self.navigator = BasicNavigator()
+        self.navigator = ActionClient(
+            self,
+            NavigateToPose,
+            'navigate_to_pose'
+        )
         
         # 2. 初始化 TF 监听器 (替代 getRobotPose)
         self.tf_buffer = Buffer()
@@ -41,7 +47,6 @@ class FinalExploreNode(Node):
         # --- 状态控制 ---
         self.map_msg = None           # 实时地图缓存
         self.failed_goals = deque(maxlen=60) # 失败点黑名单，防止机器人反复尝试不可达区域
-        self.is_navigating = False    # 导航任务锁
         self.no_frontier_count = 0    # 空边界计数器
         
         # --- 服务客户端：调用 map_server 保存地图 ---
@@ -57,17 +62,29 @@ class FinalExploreNode(Node):
         self.timer = self.create_timer(2.0, self._start_logic)
         self.started = False
 
+        self.nav_lock = threading.Lock()
+        self.goal_handle = None
+        self.result_future = None
+        self.nav_status = 'IDLE'  # IDLE / NAVIGATING
+
     def get_current_pose(self):
-        """
-        通过 TF 获取当前机器人位姿，替代已失效的 getRobotPose()
-        """
         try:
-            # 查找从 map 到 base_link 的变换
-            t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
+            # 修复点：添加 0.1s 的等待时间，处理 TF 发布延迟
+            now = rclpy.time.Time()
+            t = self.tf_buffer.lookup_transform(
+                'map', 
+                'base_link', 
+                now, 
+                timeout=rclpy.duration.Duration(seconds=0.1)
+            )
             return t.transform.translation.x, t.transform.translation.y
-        except TransformException as ex:
-            self.get_logger().warn(f'无法获取坐标变换: {ex}')
-            return None, None
+        except Exception as ex:
+            # 失败时尝试查找最近的一次有效变换
+            try:
+                t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time(seconds=0))
+                return t.transform.translation.x, t.transform.translation.y
+            except:
+                return None, None
         
     def map_callback(self, msg):
         """地图回调：不断更新本地地图快照"""
@@ -157,29 +174,15 @@ class FinalExploreNode(Node):
         return best_goal
 
     # ---------------- 任务执行逻辑 ----------------
-
     def save_current_map(self):
-        """调用 Nav2 map_server 服务保存当前建图成果"""
-        self.get_logger().info(f"正在保存地图至: {self.MAP_SAVE_PATH}...")
-        
-        # 检查服务是否存在
-        if not self.save_map_cli.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error('无法连接到保存地图服务，请检查 map_saver_server 是否启动！')
+        self.get_logger().info(f"正在保存地图...")
+        if not self.save_map_cli.wait_for_service(timeout_sec=2.0):
             return
 
         req = SaveMap.Request()
         req.map_url = self.MAP_SAVE_PATH
-        req.map_topic = 'map'
-        
-        future = self.save_map_cli.call_async(req)
-        # 等待服务响应
-        while rclpy.ok() and not future.done():
-            time.sleep(0.1)
-        
-        if future.result() is not None:
-            self.get_logger().info('地图已成功持久化到磁盘。')
-        else:
-            self.get_logger().error('地图保存操作执行失败。')
+        # 使用同步调用在独立线程中是安全的，或者坚持用异步但确保 loop 能够处理
+        self.save_map_cli.call_async(req)
 
     def wait_for_nav2_ready(self):
         """
@@ -189,7 +192,7 @@ class FinalExploreNode(Node):
         
         # 1. 等待最关键的导航 Action Server
         # 这是 Nav2 执行移动的核心接口
-        while not self.navigator._action_client.wait_for_server(timeout_sec=1.0):
+        while not self.navigator.wait_for_server(timeout_sec=1.0):
             self.get_logger().info("Nav2 导航服务尚未启动，继续等待...")
             if not rclpy.ok():
                 return False
@@ -206,12 +209,13 @@ class FinalExploreNode(Node):
 
     def exploration_loop(self):
         """探索主线程状态机"""
-        # self.navigator.waitUntilNav2Active()
         
         # 预热：等待定位数据（TF map -> base_link）生效
-        rx, ry = self.get_current_pose()
-        while rclpy.ok() and rx is None and not self.wait_for_nav2_ready():
-            self.get_logger().info("等待机器人定位就绪...")
+        while rclpy.ok():
+            rx, ry = self.get_current_pose()
+            if rx is not None and self.wait_for_nav2_ready():
+                break
+            self.get_logger().info("等待机器人定位 / Nav2 就绪...")
             time.sleep(1.0)
 
         while rclpy.ok():
@@ -222,15 +226,14 @@ class FinalExploreNode(Node):
                 self.get_logger().warn(f"SLAM 未初始化或地图太小 (已知像素: {known_count})，等待中...", once=True)
                 time.sleep(1.0)
                 continue
-            if not self.is_navigating:
+            if self.nav_status == 'IDLE':
                 # 1. 计算当前最优边界点
                 target = self.get_best_frontier()
                 if target:
                     self.no_frontier_count = 0 # 重置结束计数器
                     wx, wy, yaw = target
                     # 发送目标位姿
-                    self.navigator.goToPose(self._make_pose(wx, wy, yaw))
-                    self.is_navigating = True
+                    self.send_nav_goal(self._make_pose(wx, wy, yaw))
                     self.nav_start_time = time.time()
                     self.current_goal = (wx, wy)
                     self.get_logger().info(f"新目标点确定: ({wx:.2f}, {wy:.2f})")
@@ -247,18 +250,14 @@ class FinalExploreNode(Node):
                     continue
 
             # 2. 监控当前导航任务
-            if self.navigator.isTaskComplete():
-                self.is_navigating = False
-                res = self.navigator.getResult()
-                if res != TaskResult.SUCCEEDED:
-                    self.get_logger().warn("该点无法到达，加入黑名单。")
-                    self.failed_goals.append(self.current_goal)
+            if self.nav_status == 'IDLE':
                 time.sleep(1.0) # 冷却防止频繁计算
                 
             # 3. 超时强制处理
-            elif (time.time() - self.nav_start_time) > self.NAV_TIMEOUT:
-                self.navigator.cancelTask()
-                self.is_navigating = False
+            elif self.goal_handle and (time.time() - self.nav_start_time) > self.NAV_TIMEOUT:
+                self.goal_handle.cancel_goal_async()
+                with self.nav_lock:
+                    self.nav_status = 'IDLE'
                 self.failed_goals.append(self.current_goal)
             
             time.sleep(0.5)
@@ -270,10 +269,10 @@ class FinalExploreNode(Node):
         
         # 第二步：回到机器人起始坐标点 (0,0)
         self.get_logger().info("探索完成，正在指令机器人回到起始点...")
-        self.navigator.goToPose(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
+        self.send_nav_goal(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
         
         # 等待回航结束
-        while not self.navigator.isTaskComplete():
+        while rclpy.ok() and self.nav_status != 'IDLE':
             time.sleep(1.0)
         
         self.get_logger().info("任务结束：地图已保存，机器人已停稳。")
@@ -298,6 +297,46 @@ class FinalExploreNode(Node):
         p.pose.orientation.z = math.sin(yaw/2)
         p.pose.orientation.w = math.cos(yaw/2)
         return p
+    
+    def send_nav_goal(self, pose: PoseStamped):
+        goal = NavigateToPose.Goal()
+        goal.pose = pose
+        with self.nav_lock:
+            self.nav_status = 'NAVIGATING'
+        self.nav_start_time = time.time()
+
+        self.goal_future = self.navigator.send_goal_async(
+            goal,
+            feedback_callback=self._feedback_cb
+        )
+        self.goal_future.add_done_callback(self._goal_response_cb)
+
+    def _goal_response_cb(self, future):
+        self.goal_handle = future.result()
+
+        if not self.goal_handle.accepted:
+            self.get_logger().warn('导航目标被拒绝')
+            with self.nav_lock:
+                self.nav_status = 'IDLE'
+            return
+
+        self.result_future = self.goal_handle.get_result_async()
+        self.result_future.add_done_callback(self._result_cb)
+
+    def _result_cb(self, future):
+        status = future.result().status
+        with self.nav_lock:
+            self.nav_status = 'IDLE'
+
+        if status != 4:  # STATUS_SUCCEEDED = 4
+            self.get_logger().warn('导航失败，加入黑名单')
+            self.failed_goals.append(self.current_goal)
+
+    def _feedback_cb(self, feedback_msg):
+        pass
+
+
+
 
 def main():
     rclpy.init()
