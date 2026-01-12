@@ -164,7 +164,7 @@ controller_server:
 # local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
 # 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
 local_costmap:
-    ros__parameters:
+  ros__parameters:
     update_frequency: 5.0
     publish_frequency: 2.0
     global_frame: odom
