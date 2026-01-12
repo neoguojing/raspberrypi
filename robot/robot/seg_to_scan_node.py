@@ -36,8 +36,20 @@ class ZenohToLaserScan(Node):
             zenoh_topic, 
             self.zenoh_callback
         )
-        
+
+        self.latest_scan = None
+        # 10Hz
+        self.timer = self.create_timer(1.0 / 10.0, self.publish_latest_scan)
+
         self.get_logger().info('✅ Zenoh -> ROS2 LaserScan 桥接节点已启动')
+
+    def publish_latest_scan(self):
+        if self.latest_scan is None:
+            return
+
+        # 用当前 ROS 时间刷新时间戳（很重要）
+        self.latest_scan.header.stamp = self.get_clock().now().to_msg()
+        self.publisher_.publish(self.latest_scan)
 
     def zenoh_callback(self, sample):
         try:
@@ -67,7 +79,8 @@ class ZenohToLaserScan(Node):
             scan_msg.ranges = [float(r) for r in data['ranges']]
             
             # 发布到 ROS 2
-            self.publisher_.publish(scan_msg)
+            # self.publisher_.publish(scan_msg)
+            self.latest_scan = scan_msg
             
         except Exception as e:
             self.get_logger().error(f'解析 Zenoh 数据失败: {e}')

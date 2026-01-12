@@ -50,8 +50,8 @@ def launch_setup(context, *args, **kwargs):
                 "publish_tf": LaunchConfiguration('publish_tf_map'),   # 发布 map -> odom
                 "use_sim_time": LaunchConfiguration('use_sim_time'),
                 "approx_sync": True,
-                "sync_queue_size": 100,
-                "topic_queue_size": 10,
+                "sync_queue_size": 30,
+                "topic_queue_size": 30,
 
                 # 2. [地图生成控制 - 解决您的警告]
                 "Grid/Sensor": "0",               # 0=从激光雷达创建地图 (消除警告的关键)
