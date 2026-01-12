@@ -25,12 +25,12 @@ class ZenohSegScan:
         self.camera_pitch = 0.1484
         
         # 激光雷达模拟参数
-        self.angle_min = -1.1
-        self.angle_max = 1.1
+        self.angle_min = -1.0
+        self.angle_max = 1.0
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = 0.05
-        self.range_max = 4.0
+        self.range_max = 10.0
 
         # 加载相机内参
         self.load_sensor_config(config_path)
@@ -89,7 +89,9 @@ class ZenohSegScan:
             # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
             # 3. 激光数据初始化
-            scan_ranges = np.full(self.num_readings, self.range_max - 0.01)
+            # scan_ranges = np.full(self.num_readings, self.range_max + 1)
+            scan_ranges = np.full(self.num_readings, float('inf'))
+            # scan_ranges = np.full(self.num_readings, self.range_max - 0.01)
             valid_points = 0
             uv_points = []
             
@@ -126,7 +128,8 @@ class ZenohSegScan:
                         valid_points += 1
             # 5. 条件发布
             # if valid_points > 0:
-            print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
+            if valid_points >= 0:
+                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
             self.publish_as_json(scan_ranges, stamp)
 
             
@@ -224,7 +227,6 @@ class ZenohSegScan:
         # 替换 inf 为一个大数，因为标准 JSON 不支持 Infinity
         safe_value = self.range_max - 0.01
         ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
-
         msg = {
             "stamp": stamp,
             "frame_id": "base_link",
@@ -235,6 +237,8 @@ class ZenohSegScan:
             "range_min": self.range_min,
             "range_max": self.range_max
         }
+        
+        print(f"📡 发布的json {ranges_list}")
         payload = json.dumps(msg).encode("utf-8")
         self.pub.put(payload=payload,
                         encoding="application/json")
