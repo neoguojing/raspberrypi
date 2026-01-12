@@ -30,7 +30,7 @@ class ZenohSegScan:
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = 0.05
-        self.range_max = 10.0
+        self.range_max = 4.0
 
         # 加载相机内参
         self.load_sensor_config(config_path)
