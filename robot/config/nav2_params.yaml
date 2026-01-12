@@ -5,14 +5,15 @@ lifecycle_manager_navigation:
     node_names:
       - controller_server
       - planner_server
+      - route_server
       - bt_navigator
-      - waypoint_follower
+      - behavior_server
       - velocity_smoother
       - smoother_server
-      - collision_monitor
       - docking_server
-      - global_costmap
-      - local_costmap
+      - collision_monitor
+      - local_costmap.local_costmap       # <- 注意这里要加 namespace/container 名
+      - global_costmap.global_costmap     # <- 同上
 # BT Navigator (指挥官)
 # 一句话： 它是导航的**“逻辑大脑”**。
 # 功能： 不算路径，不发速度，只拿“行为树说明书”指挥 Planner 规划、Controller 走车、Recovery 救灾。

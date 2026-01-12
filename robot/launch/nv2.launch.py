@@ -64,8 +64,8 @@ def generate_launch_description():
                 'smoother_server',
                 'velocity_smoother',
                 'collision_monitor',
-                'global_costmap',
-                'local_costmap',
+                'global_costmap.global_costmap',   # ← 改这里
+                'local_costmap.local_costmap',     # ← 改这里
                 'waypoint_follower',
                 'route_server',
                 'docking_server',
