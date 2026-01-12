@@ -1,3 +1,18 @@
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: true
+    autostart: true
+    node_names:
+      - controller_server
+      - planner_server
+      - bt_navigator
+      - waypoint_follower
+      - velocity_smoother
+      - smoother_server
+      - collision_monitor
+      - docking_server
+      - global_costmap
+      - local_costmap
 # BT Navigator (指挥官)
 # 一句话： 它是导航的**“逻辑大脑”**。
 # 功能： 不算路径，不发速度，只拿“行为树说明书”指挥 Planner 规划、Controller 走车、Recovery 救灾。
