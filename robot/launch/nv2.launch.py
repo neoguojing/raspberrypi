@@ -43,32 +43,8 @@ def generate_launch_description():
             'params_file': params_file,
             'use_composition': 'True',
             'container_name': 'nav2_container',
-            'autostart': 'False',   # ❗关键：我们自己管 lifecycle
+            'autostart': 'True',  # 让内建的管理器直接工作
         }.items(),
-    )
-
-    # ---------- Nav2 Lifecycle Manager（核心修复） ----------
-    lifecycle_nav2 = Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_navigation',
-        output='screen',
-        parameters=[{
-            'use_sim_time': use_sim_time,
-            'autostart': autostart,
-            'node_names': [
-                'controller_server',
-                'planner_server',
-                'bt_navigator',
-                'behavior_server',
-                'smoother_server',
-                'velocity_smoother',
-                'collision_monitor',
-                'waypoint_follower',
-                'route_server',
-                'docking_server',
-            ],
-        }],
     )
 
     # ---------- Map Saver（你原来是对的） ----------
@@ -99,6 +75,5 @@ def generate_launch_description():
         declare_autostart,
         nav2_container,
         navigation,
-        lifecycle_nav2,   # ⭐⭐⭐ 关键
         map_saver,
     ])
