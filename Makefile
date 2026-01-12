@@ -28,6 +28,22 @@ APT_PACKAGES = \
 CLEAN_FILES = recorded_audio.wav response.mp3
 CLEAN_DIRS = __pycache__ $(VENV_DIR) *.egg-info dist build
 
+# 定义所有的生命周期节点 (Lifecycle Nodes)
+LIFECYCLE_NODES = \
+	/controller_server \
+	/planner_server \
+	/behavior_server \
+	/bt_navigator \
+	/waypoint_follower \
+	/smoother_server \
+	/velocity_smoother \
+	/collision_monitor \
+	/map_saver_server \
+	/global_costmap/global_costmap \
+	/local_costmap/local_costmap \
+	/docking_server \
+	/route_server
+
 .PHONY: all init venv requirements run clean help slam3 image dev runtime ros2_install ros2_build ros2_algo ros2_robot ros2_clean ros2_sim ros2_full sim ros2_ctl yolo seg up down
 
 all: help
@@ -214,3 +230,17 @@ record:
 			/tf_static
 play:
 	ros2 bag play rtabmap_mono_test --clock
+
+.PHONY: status tf
+# 检查所有节点的状态
+status:
+	@echo "--- [ Lifecycle Nodes Status ] ---"
+	@for node in $(LIFECYCLE_NODES); do \
+		printf "%-40s " $$node; \
+		ros2 lifecycle get $$node 2>/dev/null || echo "OFFLINE"; \
+	done
+
+# 快捷指令：查看 TF 树状态
+tf:
+	ros2 run tf2_tools view_frames
+	@echo "TF frames generated as frames.pdf"
