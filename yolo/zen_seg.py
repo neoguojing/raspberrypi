@@ -89,7 +89,7 @@ class ZenohSegScan:
             # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
             # 3. 激光数据初始化
-            scan_ranges = np.full(self.num_readings, self.range_max + 1.0)
+            scan_ranges = np.full(self.num_readings, self.range_max - 0.01)
             valid_points = 0
             uv_points = []
             
@@ -105,9 +105,9 @@ class ZenohSegScan:
                         x, y = res
                         # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
                         dist = math.hypot(x, y)
-                        if dist < self.range_min or dist > self.range_max:
-                            print(f"on_image_data：距离太远或太近，{dist}")
-                            continue
+                        # if dist < self.range_min or dist > self.range_max:
+                        #     print(f"on_image_data：距离太远或太近，{dist}")
+                        #     continue
                         # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
                         angle = math.atan2(y, x)
                         if not (self.angle_min <= angle <= self.angle_max):
@@ -120,8 +120,10 @@ class ZenohSegScan:
                         for di in (-1, 0, 1):
                             j = idx + di
                             if 0 <= j < self.num_readings:
-                                scan_ranges[j] = min(scan_ranges[j], dist)
-                    valid_points += 1
+                                # scan_ranges[j] = min(scan_ranges[j], dist)
+                                scan_ranges[j] = dist
+                                
+                        valid_points += 1
             # 5. 条件发布
             # if valid_points > 0:
             print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
@@ -220,7 +222,7 @@ class ZenohSegScan:
     def publish_as_json(self, ranges,stamp):
         """将雷达数据以 JSON 格式发布到 Zenoh"""
         # 替换 inf 为一个大数，因为标准 JSON 不支持 Infinity
-        safe_value = self.range_max + 1.0
+        safe_value = self.range_max - 0.01
         ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
 
         msg = {
