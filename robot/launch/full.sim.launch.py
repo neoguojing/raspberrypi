@@ -17,6 +17,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'algo.launch.py')),
         launch_arguments={
             'use_sim_time': 'true',
+            'compressed': 'false'
         }.items()
     )
 
