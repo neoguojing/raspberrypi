@@ -57,18 +57,18 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'autostart': autostart,
             'node_names': [
-                'controller_server',
-                'planner_server',
-                'bt_navigator',
-                'behavior_server',
-                'smoother_server',
-                'velocity_smoother',
-                'collision_monitor',
+                # 'controller_server',
+                # 'planner_server',
+                # 'bt_navigator',
+                # 'behavior_server',
+                # 'smoother_server',
+                # 'velocity_smoother',
+                # 'collision_monitor',
                 '/global_costmap/global_costmap',  # 完整名
                 '/local_costmap/local_costmap',    # 完整名
-                'waypoint_follower',
-                'route_server',
-                'docking_server',
+                # 'waypoint_follower',
+                # 'route_server',
+                # 'docking_server',
             ],
         }],
     )
