@@ -24,7 +24,7 @@ def generate_launch_description():
     declare_autostart = DeclareLaunchArgument(
         'autostart', default_value='true')
 
-    # ---------- Nav2 容器（use_composition=True 必须） ----------
+    # ---------- Nav2 容器 ----------
     nav2_container = Node(
         package='rclcpp_components',
         executable='component_container_isolated',
@@ -33,7 +33,7 @@ def generate_launch_description():
         parameters=[params_file, {'use_sim_time': use_sim_time}],
     )
 
-    # ---------- Navigation（不含 map_server） ----------
+    # ---------- Navigation（仅加载组件，不负责生命周期） ----------
     navigation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(nav2_bringup_dir, 'launch', 'navigation_launch.py')
@@ -43,11 +43,37 @@ def generate_launch_description():
             'params_file': params_file,
             'use_composition': 'True',
             'container_name': 'nav2_container',
-            'autostart': autostart,
+            'autostart': 'False',   # ❗关键：我们自己管 lifecycle
         }.items(),
     )
 
-    # ---------- Map Saver（独立生命周期） ----------
+    # ---------- Nav2 Lifecycle Manager（核心修复） ----------
+    lifecycle_nav2 = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_navigation',
+        output='screen',
+        parameters=[{
+            'use_sim_time': use_sim_time,
+            'autostart': autostart,
+            'node_names': [
+                'controller_server',
+                'planner_server',
+                'bt_navigator',
+                'behavior_server',
+                'smoother_server',
+                'velocity_smoother',
+                'collision_monitor',
+                'global_costmap',
+                'local_costmap',
+                'waypoint_follower',
+                'route_server',
+                'docking_server',
+            ],
+        }],
+    )
+
+    # ---------- Map Saver（你原来是对的） ----------
     map_saver = GroupAction([
         Node(
             package='nav2_map_server',
@@ -75,5 +101,6 @@ def generate_launch_description():
         declare_autostart,
         nav2_container,
         navigation,
+        lifecycle_nav2,   # ⭐⭐⭐ 关键
         map_saver,
     ])
