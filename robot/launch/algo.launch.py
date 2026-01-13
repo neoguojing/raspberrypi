@@ -70,5 +70,5 @@ def generate_launch_description():
         seg_launch,
         nv2_launch,
         explore_launch,
-        map_launch,
+        map_launch, #必须在nv2_launch后面，一个bug
     ])
