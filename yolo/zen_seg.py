@@ -31,6 +31,8 @@ class ZenohSegScan:
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = 0.05
         self.range_max = 4.0
+        # 保存上一次定位的障碍
+        self.scan_ranges = np.full(self.num_readings, float('inf'))
 
         # 加载相机内参
         self.load_sensor_config(config_path)
@@ -89,9 +91,6 @@ class ZenohSegScan:
             # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
             # 3. 激光数据初始化
-            # scan_ranges = np.full(self.num_readings, self.range_max + 1)
-            scan_ranges = np.full(self.num_readings, float('inf'))
-            # scan_ranges = np.full(self.num_readings, self.range_max - 0.01)
             valid_points = 0
             uv_points = []
             
@@ -104,6 +103,7 @@ class ZenohSegScan:
                 for u, v in uv_points:
                     res = self.pixel_to_base(u, v)
                     if res:
+                        self.scan_ranges = np.full(self.num_readings, float('inf'))
                         x, y = res
                         # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
                         dist = math.hypot(x, y)
@@ -123,14 +123,14 @@ class ZenohSegScan:
                             j = idx + di
                             if 0 <= j < self.num_readings:
                                 # scan_ranges[j] = min(scan_ranges[j], dist)
-                                scan_ranges[j] = dist
+                                self.scan_ranges[j] = dist
                                 
                         valid_points += 1
             # 5. 条件发布
             # if valid_points > 0:
             if valid_points >= 0:
-                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{scan_ranges}")
-            self.publish_as_json(scan_ranges, stamp)
+                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{self.scan_ranges}")
+            self.publish_as_json(self.scan_ranges, stamp)
 
             
         except Exception as e:
@@ -225,8 +225,9 @@ class ZenohSegScan:
     def publish_as_json(self, ranges,stamp):
         """将雷达数据以 JSON 格式发布到 Zenoh"""
         # 替换 inf 为一个大数，因为标准 JSON 不支持 Infinity
-        safe_value = self.range_max - 0.01
-        ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
+        safe_value = self.range_max + 1
+        # ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
+        ranges_list = [float(r) if np.isfinite(r) else safe_value for r in ranges]
         msg = {
             "stamp": stamp,
             "frame_id": "base_link",

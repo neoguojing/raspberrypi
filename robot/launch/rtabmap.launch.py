@@ -3,7 +3,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription, LaunchContext
 from launch.actions import DeclareLaunchArgument,OpaqueFunction
 from launch.substitutions import LaunchConfiguration
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition,UnlessCondition
 from launch_ros.actions import Node
 from typing import Text, List, Tuple
 
@@ -19,10 +19,6 @@ def generate_launch_description():
     compressed = LaunchConfiguration('compressed')
 
     rgb_topic = LaunchConfiguration('rgb_topic')
-    camera_info_topic = LaunchConfiguration('camera_info_topic')
-    odom_topic = LaunchConfiguration('odom_topic')
-    map_topic = LaunchConfiguration('map_topic')
-    scan_topic = LaunchConfiguration('scan_topic')
     
     # ===============================
     # 1. 图像解压节点（仅 compressed=true 时启动）
@@ -45,73 +41,97 @@ def generate_launch_description():
         # ===============================
         # 2. RTAB-Map 核心节点
         # ===============================
-    rtabmap = Node(
+    slam_parameters = {
+        # 通用
+        "use_sim_time": use_sim_time,
+        "frame_id": LaunchConfiguration('frame_id'),
+        "odom_frame_id": LaunchConfiguration('odom_frame_id'),
+        "map_frame_id": LaunchConfiguration('map_frame_id'),
+        "publish_tf": LaunchConfiguration('publish_tf_map'),
+        "approx_sync": True,
+        "sync_queue_size": 30,
+        "topic_queue_size": 30,
+
+        # 传感器订阅
+        "subscribe_rgb": True,
+        "subscribe_depth": LaunchConfiguration('depth'),
+        "subscribe_stereo": False,
+        "subscribe_scan": LaunchConfiguration('subscribe_scan'),
+        "subscribe_odom_info": False,  # EKF / wheel odom
+        "subscribe_imu": LaunchConfiguration('subscribe_imu'),
+
+        # 地图参数
+        "Grid/Sensor": "0",  # 0=激光
+        "Grid/FromDepth": "false",
+        "Grid/3D": "false",
+        "Grid/RangeMax": "4.0",
+        "Grid/RayTracing": "true",
+        "Grid/CellSize": "0.05",
+        "Grid/OctoMap": "false",
+
+        # 视觉特征参数
+        "Kp/DetectorStrategy": "2",
+        "Kp/MaxFeatures": "1000",
+        "Vis/EstimationType": "2",
+        "Vis/FeatureType": "2",
+        "Vis/EpipolarGeometryVar": "0.5",
+        "Vis/Iterations": "300",
+        "Vis/MinInliers": "8",
+        "Vis/InlierDistance": "0.1",
+
+        # 闭环策略
+        "Reg/Strategy": "0",
+        "Reg/Force3DoF": "true",
+        "RGBD/OptimizeMaxError": "5.0",
+        "RGBD/NeighborLinkRefining": "true",
+
+        # 内存管理
+        "RGBD/LinearUpdate": "0.1",
+        "RGBD/AngularUpdate": "0.1",
+        "Mem/IncrementalMemory": "true",
+        "Mem/STMSize": "30",
+
+        # 单目尺度恢复
+        "Mem/StereoFromMotion": "true",
+        "Mem/UseOdomFeatures": "true"
+    }
+    rtabmap_slam = Node(
         package='rtabmap_slam',
         executable='rtabmap',
         name='rtabmap',
         namespace=namespace,
+        condition=UnlessCondition(compressed),
         output='screen',
         arguments=[
             '--delete_db_on_start',
             '--ros-args',
             '--log-level', 'rtabmap:=warn'
         ],
-        parameters=[{
-            # 通用
-            "use_sim_time": use_sim_time,
-            "frame_id": LaunchConfiguration('frame_id'),
-            "odom_frame_id": LaunchConfiguration('odom_frame_id'),
-            "map_frame_id": LaunchConfiguration('map_frame_id'),
-            "publish_tf": LaunchConfiguration('publish_tf_map'),
-            "approx_sync": True,
-            "sync_queue_size": 30,
-            "topic_queue_size": 30,
-
-            # 传感器订阅
-            "subscribe_rgb": True,
-            "subscribe_depth": LaunchConfiguration('depth'),
-            "subscribe_stereo": False,
-            "subscribe_scan": LaunchConfiguration('subscribe_scan'),
-            "subscribe_odom_info": False,  # EKF / wheel odom
-            "subscribe_imu": LaunchConfiguration('subscribe_imu'),
-
-            # 地图参数
-            "Grid/Sensor": "0",  # 0=激光
-            "Grid/FromDepth": "false",
-            "Grid/3D": "false",
-            "Grid/RangeMax": "4.0",
-            "Grid/RayTracing": "true",
-            "Grid/CellSize": "0.05",
-            "Grid/OctoMap": "false",
-
-            # 视觉特征参数
-            "Kp/DetectorStrategy": "2",
-            "Kp/MaxFeatures": "1000",
-            "Vis/EstimationType": "2",
-            "Vis/FeatureType": "2",
-            "Vis/EpipolarGeometryVar": "0.5",
-            "Vis/Iterations": "300",
-            "Vis/MinInliers": "8",
-            "Vis/InlierDistance": "0.1",
-
-            # 闭环策略
-            "Reg/Strategy": "0",
-            "Reg/Force3DoF": "true",
-            "RGBD/OptimizeMaxError": "5.0",
-            "RGBD/NeighborLinkRefining": "true",
-
-            # 内存管理
-            "RGBD/LinearUpdate": "0.1",
-            "RGBD/AngularUpdate": "0.1",
-            "Mem/IncrementalMemory": "true",
-            "Mem/STMSize": "30",
-
-            # 单目尺度恢复
-            "Mem/StereoFromMotion": "true",
-            "Mem/UseOdomFeatures": "true"
-        }],
+        parameters=[slam_parameters],
         remappings=[
             ('rgb/image', rgb_topic),
+            ("rgb/camera_info", LaunchConfiguration('camera_info_topic')),
+            ("odom", LaunchConfiguration('odom_topic')),
+            ("map", LaunchConfiguration('map_topic')),
+            ("scan", LaunchConfiguration('scan_topic'))
+        ],
+    )
+
+    rtabmap_slam_compressed = Node(
+        package='rtabmap_slam',
+        executable='rtabmap',
+        name='rtabmap',
+        namespace=namespace,
+        condition=IfCondition(compressed),
+        output='screen',
+        arguments=[
+            '--delete_db_on_start',
+            '--ros-args',
+            '--log-level', 'rtabmap:=warn'
+        ],
+        parameters=[slam_parameters],
+        remappings=[
+            ('rgb/image', [rgb_topic, '_relay']),
             ("rgb/camera_info", LaunchConfiguration('camera_info_topic')),
             ("odom", LaunchConfiguration('odom_topic')),
             ("map", LaunchConfiguration('map_topic')),
@@ -149,6 +169,6 @@ def generate_launch_description():
         DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
 
         republish_rgb,
-        rtabmap,
-        # rtabmap_compressed,
+        rtabmap_slam,
+        rtabmap_slam_compressed,
     ])
