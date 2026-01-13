@@ -59,7 +59,7 @@ class FinalExploreNode(Node):
         self.map_sub = self.create_subscription(OccupancyGrid, '/map', self.map_callback, 10)
         
         # 延迟启动计时器：给 SLAM 和 Nav2 预留初始化时间
-        self.timer = self.create_timer(2.0, self._start_logic)
+        self.timer = self.create_timer(5.0, self._start_logic)
         self.started = False
 
         self.nav_lock = threading.Lock()
