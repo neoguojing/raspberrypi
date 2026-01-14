@@ -247,31 +247,64 @@ class ZenohSegScan:
 
 
     def pixel_to_base(self, u, v):
-        # 1. 获取归一化平面坐标
+        """
+        数学原理：射线-平面相交模型 (Ray-Plane Intersection)
+        目的：将图像坐标 (u, v) 映射到地面参考系 (X, Y, Z=0)
+        """
+
+        # --- 1. 消除畸变与归一化 (Undistortion & Normalization) ---
+        # 数学原理：针孔相机逆模型
+        # 通过相机内参矩阵 K 的逆运算和畸变系数，将像素坐标转换为归一化像平面坐标 (xn, yn)。
+        # xn = (u - cx) / fx, yn = (v - cy) / fy (在无畸变理想状态下)
+        # 此时 xn, yn 表示在焦距 f=1 处的物理尺寸。
         pts = np.array([[[u, v]]], dtype=np.float32)
         undist_pts = cv2.undistortPoints(pts, self.K, self.dist_coeffs)
         xn, yn = undist_pts[0][0]
 
-        # 2. 转换到 base_link 坐标系下的射线方向 (未旋转)
-        # Optical: Z-前, X-右, Y-下 -> Base: X-前, Y-左, Z-上
+        # --- 2. 坐标系重映射：光学系到本体系 (Optical Frame -> Base Frame) ---
+        # 数学原理：欧式空间轴向对齐 (REP-103 标准)
+        # 相机光学系 (Optical): Z向前, X向右, Y向下
+        # 机器人本体系 (Base): X向前, Y向左, Z向上
+        # 映射关系：Base_X = Opt_Z(1.0), Base_Y = -Opt_X(-xn), Base_Z = -Opt_Y(-yn)
+        # v_base_raw 是从相机光心发出的、在机器人水平视角下的方向向量。
         v_base_raw = np.array([1.0, -xn, -yn]) 
 
-        # 3. 处理 Pitch 旋转 (假设 pitch > 0 是低头)
-        # 绕 Y 轴旋转：低头时，原本向前的射线会获得一个负的 Z 分量
+        # --- 3. 俯仰角旋转处理 (Pitch Rotation) ---
+        # 数学原理：绕 Y 轴的旋转变换 (Rotation Matrix)
+        # 相机向下低头 (pitch > 0)，相对于机器人系是一个绕 Y 轴的旋转。
+        # 旋转矩阵 R_y(p) 作用于向量：
+        # [rb_x]   [ cos(p)  0  sin(p)] [v_raw_x]
+        # [rb_y] = [   0     1     0   ] [v_raw_y]
+        # [rb_z]   [-sin(p)  0  cos(p)] [v_raw_z]
+        # 该步骤将“水平相机系”下的射线旋转至“实际安装倾角”下的射线方向向量。
+        
         p = self.camera_pitch
         c, s = np.cos(p), np.sin(p)
         
-        # 旋转矩阵 R_y(-p): [c, 0, s; 0, 1, 0; -s, 0, c]
         rb_x = v_base_raw[0] * c + v_base_raw[2] * s
         rb_y = v_base_raw[1]
         rb_z = -v_base_raw[0] * s + v_base_raw[2] * c
 
-        # 4. 求地面交点 (Z=0)
-        if rb_z >= -1e-6: return None # 射线水平或向上
+        # --- 4. 射线与地面求交 (Ray-Plane Intersection) ---
+        # 数学原理：线性比例相似性 / 参数化直线方程
+        # 假设地面方程为 Z = 0。相机光心在 Base 系下的坐标为 (camera_x_offset, 0, camera_height)。
+        # 射线方程：P = P_camera + t * V_ray
+        # 分解到 Z 轴：0 = camera_height + t * rb_z  =>  t = -camera_height / rb_z
+        # 其中 t 是缩放因子，表示射线从光心到达地面所需的步长。
+        
+        
+        # 物理约束：如果 rb_z >= 0，说明射线水平或向上射向天空，永远不会与地面相交。
+        if rb_z >= -1e-6: return None 
         
         t = -self.camera_height / rb_z
+        
+        # --- 5. 平移补偿 (Translation Compensation) ---
+        # 数学原理：刚体变换的平移部分
+        # X = 射线在 X 轴的延伸 + 相机相对于机器人中心的安装偏移
+        # Y = 射线在 Y 轴的延伸 (通常相机居中安装，偏移为 0)
         X = t * rb_x + self.camera_x_offset
         Y = t * rb_y
+        
         return X, Y
 if __name__ == '__main__':
     # 1. 配置命令行参数解析
