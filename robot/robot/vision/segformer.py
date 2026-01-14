@@ -135,6 +135,54 @@ class SegFormerDetector:
                 contact_pixels.append((float(x), float(0)))
 
         return contact_pixels
+    
+    def _extract_boundary_points_optimized(self, ground_mask, step_x=10, max_height_fraction=0.8):
+        """
+        极简高性能版本：利用 NumPy 向量化操作
+        """
+        h, w = ground_mask.shape
+        min_search_y = int(h * (1 - max_height_fraction))
+
+        # 1. 按照 step_x 进行切片，只看需要的列
+        sampled_mask = ground_mask[:, ::step_x]
+        
+        # 2. 计算垂直方向差分 (下一行减去上一行)
+        # 我们找的是 1 -> 0，即 ground_mask[y]=1 且 ground_mask[y+1]=0
+        # 这对应 diff = 1 - 0 = 1 (如果用上方减下方)
+        diff = sampled_mask[:-1, :] - sampled_mask[1:, :]
+        
+        # 3. 寻找跳变点的坐标
+        # y_coords 是跳变发生的行索引，x_idx 是采样列的索引
+        y_coords, x_idx = np.where(diff == 1)
+        
+        # 4. 过滤高度
+        mask_height = y_coords >= min_search_y
+        y_filtered = y_coords[mask_height]
+        x_filtered = x_idx[mask_height]
+
+        # 5. 构建 pseudo_cloud_pixels (所有合规跳变点)
+        # 将采样索引还原回原始图像宽度坐标
+        real_x = x_filtered * step_x
+        pseudo_cloud_pixels = np.column_stack((real_x, y_filtered)).astype(float).tolist()
+
+        # 6. 构建 contact_pixels (每列最靠近底部的点)
+        # 利用字典或数组去重，只保留每列最大的 y
+        contact_dict = {}
+        for x, y in zip(real_x, y_filtered):
+            # 因为 np.where 是从上往下扫描的，最后遇到的 y 自然就是最靠近底部的
+            contact_dict[x] = y
+        
+        # 补全那些没有跳变点的列 (视野开阔或全是障碍)
+        contact_pixels = []
+        for i, x in enumerate(range(0, w, step_x)):
+            if x in contact_dict:
+                contact_pixels.append((float(x), float(contact_dict[x])))
+            else:
+                # 逻辑：如果底部是地面则看作无限远(0)，否则看作脚下(h-1)
+                y_val = 0.0 if sampled_mask[-1, i] == 1 else float(h - 1)
+                contact_pixels.append((float(x), y_val))
+
+        return contact_pixels, pseudo_cloud_pixels
 
     def _render_visualization(self, frame, ground_mask, contact_pixels):
         """[内部函数] 绘制可视化效果"""
