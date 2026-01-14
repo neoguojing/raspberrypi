@@ -4,54 +4,45 @@ import math
 from yolo.zen_seg import ZenohSegScan   # ← 改成你的文件名
 
 def project_ground_point_to_pixel(node, X, Y):
-    """
-    正向投影：
-    地面点 (X,Y,0) → 像素 (u,v)
-    与 pixel_to_base 完全对偶
-    """
-
-    # 1. 地面点 → base_link
+    # 1. ground → base_link
     Pw = np.array([
-        X - node.camera_x_offset,
-        Y, 
-        -node.camera_height    # ← 🔥 关键：相机在地面之上
-    ])
+        [X - node.camera_x_offset,
+         Y,
+         -node.camera_height]
+    ], dtype=np.float32)
 
-    # 2. base_link → camera optical
-    # 逆 REP-103:
-    # Opt_X = -Base_Y
-    # Opt_Y = -Base_Z
-    # Opt_Z =  Base_X
-    P_opt = np.array([
-        -Pw[1],
-        -Pw[2],
-         Pw[0]
-    ])
+    # 2. base → optical (REP-103)
+    Pw_opt = np.array([
+        [-Pw[0,1],   # -Y
+         -Pw[0,2],   # -Z
+          Pw[0,0]]   # +X
+    ], dtype=np.float32)
 
-    # 3. undo pitch (逆旋转)
+    # 3. undo pitch（相机坐标系）
     p = node.camera_pitch
-    c, s = math.cos(-p), math.sin(-p)
     R = np.array([
-        [ c, 0, -s],
-        [ 0, 1,  0],
-        [ s, 0,  c]
-    ])
-    P_cam = R @ P_opt
+        [ np.cos(-p), 0, -np.sin(-p)],
+        [ 0,          1,  0         ],
+        [ np.sin(-p), 0,  np.cos(-p)]
+    ], dtype=np.float32)
 
-    # 4. 投影到归一化像平面
-    if P_cam[2] <= 0:
-        return None
+    Pw_cam = (R @ Pw_opt.T).T
 
-    xn = P_cam[0] / P_cam[2]
-    yn = P_cam[1] / P_cam[2]
+    # 4. 使用 OpenCV 正确投影（🔥关键）
+    rvec = np.zeros((3,1), dtype=np.float32)
+    tvec = np.zeros((3,1), dtype=np.float32)
 
-    # 5. 像素化
-    fx, fy = node.K[0,0], node.K[1,1]
-    cx, cy = node.K[0,2], node.K[1,2]
+    imgpts, _ = cv2.projectPoints(
+        Pw_cam,
+        rvec,
+        tvec,
+        node.K,
+        node.dist_coeffs
+    )
 
-    u = fx * xn + cx
-    v = fy * yn + cy
+    u, v = imgpts[0,0]
     return float(u), float(v)
+
 
 
 def test_inverse_consistency():
