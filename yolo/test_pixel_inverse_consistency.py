@@ -4,49 +4,32 @@ import math
 from yolo.zen_seg import ZenohSegScan   # ← 改成你的文件名
 
 def project_ground_point_to_pixel(node, X, Y):
-    # 1. 世界坐标系下的地面点（Z=0）
-    Pw = np.array([[X, Y, 0.0]], dtype=np.float32)
+    # 1. 平移：相对于相机安装位置的矢量
+    dx = X - node.camera_x_offset
+    dy = Y - 0.0
+    dz = 0.0 - node.camera_height
 
-    # 2. 相机在 base_link 中的位置
-    C = np.array([
-        node.camera_x_offset,
-        0.0,
-        node.camera_height
-    ], dtype=np.float32)
-
-    # 3. 世界 → 相机(base_link)坐标
-    Pw_base = Pw - C
-
-    # 4. 相机俯仰（base_link 中，绕 Y 轴）
+    # 2. 旋转：从 base_link 旋转到相机水平坐标系
+    # 这里的旋转矩阵必须是上面 pixel_to_base 中 R 矩阵的逆（即转置）
     p = node.camera_pitch
-    c, s = np.cos(-p), np.sin(-p)
-    R_pitch = np.array([
-        [ c, 0, -s],
-        [ 0, 1,  0],
-        [ s, 0,  c]
-    ], dtype=np.float32)
+    c, s = np.cos(p), np.sin(p)
+    
+    # R_y(p): [c, 0, -s; 0, 1, 0; s, 0, c]
+    nx = dx * c - dz * s
+    ny = dy
+    nz = dx * s + dz * c
 
-    Pw_base = (R_pitch @ Pw_base.T).T
+    # 3. 转换到 Optical 坐标系 (REP-103)
+    # Base: X-前, Y-左, Z-上 -> Optical: Z-前, X-右, Y-下
+    p_opt = np.array([[-ny, -nz, nx]], dtype=np.float32)
 
-    # 5. base_link → optical（REP-103）
-    Pw_opt = np.zeros_like(Pw_base)
-    Pw_opt[:,0] = -Pw_base[:,1]   # X_opt = -Y_base
-    Pw_opt[:,1] = -Pw_base[:,2]   # Y_opt = -Z_base
-    Pw_opt[:,2] =  Pw_base[:,0]   # Z_opt =  X_base
-
-    # 6. OpenCV 投影（带畸变）
-    Pw_opt = Pw_opt.reshape(1, 1, 3)
-
+    # 4. 使用 cv2.projectPoints 投影
     imgpts, _ = cv2.projectPoints(
-        Pw_opt,
-        rvec=np.zeros((3,1), dtype=np.float32),
-        tvec=np.zeros((3,1), dtype=np.float32),
-        cameraMatrix=node.K,
-        distCoeffs=node.dist_coeffs
+        p_opt.reshape(1,1,3),
+        np.zeros((3,1)), np.zeros((3,1)), # 不再重复旋转平移
+        node.K, node.dist_coeffs
     )
-
-    u, v = imgpts[0,0]
-    return float(u), float(v)
+    return imgpts[0,0]
 
 
 
