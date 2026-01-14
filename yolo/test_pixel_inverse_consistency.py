@@ -11,7 +11,11 @@ def project_ground_point_to_pixel(node, X, Y):
     """
 
     # 1. 地面点 → base_link
-    Pw = np.array([X - node.camera_x_offset, Y, 0.0])
+    Pw = np.array([
+        X - node.camera_x_offset,
+        Y, 
+        -node.camera_height    # ← 🔥 关键：相机在地面之上
+    ])
 
     # 2. base_link → camera optical
     # 逆 REP-103:
