@@ -4,29 +4,51 @@ import math
 from yolo.zen_seg import ZenohSegScan   # ← 改成你的文件名
 
 def project_ground_point_to_pixel(node, X, Y):
-    # 1. 平移：相对于相机安装位置的矢量
+    """
+    数学原理：透视投影变换 (Perspective Projection)
+    流程：World(Base) -> Camera_Relative -> Camera_Tilt_Adjusted -> Optical_Frame -> Pixel
+    """
+
+    # --- 1. 刚体变换：平移 (Translation) ---
+    # 数学原理：将坐标原点从机器人重心(base_link)移至相机光心
+    # P_rel = P_base - T_camera_in_base
+    # 这里假设相机安装在 (x_offset, 0, height)
     dx = X - node.camera_x_offset
     dy = Y - 0.0
     dz = 0.0 - node.camera_height
 
-    # 2. 旋转：从 base_link 旋转到相机水平坐标系
-    # 这里的旋转矩阵必须是上面 pixel_to_base 中 R 矩阵的逆（即转置）
+    # --- 2. 刚体变换：旋转 (Rotation - Pitch) ---
+    # 数学原理：绕 Y 轴（机器人左/右方向）旋转。
+    # 旋转矩阵 R_y(p) = [[cos p, 0, -sin p], [0, 1, 0], [sin p, 0, cos p]]
+    # 作用：处理相机的俯仰角，将坐标从水平相机位姿转到实际倾斜位姿
+    # nx = dx*cos(p) - dz*sin(p)  (旋转后的前向距离)
+    # nz = dx*sin(p) + dz*cos(p)  (旋转后的高度偏移)
     p = node.camera_pitch
     c, s = np.cos(p), np.sin(p)
     
-    # R_y(p): [c, 0, -s; 0, 1, 0; s, 0, c]
     nx = dx * c - dz * s
     ny = dy
     nz = dx * s + dz * c
 
-    # 3. 转换到 Optical 坐标系 (REP-103)
-    # Base: X-前, Y-左, Z-上 -> Optical: Z-前, X-右, Y-下
+    # --- 3. 坐标系重映射 (Coordinate Mapping - REP 103) ---
+    # 数学原理：机器人坐标系与相机光学坐标系的对齐
+    # 机器人标准 (REP-103): X-前, Y-左, Z-上
+    # 相机光学标准 (Optical): Z-前(光轴), X-右, Y-下
+    # 映射关系：
+    # Opt_X = -Base_Y (左转右)
+    # Opt_Y = -Base_Z (上转下)
+    # Opt_Z =  Base_X (前转前)
     p_opt = np.array([[-ny, -nz, nx]], dtype=np.float32)
 
-    # 4. 使用 cv2.projectPoints 投影
+    # --- 4. 相机内参投影与畸变处理 (Intrinsic Projection & Distortion) ---
+    # 数学原理：针孔相机模型 (Pinhole Camera Model)
+    # 1. 归一化投影：xn = Opt_X / Opt_Z, yn = Opt_Y / Opt_Z
+    # 2. 畸变校正：应用 Brown-Conrady 模型处理多项式径向/切向畸变 (dist_coeffs)
+    # 3. 仿射变换：u = fx * xn_distorted + cx, v = fy * yn_distorted + cy
+    # cv2.projectPoints 自动完成了从 3D 空间到 2D 像素平面的非线性映射
     imgpts, _ = cv2.projectPoints(
         p_opt.reshape(1,1,3),
-        np.zeros((3,1)), np.zeros((3,1)), # 不再重复旋转平移
+        np.zeros((3,1)), np.zeros((3,1)), # 旋转和平移已在前面手动处理完成
         node.K, node.dist_coeffs
     )
     return imgpts[0,0]
