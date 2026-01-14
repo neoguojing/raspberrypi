@@ -247,6 +247,7 @@ class ZenohSegScan:
 
      # 像素坐标到，ros坐标的转换，参考系base_footprint
     def pixel_to_base(self, u, v):
+        assert self.camera_pitch > 0
         # 0. 基础过滤：地平线以上不处理
         if v < self.cy: 
             print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
@@ -275,9 +276,12 @@ class ZenohSegScan:
         # 注意：这里的 r_vec 已经是单位向量，旋转后 rb_z 的物理含义更明确
         p = self.camera_pitch
         c, s = np.cos(p), np.sin(p)
-        rb_x = r_vec[0] * c - r_vec[2] * s
-        rb_y = r_vec[1]
-        rb_z = r_vec[0] * s + r_vec[2] * c
+        # rb_x = r_vec[0] * c - r_vec[2] * s
+        # rb_y = r_vec[1]
+        # rb_z = r_vec[0] * s + r_vec[2] * c
+        rb_x =  r_vec[0] * c + r_vec[2] * s
+        rb_y =  r_vec[1]
+        rb_z = -r_vec[0] * s + r_vec[2] * c
 
         # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
         # 求 t 使得 h + t * rb_z = 0
