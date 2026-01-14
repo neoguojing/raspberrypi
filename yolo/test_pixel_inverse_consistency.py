@@ -15,9 +15,11 @@ def project_ground_point_to_pixel(node, X, Y):
     c, s = np.cos(p), np.sin(p)
     
     # ✅ 修改后的符号逻辑
-    nx = dx * c + dz * s
+    # 这里应用的是 R_y(-p)，即逆旋转
+    # 它将 dx (前) 和 dz (上) 投影到相机的水平/垂直分量上
+    nx = dx * c + dz * s   # 修改点 1：- 号变 + 号
     ny = dy
-    nz = -dx * s + dz * c
+    nz = -dx * s + dz * c  # 修改点 2：+ 号变 - 号
 
     # 3. 转换到 Optical 坐标系 (REP-103)
     # Base: X-前, Y-左, Z-上 -> Optical: Z-前, X-右, Y-下
