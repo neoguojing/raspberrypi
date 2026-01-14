@@ -62,6 +62,8 @@ def project_ground_points_to_pixel_batch(node, points_2d):
     Returns:
         pixels: np.ndarray, shape [N, 2], 元素为 [[u1, v1], [u2, v2], ...]
     """
+
+    points_2d = np.asanyarray(points_2d)
     if len(points_2d) == 0:
         return np.empty((0, 2))
 
