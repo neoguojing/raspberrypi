@@ -4,36 +4,32 @@ import math
 from yolo.zen_seg import ZenohSegScan   # ← 改成你的文件名
 
 def project_ground_point_to_pixel(node, X, Y):
-    # 1. 平移：相对于相机安装位置的矢量 (dx, dy, dz)
+    # 1. 平移：相对于相机安装位置的矢量
     dx = X - node.camera_x_offset
     dy = Y - 0.0
     dz = 0.0 - node.camera_height
 
-    # 2. 旋转：使用 R_y(-p) 修正符号
-    # 这确保了正向变换与逆向变换（pixel_to_base）严格对偶
+    # 2. 旋转：从 base_link 旋转到相机水平坐标系
+    # 这里的旋转矩阵必须是上面 pixel_to_base 中 R 矩阵的逆（即转置）
     p = node.camera_pitch
     c, s = np.cos(p), np.sin(p)
     
-    # ✅ 修改后的符号逻辑
-    # 这里应用的是 R_y(-p)，即逆旋转
-    # 它将 dx (前) 和 dz (上) 投影到相机的水平/垂直分量上
-    nx = dx * c + dz * s   # 修改点 1：- 号变 + 号
+    # R_y(p): [c, 0, -s; 0, 1, 0; s, 0, c]
+    nx = dx * c - dz * s
     ny = dy
-    nz = -dx * s + dz * c  # 修改点 2：+ 号变 - 号
+    nz = dx * s + dz * c
 
     # 3. 转换到 Optical 坐标系 (REP-103)
     # Base: X-前, Y-左, Z-上 -> Optical: Z-前, X-右, Y-下
     p_opt = np.array([[-ny, -nz, nx]], dtype=np.float32)
 
-    # 4. OpenCV 投影
+    # 4. 使用 cv2.projectPoints 投影
     imgpts, _ = cv2.projectPoints(
         p_opt.reshape(1,1,3),
-        np.zeros((3,1)), np.zeros((3,1)), 
+        np.zeros((3,1)), np.zeros((3,1)), # 不再重复旋转平移
         node.K, node.dist_coeffs
     )
-    
-    u, v = imgpts[0,0]
-    return float(u), float(v)
+    return imgpts[0,0]
 
 
 
