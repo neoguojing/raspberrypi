@@ -6,34 +6,37 @@ from yolo.zen_seg import ZenohSegScan   # ← 改成你的文件名
 def project_ground_point_to_pixel(node, X, Y):
     # 1. ground → base_link
     Pw = np.array([
-        [X - node.camera_x_offset,
-         Y,
-         -node.camera_height]
+        X - node.camera_x_offset,
+        Y,
+        -node.camera_height
     ], dtype=np.float32)
 
-    # 2. base → optical (REP-103)
-    Pw_opt = np.array([
-        [-Pw[0,1],   # -Y
-         -Pw[0,2],   # -Z
-          Pw[0,0]]   # +X
-    ], dtype=np.float32)
-
-    # 3. undo pitch（相机坐标系）
+    # 2. undo pitch（⚠️ 在 base_link 坐标系中）
     p = node.camera_pitch
-    R = np.array([
-        [ np.cos(-p), 0, -np.sin(-p)],
-        [ 0,          1,  0         ],
-        [ np.sin(-p), 0,  np.cos(-p)]
+    c, s = np.cos(-p), np.sin(-p)
+    R_pitch = np.array([
+        [ c, 0, -s],
+        [ 0, 1,  0],
+        [ s, 0,  c]
     ], dtype=np.float32)
 
-    Pw_cam = (R @ Pw_opt.T).T
+    Pw_base = R_pitch @ Pw
 
-    # 4. 使用 OpenCV 正确投影（🔥关键）
+    # 3. base_link → optical（REP-103）
+    Pw_opt = np.array([
+        -Pw_base[1],   # -Y
+        -Pw_base[2],   # -Z
+         Pw_base[0]    # +X
+    ], dtype=np.float32)
+
+    # 4. OpenCV 投影（带畸变）
+    Pw_opt = Pw_opt.reshape(1, 1, 3)
+
     rvec = np.zeros((3,1), dtype=np.float32)
     tvec = np.zeros((3,1), dtype=np.float32)
 
     imgpts, _ = cv2.projectPoints(
-        Pw_cam,
+        Pw_opt,
         rvec,
         tvec,
         node.K,
