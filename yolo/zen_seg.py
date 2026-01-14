@@ -248,7 +248,7 @@ class ZenohSegScan:
     def pixel_to_base(self, u, v):
         # 0. 基础过滤：地平线以上不处理
         if v < self.cy: 
-            # print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
+            print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
             return None
 
         # 1. 获取归一化像平面坐标 (xn, yn)
@@ -281,7 +281,7 @@ class ZenohSegScan:
         # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
         # 求 t 使得 h + t * rb_z = 0
         if rb_z >= -1e-6: 
-            # print(f"pixel_to_base:射线水平或朝上:{rb_z}")
+            print(f"pixel_to_base:射线水平或朝上:{rb_z}")
             return None # 射线水平或朝上
             
         t = -self.camera_height / rb_z
@@ -293,7 +293,7 @@ class ZenohSegScan:
         if self.range_min < X < self.range_max:
             return X, Y
         
-        # print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
+        print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
 
         return None
 

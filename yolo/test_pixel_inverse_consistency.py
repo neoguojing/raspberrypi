@@ -47,7 +47,7 @@ def project_ground_point_to_pixel(node, X, Y):
 
     u = fx * xn + cx
     v = fy * yn + cy
-    return int(u), int(v)
+    return float(u), float(v)
 
 
 def test_inverse_consistency():
