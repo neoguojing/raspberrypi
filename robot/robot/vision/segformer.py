@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import os
 from collections import deque
+import time
 from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 
 class SegFormerDetector:
@@ -56,8 +57,7 @@ class SegFormerDetector:
         annotated_frame = None
         if render:
             # 使用平滑后的结果进行可视化
-            annotated_frame = self._render_visualization(frame, smoothed_mask, contact_pixels)
-            self.save_sample_image(annotated_frame)
+            annotated_frame = self.save_sample_image(frame, smoothed_mask, contact_pixels)
 
         return contact_pixels, annotated_frame
 
@@ -149,21 +149,37 @@ class SegFormerDetector:
             
         return canvas
 
-    def save_sample_image(self, image, folder="samples", max_count=10, interval=20):
+    def save_sample_image(self, frame, smoothed_mask, contact_pixels, folder="samples", max_count=10, interval_seconds=10):
         """
-        [独立函数] 外部调用此函数来决定是否保存采样图片
+        [修改后] 外部调用：按时间间隔滚动保存采样图片
         """
-        if self.saved_images_count >= max_count:
-            return False
+        # 1. 初始化上一次保存时间（如果在类构造函数里初始化更好）
+        if not hasattr(self, 'last_save_time'):
+            self.last_save_time = 0
+
+        current_time = time.time()
+
+        # 2. 检查是否达到了时间间隔 (10s)
+        if current_time - self.last_save_time >= interval_seconds:
+            image = self._render_visualization(frame, smoothed_mask, contact_pixels)
+
+            # 更新时间戳
+            self.last_save_time = current_time
             
-        if self.frame_counter % interval == 0:
+            # 3. 计算滚动索引 (1, 2, 3, 1, 2, 3...)
+            # 使用 saved_images_count 对 max_count 取模实现滚动
+            save_index = (self.saved_images_count % max_count) + 1
             self.saved_images_count += 1
+            
+            # 4. 执行保存
             os.makedirs(folder, exist_ok=True)
-            path = os.path.join(folder, f"sample_{self.saved_images_count}.jpg")
+            path = os.path.join(folder, f"sample_{save_index}.jpg")
             cv2.imwrite(path, image)
-            print(f"📸 采样保存成功: {path} (Frame: {self.frame_counter})")
-            return True
-        return False
+            
+            print(f"📸 滚动采样保存: {path} (Index: {save_index}, Total: {self.saved_images_count})")
+            return image
+            
+        return None
 
 # =========================================================
 # 运行主逻辑
