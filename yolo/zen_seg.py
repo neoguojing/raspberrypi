@@ -248,10 +248,6 @@ class ZenohSegScan:
      # 像素坐标到，ros坐标的转换，参考系base_footprint
     def pixel_to_base(self, u, v):
         assert self.camera_pitch > 0
-        # 0. 基础过滤：地平线以上不处理
-        if v < self.cy: 
-            print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
-            return None
 
         # 1. 获取归一化像平面坐标 (xn, yn)
         # 此时得到的 (xn, yn) 已经消除了广角畸变，是在单位焦距平面上的投影
