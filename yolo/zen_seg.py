@@ -246,62 +246,89 @@ class ZenohSegScan:
                         encoding="application/json")
 
      # 像素坐标到，ros坐标的转换，参考系base_footprint
-    def pixel_to_base(self, u, v):
-        assert self.camera_pitch > 0
-        # 0. 基础过滤：地平线以上不处理
-        if v < self.cy: 
-            print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
-            return None
+    # def pixel_to_base(self, u, v):
+    #     assert self.camera_pitch > 0
+    #     # 0. 基础过滤：地平线以上不处理
+    #     if v < self.cy: 
+    #         print(f"pixel_to_base:地平线上跳过处理：{v},{self.cy}")
+    #         return None
 
-        # 1. 获取归一化像平面坐标 (xn, yn)
-        # 此时得到的 (xn, yn) 已经消除了广角畸变，是在单位焦距平面上的投影
+    #     # 1. 获取归一化像平面坐标 (xn, yn)
+    #     # 此时得到的 (xn, yn) 已经消除了广角畸变，是在单位焦距平面上的投影
+    #     pts = np.array([[[u, v]]], dtype=np.float32)
+    #     undist_pts = cv2.undistortPoints(pts, self.K, self.dist_coeffs)
+    #     xn, yn = undist_pts[0][0]
+
+    #     # 2. ✅ 物理严格正确：构建并单位化相机光学射线 (Optical Frame)
+    #     # Optical Frame: X-右, Y-下, Z-前
+    #     ray_opt = np.array([xn, yn, 1.0])
+    #     ray_opt /= np.linalg.norm(ray_opt) # 归一化方向矢量
+
+    #     # 3. 坐标系转换 (Optical -> Robot base_link)
+    #     # 符合 REP-103: Base_X=Opt_Z, Base_Y=-Opt_X, Base_Z=-Opt_Y
+    #     r_vec = np.array([
+    #         ray_opt[2],  # 前
+    #        -ray_opt[0],  # 左
+    #        -ray_opt[1]   # 上
+    #     ])
+
+    #     # 4. 处理 Pitch (绕机器人 Y 轴旋转)
+    #     # 注意：这里的 r_vec 已经是单位向量，旋转后 rb_z 的物理含义更明确
+    #     p = self.camera_pitch
+    #     c, s = np.cos(p), np.sin(p)
+    #     # rb_x = r_vec[0] * c - r_vec[2] * s
+    #     # rb_y = r_vec[1]
+    #     # rb_z = r_vec[0] * s + r_vec[2] * c
+    #     rb_x =  r_vec[0] * c + r_vec[2] * s
+    #     rb_y =  r_vec[1]
+    #     rb_z = -r_vec[0] * s + r_vec[2] * c
+
+    #     # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
+    #     # 求 t 使得 h + t * rb_z = 0
+    #     if rb_z >= -1e-6: 
+    #         print(f"pixel_to_base:射线水平或朝上:{rb_z}")
+    #         return None # 射线水平或朝上
+            
+    #     t = -self.camera_height / rb_z
+        
+    #     # 6. 计算最终位置并截断
+    #     X = (t * rb_x) + self.camera_x_offset
+    #     Y = t * rb_y
+
+    #     if self.range_min < X < self.range_max:
+    #         return X, Y
+        
+    #     print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
+
+    #     return None
+
+    def pixel_to_base(self, u, v):
+        # 1. 获取归一化平面坐标
         pts = np.array([[[u, v]]], dtype=np.float32)
         undist_pts = cv2.undistortPoints(pts, self.K, self.dist_coeffs)
         xn, yn = undist_pts[0][0]
 
-        # 2. ✅ 物理严格正确：构建并单位化相机光学射线 (Optical Frame)
-        # Optical Frame: X-右, Y-下, Z-前
-        ray_opt = np.array([xn, yn, 1.0])
-        ray_opt /= np.linalg.norm(ray_opt) # 归一化方向矢量
+        # 2. 转换到 base_link 坐标系下的射线方向 (未旋转)
+        # Optical: Z-前, X-右, Y-下 -> Base: X-前, Y-左, Z-上
+        v_base_raw = np.array([1.0, -xn, -yn]) 
 
-        # 3. 坐标系转换 (Optical -> Robot base_link)
-        # 符合 REP-103: Base_X=Opt_Z, Base_Y=-Opt_X, Base_Z=-Opt_Y
-        r_vec = np.array([
-            ray_opt[2],  # 前
-           -ray_opt[0],  # 左
-           -ray_opt[1]   # 上
-        ])
-
-        # 4. 处理 Pitch (绕机器人 Y 轴旋转)
-        # 注意：这里的 r_vec 已经是单位向量，旋转后 rb_z 的物理含义更明确
+        # 3. 处理 Pitch 旋转 (假设 pitch > 0 是低头)
+        # 绕 Y 轴旋转：低头时，原本向前的射线会获得一个负的 Z 分量
         p = self.camera_pitch
         c, s = np.cos(p), np.sin(p)
-        # rb_x = r_vec[0] * c - r_vec[2] * s
-        # rb_y = r_vec[1]
-        # rb_z = r_vec[0] * s + r_vec[2] * c
-        rb_x =  r_vec[0] * c + r_vec[2] * s
-        rb_y =  r_vec[1]
-        rb_z = -r_vec[0] * s + r_vec[2] * c
+        
+        # 旋转矩阵 R_y(-p): [c, 0, s; 0, 1, 0; -s, 0, c]
+        rb_x = v_base_raw[0] * c + v_base_raw[2] * s
+        rb_y = v_base_raw[1]
+        rb_z = -v_base_raw[0] * s + v_base_raw[2] * c
 
-        # 5. 与地面 Z=0 求交 (射线 P = [0, 0, h] + t * rb_vec)
-        # 求 t 使得 h + t * rb_z = 0
-        if rb_z >= -1e-6: 
-            print(f"pixel_to_base:射线水平或朝上:{rb_z}")
-            return None # 射线水平或朝上
-            
+        # 4. 求地面交点 (Z=0)
+        if rb_z >= -1e-6: return None # 射线水平或向上
+        
         t = -self.camera_height / rb_z
-        
-        # 6. 计算最终位置并截断
-        X = (t * rb_x) + self.camera_x_offset
+        X = t * rb_x + self.camera_x_offset
         Y = t * rb_y
-
-        if self.range_min < X < self.range_max:
-            return X, Y
-        
-        print(f"pixel_to_base:x超出range_max:{X}，{self.range_max}")
-
-        return None
-
+        return X, Y
 if __name__ == '__main__':
     # 1. 配置命令行参数解析
     parser = argparse.ArgumentParser(description="Zenoh YOLO Segmentation to LaserScan Node")
