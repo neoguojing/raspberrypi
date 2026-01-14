@@ -128,9 +128,6 @@ class ZenohSegScan:
                             
                     valid_points += 1
             # 5. 条件发布
-            # if valid_points > 0:
-            if valid_points >= 0:
-                print(f"📡 投影完成，有效激光点: {valid_points}/{len(uv_points)}，正在发布数据...{self.scan_ranges}")
             self.publish_as_json(self.scan_ranges, stamp)
 
             
@@ -294,7 +291,9 @@ class ZenohSegScan:
         
         
         # 物理约束：如果 rb_z >= 0，说明射线水平或向上射向天空，永远不会与地面相交。
-        if rb_z >= -1e-6: return None 
+        if rb_z >= -1e-6: 
+            print(f"射线射向天空，无法与地面相交")
+            return None 
         
         t = -self.camera_height / rb_z
         
