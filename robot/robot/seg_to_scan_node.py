@@ -76,7 +76,8 @@ class ZenohToLaserScan(Node):
             scan_msg.range_max = float(data['range_max'])
             
             # 转换 ranges 列表 (处理 JSON 序列化后的数值)
-            scan_msg.ranges = [float(r) for r in data['ranges']]
+            # scan_msg.ranges = [float(r) for r in data['ranges']]
+            scan_msg.ranges = [float(r) if scan_msg.range_max >= r else float('inf') for r in data['ranges']]
             
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)
