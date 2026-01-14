@@ -68,6 +68,7 @@ class ZenohSegScan:
     def load_sensor_config(self, path):
         with open(path, 'r') as f:
             config = json.load(f)
+        print(f"camera config:{config}")
         self.K = np.array(config['camera_matrix'], dtype=np.float32)
         self.dist_coeffs = np.array(config['dist_coeffs'], dtype=np.float32)
         self.cy = self.K[1, 2]
