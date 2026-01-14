@@ -55,6 +55,7 @@ class ZenohSegScan:
         self.image_topic = "rt/camera/image_raw"
         self.image_topic_compress = "rt/camera/image_raw/compressed"
         self.scan_topic = "rt/scan"
+        self.point_cloud_topic = "rt/pointcloud"
 
         # 订阅图像
         self.sub = self.session.declare_subscriber(self.image_topic, self.on_image_data)
@@ -62,6 +63,7 @@ class ZenohSegScan:
 
         # 定义发布者 (发送处理后的 JSON)
         self.pub = self.session.declare_publisher(self.scan_topic)
+        self.pointcloud_pub = self.session.declare_publisher(self.point_cloud_topic)
 
         print(f"✅ 节点已就绪. 订阅: {self.image_topic},{self.image_topic_compress}, 发布: {self.scan_topic}")
 
@@ -305,6 +307,97 @@ class ZenohSegScan:
         Y = t * rb_y
         
         return X, Y
+    
+    def pixel_to_base_batch(self, uv_points):
+        """
+        批量将像素坐标 (u, v) 映射到地面参考系 (X, Y, Z=0)
+        Args:
+            uv_points: np.ndarray, shape [N, 2], 元素为 [[u1, v1], [u2, v2], ...]
+        Returns:
+            points_base: np.ndarray, shape [N, 2], 元素为 [[X1, Y1], [X2, Y2], ...]
+                        无法相交的点将被过滤或返回 NaN
+        """
+        if len(uv_points) == 0:
+            return np.empty((0, 2))
+
+        # --- 1. 批量消除畸变与归一化 ---
+        # uv_points shape: [N, 2] -> reshape 为 cv2 要求的 [N, 1, 2]
+        pts = np.array(uv_points, dtype=np.float32).reshape(-1, 1, 2)
+        undist_pts = cv2.undistortPoints(pts, self.K, self.dist_coeffs)
+        # 得到归一化坐标 xn, yn (shape: [N, 2])
+        n_coords = undist_pts.reshape(-1, 2)
+        xn = n_coords[:, 0]
+        yn = n_coords[:, 1]
+
+        # --- 2. 坐标系重映射 (Optical -> Base) ---
+        # v_base_raw shape: [N, 3]
+        ones = np.ones_like(xn)
+        v_base_raw = np.column_stack([ones, -xn, -yn])
+
+        # --- 3. 批量俯仰角旋转处理 ---
+        p = self.camera_pitch
+        c, s = np.cos(p), np.sin(p)
+        
+        # 按照你提供的公式进行矩阵运算
+        rb_x = v_base_raw[:, 0] * c + v_base_raw[:, 2] * s
+        rb_y = v_base_raw[:, 1]
+        rb_z = -v_base_raw[:, 0] * s + v_base_raw[:, 2] * c
+
+        # --- 4. 射线与地面求交 ---
+        # 物理约束过滤：只保留射向地面的点 (rb_z < -1e-6)
+        valid_mask = rb_z < -1e-6
+        
+        # 初始化结果矩阵
+        num_pts = len(uv_points)
+        results = np.full((num_pts, 2), np.nan) # 默认填充 NaN 表示无效点
+
+        if not np.any(valid_mask):
+            return results
+
+        # 只计算有效点
+        t = -self.camera_height / rb_z[valid_mask]
+        
+        # --- 5. 平移补偿 ---
+        X = t * rb_x[valid_mask] + self.camera_x_offset
+        Y = t * rb_y[valid_mask]
+        
+        results[valid_mask] = np.column_stack([X, Y])
+        
+        return results
+    
+    def generate_and_publish_pointcloud(self, pseudo_pixels, stamp):
+        """
+        将像素点转换为 3D 点云并发布
+        """
+        if not pseudo_pixels:
+            return
+
+        pc_points = []
+        for u, v in pseudo_pixels:
+            # 复用你现有的投影逻辑 (像素 -> 机器人基座坐标系)
+            # 假设你的 pixel_to_base 返回 (x, y)，对于地面点云，z 通常设为 0 或障碍物高度
+            res = self.pixel_to_base(u, v)
+            if res:
+                x, y = res
+                # 这里可以添加简单的过滤逻辑，比如距离太远的点不放入点云
+                dist = math.hypot(x, y)
+                if self.range_min <= dist <= self.range_max:
+                    # 构造点云数据 [x, y, z]
+                    # 注意：如果是地面边缘，z 通常接近 0
+                    pc_points.append([float(x), float(y), 0.0])
+
+        if pc_points:
+            # 将点云发布出去
+            # 如果你使用 Zenoh，可以将其序列化为 JSON 或二进制数组
+            pc_data = {
+                "timestamp": stamp,
+                "frame_id": "base_link",
+                "points": pc_points  # 格式为 [[x1,y1,z1], [x2,y2,z2], ...]
+            }
+            payload = json.dumps(pc_data).encode("utf-8")
+            self.pointcloud_pub.put(payload=payload,
+                            encoding="application/json")
+
 if __name__ == '__main__':
     # 1. 配置命令行参数解析
     parser = argparse.ArgumentParser(description="Zenoh YOLO Segmentation to LaserScan Node")

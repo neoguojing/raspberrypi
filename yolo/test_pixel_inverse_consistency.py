@@ -54,6 +54,48 @@ def project_ground_point_to_pixel(node, X, Y):
     return imgpts[0,0]
 
 
+def project_ground_points_to_pixel_batch(node, points_2d):
+    """
+    批量透视投影变换：将地面坐标系下的多个 (X, Y) 点投影到图像像素坐标
+    Args:
+        points_2d: np.ndarray, shape [N, 2], 元素为 [[X1, Y1], [X2, Y2], ...]
+    Returns:
+        pixels: np.ndarray, shape [N, 2], 元素为 [[u1, v1], [u2, v2], ...]
+    """
+    if len(points_2d) == 0:
+        return np.empty((0, 2))
+
+    # --- 1. 刚体变换：平移 (Translation) ---
+    # 假设所有点都在地面上，即 Z = 0
+    n = len(points_2d)
+    dx = points_2d[:, 0] - node.camera_x_offset
+    dy = points_2d[:, 1] - 0.0
+    dz = np.full(n, -node.camera_height)
+
+    # --- 2. 刚体变换：旋转 (Rotation - Pitch) ---
+    p = node.camera_pitch
+    c, s = np.cos(p), np.sin(p)
+    
+    # 批量应用旋转矩阵
+    nx = dx * c - dz * s
+    ny = dy
+    nz = dx * s + dz * c
+
+    # --- 3. 坐标系重映射 (Coordinate Mapping) ---
+    # 构造光学坐标系下的点集 p_opt: [N, 3]
+    # Opt_X = -Base_Y, Opt_Y = -Base_Z, Opt_Z = Base_X
+    p_opt = np.column_stack([-ny, -nz, nx]).astype(np.float32)
+
+    # --- 4. 批量相机内参投影与畸变处理 ---
+    # cv2.projectPoints 能够处理 [N, 3] 或 [N, 1, 3] 形状的数组
+    imgpts, _ = cv2.projectPoints(
+        p_opt.reshape(-1, 1, 3),
+        np.zeros((3, 1)), np.zeros((3, 1)), # 旋转和平移已在前面处理，这里传 0
+        node.K, node.dist_coeffs
+    )
+
+    # 结果 shape 从 [N, 1, 2] 展平为 [N, 2]
+    return imgpts.reshape(-1, 2)
 
 
 def test_inverse_consistency():
@@ -102,6 +144,19 @@ def test_inverse_consistency():
             f"err={err*100:.2f} cm"
         )
 
+    uvpoints = project_ground_points_to_pixel_batch(node,test_points)
+    results = node.pixel_to_base_batch(uvpoints)
 
+    for i, res in enumerate(results):
+        X, Y = test_points[i]
+        Xp, Yp = res
+        err = math.hypot(X - Xp, Y - Yp)
+
+        print(
+            f"GT=({X:.2f},{Y:.2f}) → "
+            f"uv={uv} → "
+            f"({Xp:.3f},{Yp:.3f}) | "
+            f"err={err*100:.2f} cm"
+        )
 if __name__ == "__main__":
     test_inverse_consistency()
