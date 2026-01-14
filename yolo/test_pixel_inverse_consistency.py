@@ -58,12 +58,12 @@ def test_inverse_consistency():
     node = ZenohSegScan(config_path='robot/config/imx219.json')
 
     test_points = [
-        (0.5, 0.0),
-        (1.0, 0.0),
-        (2.0, 0.0),
-        (3.0, 0.2),
-        (2.0, -0.3),
+        (0.5,  0.0),
+        (1.0,  0.2),
+        (2.0,  0.3),
+        (3.0, -0.3),
     ]
+
 
     print("\n=== Forward-Inverse Consistency Test ===")
 
