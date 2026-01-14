@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import math
-from zenoh_seg_scan import ZenohSegScan   # ← 改成你的文件名
+from .zenoh_seg import ZenohSegScan   # ← 改成你的文件名
 
 def project_ground_point_to_pixel(node, X, Y):
     """
