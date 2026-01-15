@@ -273,26 +273,26 @@ global_costmap:
       #   enabled: true
       #   filter_info_topic: "speed_costmap_filter_info"
       #   speed_limit_topic: "speed_limit"
-      # obstacle_layer:
-      #   plugin: "nav2_costmap_2d::ObstacleLayer"
-      #   enabled: true
-      #   observation_sources: scan
-        # scan:
-        #   # A relative topic will be appended to the parent of the global_costmap namespace.
-        #   # For example:
-        #   #   * User chosen namespace is `tb4`.
-        #   #   * User chosen topic is `scan`.
-        #   #   * Topic will be remapped to `/tb4/scan` without `global_costmap`.
-        #   #   * Use global topic `/scan` if you do not wish the node namespace to apply
-        #   topic: /seg/scan # ← YOLO-Seg 输出
-        #   max_obstacle_height: 2.0
-        #   clearing: True
-        #   marking: True
-        #   data_type: "LaserScan"
-        #   raytrace_max_range: 4.0
-        #   raytrace_min_range: 0.0
-        #   obstacle_max_range: 4.0
-        #   obstacle_min_range: 0.0
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          # A relative topic will be appended to the parent of the global_costmap namespace.
+          # For example:
+          #   * User chosen namespace is `tb4`.
+          #   * User chosen topic is `scan`.
+          #   * Topic will be remapped to `/tb4/scan` without `global_costmap`.
+          #   * Use global topic `/scan` if you do not wish the node namespace to apply
+          topic: /seg/scan # ← YOLO-Seg 输出
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 4.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 4.0
+          obstacle_min_range: 0.0
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
