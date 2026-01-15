@@ -32,7 +32,7 @@ class ZenohSegScan:
         self.range_min = 0.05
         self.range_max = 4.0
         # 保存上一次定位的障碍
-        self.scan_ranges = np.full(self.num_readings, float('inf'))
+        self.last_scan_ranges = np.full(self.num_readings, float('inf'))
 
         # 加载相机内参
         self.load_sensor_config(config_path)
@@ -93,44 +93,41 @@ class ZenohSegScan:
                 return
             # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
 
-            # 3. 激光数据初始化
-            valid_points = 0
-            uv_points = []
-            
             # 2. 推理检测
-            # if self.frame_count % self.skip_n == 0:
-            uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
-            # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
-            # 4. 投影逻辑 (逻辑与原代码一致)
-            valid_points = 0
-            for u, v in uv_points:
-                res = self.pixel_to_base(u, v)
-                if res:
-                    self.scan_ranges = np.full(self.num_readings, float('inf'))
-                    x, y = res
-                    # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
-                    dist = math.hypot(x, y)
-                    # if dist < self.range_min or dist > self.range_max:
-                    #     print(f"on_image_data：距离太远或太近，{dist}")
-                    #     continue
-                    # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
-                    angle = math.atan2(y, x)
-                    if not (self.angle_min <= angle <= self.angle_max):
-                        print(f"on_image_data：角度偏离，{angle}")
-                        continue
-                        
-                    idx = int(round((angle - self.angle_min) / self.angle_increment))
-                    idx = max(0, min(idx, self.num_readings - 1))
-
-                    for di in (-1, 0, 1):
-                        j = idx + di
-                        if 0 <= j < self.num_readings:
-                            # scan_ranges[j] = min(scan_ranges[j], dist)
-                            self.scan_ranges[j] = dist
+            if self.frame_count % self.skip_n == 0:
+                scan_ranges = np.full(self.num_readings, float('inf'))
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
+                valid_points = 0
+                # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+                # 4. 投影逻辑 (逻辑与原代码一致)
+                for u, v in uv_points:
+                    res = self.pixel_to_base(u, v)
+                    if res:
+                        x, y = res
+                        # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
+                        dist = math.hypot(x, y)
+                        # if dist < self.range_min or dist > self.range_max:
+                        #     print(f"on_image_data：距离太远或太近，{dist}")
+                        #     continue
+                        # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
+                        angle = math.atan2(y, x)
+                        if not (self.angle_min <= angle <= self.angle_max):
+                            print(f"on_image_data：角度偏离，{angle}")
+                            continue
                             
-                    valid_points += 1
+                        idx = int(round((angle - self.angle_min) / self.angle_increment))
+                        idx = max(0, min(idx, self.num_readings - 1))
+
+                        for di in (-1, 0, 1):
+                            j = idx + di
+                            if 0 <= j < self.num_readings:
+                                scan_ranges[j] = min(scan_ranges[j], dist)
+                        valid_points += 1
+                if valid_points > 0:
+                    self.last_scan_ranges = scan_ranges
+
             # 5. 条件发布
-            self.publish_as_json(self.scan_ranges, stamp)
+            self.publish_as_json(self.last_scan_ranges, stamp)
 
             
         except Exception as e:
