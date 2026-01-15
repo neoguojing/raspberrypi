@@ -48,6 +48,15 @@ def generate_launch_description():
             '-P', '0.0',                # 欧拉角：俯仰
             '-Y', '1.57'                # 欧拉角：偏航 (1.57弧度约为90度，改变朝向)
         ],
+        # arguments=[
+        #     '-name', 'n20_sg90_robot',
+        #     '-string', robot_desc,
+        #     '-world', 'default',      # 明确指定要在名为 bedroom 的世界中生成
+        #     '-x', '-1.0',
+        #     '-y', '0.0',
+        #     '-z', '0.1',
+        #     '-Y', '0.0' # 这里的 Y 是 Yaw 偏航角
+        # ],
         output='screen'
     )
 
