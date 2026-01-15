@@ -80,3 +80,58 @@ collision_monitor    /seg/scan, TF(odom->base)       紧急刹车指令 (最高�
 提示：你的配置中关键依赖项是 /seg/scan，如果这个话题没有数据，
 所有的 Costmap 都无法进入 Active 状态。
 ================================================================================
+
+## Nav2 全模块参数 × 现象 对照总表
+
+| 模块                    | 子模块            | 参数                    | 推荐值 / 范围     | 作用一句话   | 常见异常现象  | 优先调试方向     |
+| --------------------- | -------------- | --------------------- | ------------ | ------- | ------- | ---------- |
+| **Local Costmap**     | 基础             | width / height        | 6 ~ 8 m      | 局部可视范围  | 快撞才反应   | 增大尺寸       |
+| Local Costmap         | 基础             | resolution            | 0.05         | 局部地图精度  | CPU 占用高 | 降低精度       |
+| Local Costmap         | 基础             | update_frequency      | 10 Hz        | 障碍更新频率  | 避障迟钝    | 提高频率       |
+| Local Costmap         | 基础             | publish_frequency     | 10 Hz        | RViz 显示 | 显示卡顿    | 降低频率       |
+| Local Costmap         | 坐标系            | rolling_window        | true         | 地图随车走   | 地图不动    | 必须开启       |
+| Local Costmap         | 坐标系            | global_frame          | odom         | 局部参考系   | TF 抖动   | 改为 odom    |
+| Local Costmap         | 坐标系            | robot_base_frame      | base_link    | 机器人本体   | 障碍偏移    | 校正 TF      |
+| Local Costmap         | obstacle_layer | topic                 | /scan        | 障碍来源    | 无障碍     | 话题 / frame |
+| Local Costmap         | obstacle_layer | obstacle_range        | ~4.0         | 标记距离    | 障碍缺失    | 增大         |
+| Local Costmap         | obstacle_layer | raytrace_range        | > obstacle   | 清除距离    | 鬼影障碍    | 增大         |
+| Local Costmap         | obstacle_layer | marking               | true         | 标记障碍    | 地图很干净   | 开启         |
+| Local Costmap         | obstacle_layer | clearing              | true         | 清障      | 障碍残留    | 开启         |
+| Local Costmap         | inflation      | inflation_radius      | 0.4 ~ 0.6    | 离障安全距   | 贴墙走     | 增大         |
+| Local Costmap         | inflation      | cost_scaling_factor   | 2 ~ 4        | 保守程度    | 不敢走窄路   | 降低         |
+| **Global Costmap**    | 基础             | global_frame          | map          | 全局参考系   | 规划漂移    | 检查 TF      |
+| Global Costmap        | 基础             | rolling_window        | false        | 固定世界    | 探索失败    | 必须关闭       |
+| Global Costmap        | 尺寸             | width / height        | 40 ~ 80 m    | 探索范围    | 探索到边界停  | 增大         |
+| Global Costmap        | 尺寸             | resolution            | 0.05 ~ 0.1   | 全局精度    | 内存暴涨    | 降低精度       |
+| Global Costmap        | 未知             | track_unknown_space   | true         | 允许未知    | 探索不动    | 必须开启       |
+| Global Costmap        | obstacle_layer | obstacle_range        | 6.0          | 全局障碍    | 路径绕远    | 调整         |
+| Global Costmap        | obstacle_layer | raytrace_range        | 8.0          | 清障      | 全局残影    | 增大         |
+| **Planner Server**    | 插件             | planner_plugins       | NavFn / Smac | 路径算法    | 无路径     | 换 NavFn    |
+| Planner Server        | 目标             | tolerance             | 0.3 ~ 0.5    | 终点容忍    | 目标不可达   | 增大         |
+| Planner Server        | 未知             | allow_unknown         | true         | 探索规划    | 直接失败    | 必须开启       |
+| **Controller Server** | 速度             | max_vel_x             | 0.2 ~ 0.4    | 前进速度    | 不走      | 增大         |
+| Controller Server     | 速度             | min_vel_x             | 0.0          | 最小前进    | 原地打转    | 设为 0       |
+| Controller Server     | 速度             | max_vel_theta         | 0.8 ~ 1.2    | 转向速度    | 抖动      | 降低         |
+| Controller Server     | DWB            | sim_time              | 1.0 ~ 2.0    | 前瞻距离    | 撞障碍     | 增大         |
+| Controller Server     | DWB            | vx_samples            | ~20          | 线速度采样   | 行为生硬    | 增大         |
+| Controller Server     | DWB            | vtheta_samples        | ~40          | 角速度采样   | 转向不稳    | 增大         |
+| Controller Server     | Critics        | PathDist / GoalDist   | 基础必开         | 能不能走    | 不动      | 保留         |
+| Controller Server     | Critics        | PathAlign / GoalAlign | 中级           | 对齐路径    | 走歪      | 添加         |
+| Controller Server     | Critics        | ObstacleFootprint     | 高级           | 精细避障    | 撞障碍     | 添加         |
+
+---
+
+## 调试口诀（工程向）
+
+> **先看 Costmap 像不像世界 → 再看 Planner 有没有路 → 最后调 Controller 让车敢走**
+
+---
+
+## 调试阶段最小可用组合（直接对照）
+
+| 模块             | 核心设置                            |
+| -------------- | ------------------------------- |
+| Local Costmap  | 6×6 / 0.05 / obstacle+inflation |
+| Global Costmap | 50×50 / track_unknown=true      |
+| Planner        | NavFn + tolerance=0.5           |
+| Controller     | max_vel_x=0.25 / sim_time=1.5   |

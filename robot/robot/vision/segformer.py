@@ -24,8 +24,8 @@ class SegFormerDetector:
         self.model.eval()
         print(f"model classes: {self.get_labels()}")
         # ADE20K 地面类别定义
-        # 核心通行类：地板、马路、人行道、小径、土地、地毯、土地
-        self.ground_classes = [3, 6, 11, 13, 28, 52, 91, 94]
+        # 核心通行类：地板、马路、人行道、小径、土地、地毯、土地、水、草地、河流、沙子、path、runway、sea、游泳池、镜子、玻璃、毯子
+        self.ground_classes = [3, 6, 11, 13, 28, 52, 91, 94,21,9,60,46,52,54,26,109,27,147,131]
         # 新增：用于时域平滑的队列，存储最近 3 帧的 ground_mask
         self.mask_buffer = deque(maxlen=3)
         # 统计相关
