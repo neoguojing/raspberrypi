@@ -18,23 +18,6 @@
         <falloff>0</falloff>
       </spot>
     </light>
-    <light name='indoor_light_1' type='point'>
-      <pose>-1.5 1.5 2.5 0 0 0</pose>
-      <diffuse>0.6 0.6 0.6 1</diffuse>
-      <specular>0.1 0.1 0.1 1</specular>
-      <attenuation>
-        <range>15</range>
-        <constant>0.8</constant>
-      </attenuation>
-    </light>
-
-    <light name='indoor_light_2' type='point'>
-      <pose>1.5 -1.5 2.5 0 0 0</pose>
-      <diffuse>0.6 0.6 0.6 1</diffuse>
-      <attenuation>
-        <range>15</range>
-      </attenuation>
-    </light>
     <model name='ground_plane'>
       <static>1</static>
       <link name='link'>
@@ -257,6 +240,80 @@
         <kinematic>0</kinematic>
       </link>
       <pose>1.18077 2.08594 0 0 -0 0</pose>
+    </model>
+    <model name='MaleVisitorSit'>
+      <static>1</static>
+      <link name='body'>
+        <pose>0 0 0 0 -0 0</pose>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>https://fuel.gazebosim.org/1.0/openrobotics/models/malevisitorsit/1/files/meshes/MaleVisitorSit.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>https://fuel.gazebosim.org/1.0/openrobotics/models/malevisitorsit/1/files/meshes/MaleVisitorSit_Col.obj</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>-0.856978 0.978143 0 0 -0 0</pose>
+    </model>
+    <model name='FemaleVisitorSit'>
+      <static>1</static>
+      <link name='body'>
+        <pose>0 0 0 0 -0 0</pose>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>https://fuel.gazebosim.org/1.0/openrobotics/models/femalevisitorsit/1/files/meshes/FemaleVisitorSit.obj</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>https://fuel.gazebosim.org/1.0/openrobotics/models/femalevisitorsit/1/files/meshes/FemaleVisitorSit_Col.obj</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>-1.28442 1.76166 0 0 -0 0</pose>
     </model>
     <model name='Chair'>
       <static>1</static>
@@ -883,6 +940,54 @@
         <projection_type>perspective</projection_type>
       </camera>
     </gui>
+    <model name='makerspet_poster'>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.03 0.85714 1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/makerspet_poster/1/files/material/script</uri>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/makerspet_poster/1/files/material/textures</uri>
+              <name>Custom/makerspet</name>
+            </script>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <static>1</static>
+      <allow_auto_disable>1</allow_auto_disable>
+      <pose>-1.79858 1.04969 0 0 -0 0</pose>
+    </model>
+    <model name='kaiaai_poster'>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.03 0.9782 1</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/kaiaai_poster/1/files/material/script</uri>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/kaiaai_poster/1/files/material/textures</uri>
+              <name>Custom/kaiaai</name>
+            </script>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <static>1</static>
+      <allow_auto_disable>1</allow_auto_disable>
+      <pose>-2.09205 -0.074601 0 0 -0 0</pose>
+    </model>
     <model name='LampAndStand'>
       <static>1</static>
       <link name='body'>
@@ -1156,6 +1261,56 @@
       <static>1</static>
       <allow_auto_disable>1</allow_auto_disable>
       <pose>-1.68463 0.969564 0 0 -0 0</pose>
+    </model>
+    <model name='window_curtains'>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.02 1.5676 2</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/window_curtains/1/files/material/script</uri>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/window_curtains/1/files/material/textures</uri>
+              <name>Custom/window_curtains</name>
+            </script>
+            <emissive>0 1 0 1</emissive>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <static>1</static>
+      <allow_auto_disable>1</allow_auto_disable>
+      <pose>2.35925 1.12227 0 0 -0 0</pose>
+    </model>
+    <model name='window_curtains_0'>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <box>
+              <size>0.02 1.5676 2</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/window_curtains/1/files/material/script</uri>
+              <uri>https://fuel.gazebosim.org/1.0/makerspet/models/window_curtains/1/files/material/textures</uri>
+              <name>Custom/window_curtains</name>
+            </script>
+            <emissive>0 1 0 1</emissive>
+          </material>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <static>1</static>
+      <allow_auto_disable>1</allow_auto_disable>
+      <pose>2.38084 0.258658 0 0 -0 0</pose>
     </model>
     <model name='red_ball_10in'>
       <pose>0.83729 1.5589 0.127 0 -0 0</pose>
