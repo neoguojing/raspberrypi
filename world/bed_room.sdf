@@ -8,40 +8,28 @@
       <render_engine>ogre2</render_engine>
     </plugin>
 
-    <light name='sun' type='directional'>
-      <cast_shadows>1</cast_shadows>
-      <pose>0 0 10 0 -0 0</pose>
-      <diffuse>0.8 0.8 0.8 1</diffuse>
-      <specular>0.2 0.2 0.2 1</specular>
-      <attenuation>
-        <range>1000</range>
-        <constant>0.9</constant>
-        <linear>0.01</linear>
-        <quadratic>0.001</quadratic>
-      </attenuation>
-      <direction>-0.5 0.1 -0.9</direction>
-      <spot>
-        <inner_angle>0</inner_angle>
-        <outer_angle>0</outer_angle>
-        <falloff>0</falloff>
-      </spot>
-    </light>
     <light name='indoor_light_1' type='point'>
       <pose>-1.5 1.5 1.9 0 0 0</pose>
-      <diffuse>0.6 0.6 0.6 1</diffuse>
-      <specular>0.1 0.1 0.1 1</specular>
+      <diffuse>0.4 0.4 0.4 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
       <attenuation>
-        <range>15</range>
-        <constant>0.8</constant>
+        <range>20</range> <constant>0.5</constant> <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
       </attenuation>
+      <cast_shadows>1</cast_shadows>
     </light>
 
     <light name='indoor_light_2' type='point'>
       <pose>1.5 -1.5 1.9 0 0 0</pose>
-      <diffuse>0.6 0.6 0.6 1</diffuse>
+      <diffuse>0.4 0.4 0.4 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
       <attenuation>
-        <range>15</range>
+        <range>20</range>
+        <constant>0.5</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
       </attenuation>
+      <cast_shadows>0</cast_shadows>
     </light>
     <model name='ground_plane'>
       <static>1</static>
@@ -97,7 +85,7 @@
       <real_time_update_rate>1000</real_time_update_rate>
     </physics>
     <scene>
-      <ambient>0.3 0.3 0.3 1</ambient> <background>0.7 0.7 0.7 1</background>
+      <ambient>0.5 0.5 0.5 1</ambient> <background>0.7 0.7 0.7 1</background>
       <shadows>1</shadows>
       <grid>false</grid> <sky>
         <clouds>
@@ -976,7 +964,7 @@
 
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/door_08x2m/1/files/material/textures/door_diffuse.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.6</roughness>
                 <metalness>0.0</metalness>
               </metal>
@@ -1019,7 +1007,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall_diffuse.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
@@ -1043,7 +1031,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall_diffuse.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
@@ -1066,7 +1054,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall_diffuse.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
@@ -1114,7 +1102,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
@@ -1162,7 +1150,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
@@ -1210,7 +1198,7 @@
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map>https://fuel.gazebosim.org/1.0/makerspet/models/room_wall_2x5m/1/files/material/textures/wall.png</albedo_map>
+                <albedo_map></albedo_map>
                 <roughness>0.9</roughness> <metalness>0.0</metalness>
               </metal>
             </pbr>
