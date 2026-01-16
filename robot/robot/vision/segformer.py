@@ -127,7 +127,7 @@ class SegFormerDetector:
             align_corners=False
         )[0].cpu().numpy()
 
-        pred_map = probs.argmax(dim=1)[0].cpu().numpy()
+        pred_map = probs.argmax(axis=0)
         self.print_detected_categories(pred_map)
         # 3. 提取地面相关类别的最大概率值
         # 结果是一个 [H, W] 的矩阵，每个像素值代表“该点属于地面”的信心得分
@@ -159,31 +159,49 @@ class SegFormerDetector:
     # ----------------------------------------------------
     def _extract_boundary_points(self, ground_mask, step_x=10):
         """
-        从底部向上扫描，寻找地面与非地面（障碍物）的交界线点。
-        使用向量化操作代替 Python 循环，极大提升效率。
+        从图像底部向上扫描，寻找地面（1）到障碍物（0）的第一个转换点。
         """
         h, w = ground_mask.shape
-        # 按步长采样列，减少计算量
+        # 按步长采样列
         sampled = ground_mask[:, ::step_x]
+        
+        # 获取采样后的宽度
+        sampled_w = sampled.shape[1]
+        
+        # 预设所有点都在顶部（表示整列都是地面，无障碍）
+        # 或者预设在底部（表示整列都是障碍），取决于你的业务逻辑
+        # 这里预设为 0，如果没有发现障碍，则认为路径延伸到无穷远
+        boundary_y = np.zeros(sampled_w)
 
-        # 计算垂直方向差分。当结果为 1 时，代表发生了 1(地面) -> 0(障碍物) 的跳变
-        # 
-        diff = sampled[:-1] - sampled[1:]
-        ys, xs = np.where(diff == 1)
+        # 核心逻辑：
+        # 我们寻找从下往上第一个 1 -> 0 的跳变
+        # 也就是在原矩阵中，上方是 0，下方是 1 的位置
+        # diff = sampled[上方] - sampled[下方]
+        diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
+        
+        # diff == -1 表示：上面是 0 (障碍), 下面是 1 (地面) -> 这正是接触线！
+        ys, xs = np.where(diff == -1)
 
-        # 预设所有列的交界点都在图像最底部 (h-1)
-        bottom_y = np.full(sampled.shape[1], h - 1)
-
-        # 对于每一列，记录最靠近图像下方的跳变点（即最近的障碍物接触点）
+        # 我们需要每一列中最靠下（Y值最大）的跳变点
+        # 先初始化一个较小值
+        res_y = np.full(sampled_w, 0) 
+        
+        # 因为 np.where 是按行优先扫描的（从上往下），
+        # 所以对于每一列，最后一次更新的 y 必然是该列最靠下的交界点
         for y, x in zip(ys, xs):
-            # 因为扫描是从上往下的，我们需要找到该列最大的 y（最靠下）
-            # 这里的逻辑通过遍历更新，保证 bottom_y 存储的是最靠下的边界点
-            bottom_y[x] = min(bottom_y[x], y)
+            res_y[x] = y + 1 # +1 是为了指向地面的上边缘
 
-        # 还原回原始图像的 x 坐标并打包成坐标对
+        # 处理特殊情况：如果某一列完全没有跳变
+        # 情况 A: 全是地面 -> res_y[x] 保持为 0
+        # 情况 B: 全是障碍 -> 我们需要检测底部第一个像素是不是 0
+        bottom_row = sampled[-1, :]
+        for x in range(sampled_w):
+            if bottom_row[x] == 0: # 底部就是障碍物
+                res_y[x] = h - 1
+
         contact_pixels = [
-            (float(x * step_x), float(y))
-            for x, y in enumerate(bottom_y)
+            (float(x * step_x), float(res_y[x]))
+            for x in range(sampled_w)
         ]
         return contact_pixels
 

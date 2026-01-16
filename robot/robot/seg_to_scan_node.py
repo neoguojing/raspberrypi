@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
 import zenoh
 import json
@@ -63,7 +64,10 @@ class ZenohToLaserScan(Node):
             scan_msg = LaserScan()
             
             # 使用当前 ROS 时间或 JSON 中的时间戳
-            scan_msg.header.stamp = self.get_clock().now().to_msg()
+            # 核心修复：获取当前节点的时钟类型
+            node_clock = self.get_clock()
+            t = Time(seconds=data['stamp'],clock_type=node_clock.clock_type)
+            scan_msg.header.stamp = t.to_msg()
             scan_msg.header.frame_id = self.target_frame
             
             # 填充雷达几何参数
@@ -82,6 +86,13 @@ class ZenohToLaserScan(Node):
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)
             self.latest_scan = scan_msg
+
+            now = node_clock.now()
+            diff = now - t
+            latency_sec = diff.nanoseconds / 1e9
+
+            if latency_sec > 0.5: # 超过 200ms 打印警告
+                self.get_logger().warn(f"数据积压！延迟高达: {latency_sec:.3f} s")
             
         except Exception as e:
             self.get_logger().error(f'解析 Zenoh 数据失败: {e}')
