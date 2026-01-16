@@ -9,6 +9,7 @@ import sys
 import struct
 import os
 import glob
+import threading
 # from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
 from robot.robot.vision.segformer import SegFormerDetector 
 
@@ -29,7 +30,7 @@ class ZenohSegScan:
         self.angle_max = 1.0
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
-        self.range_min = 0.05
+        self.range_min = 0.3
         self.range_max = 4.0
         # 保存上一次定位的障碍
         self.last_scan_ranges = np.full(self.num_readings, float('inf'))
@@ -64,6 +65,13 @@ class ZenohSegScan:
         # 定义发布者 (发送处理后的 JSON)
         self.pub = self.session.declare_publisher(self.scan_topic)
         self.pointcloud_pub = self.session.declare_publisher(self.point_cloud_topic)
+        
+        self.latest_sample = None
+        self.sample_lock = threading.Lock()
+        
+        # 启动一个独立的处理线程
+        self.process_thread = threading.Thread(target=self.processing_loop, daemon=True)
+        self.process_thread.start()
 
         print(f"✅ 节点已就绪. 订阅: {self.image_topic},{self.image_topic_compress}, 发布: {self.scan_topic}")
 
@@ -78,61 +86,93 @@ class ZenohSegScan:
         self.height = config['height']
 
     def on_image_data(self, sample):
-        """Zenoh 订阅回调"""
-        try:
-            self.frame_count += 1
-            # 1. 解码图像 (假设是 CompressedImage 字节流) 或者 Image字节流
-            # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
-            # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
-            # 如果解码失败，可能需要跳过前几个字节的 ROS Header
-            payload_bytes = sample.payload.to_bytes()           
-            # 1. 解码图像并获取时间戳
-            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
-            if frame is None:
-                print("⚠ 无法解码图像")
-                return
-            # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
-
-            # 2. 推理检测
-            if self.frame_count % self.skip_n == 0:
-                scan_ranges = np.full(self.num_readings, float('inf'))
-                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
-                valid_points = 0
-                # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
-                # 4. 投影逻辑 (逻辑与原代码一致)
-                for u, v in uv_points:
-                    res = self.pixel_to_base(u, v)
-                    if res:
-                        x, y = res
-                        # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
-                        dist = math.hypot(x, y)
-                        # if dist < self.range_min or dist > self.range_max:
-                        #     print(f"on_image_data：距离太远或太近，{dist}")
-                        #     continue
-                        # 计算从原点指向点 $(x, y)$ 的射线与 正 X 轴 之间的夹角（弧度）
-                        angle = math.atan2(y, x)
-                        if not (self.angle_min <= angle <= self.angle_max):
-                            print(f"on_image_data：角度偏离，{angle}")
-                            continue
-                            
-                        idx = int(round((angle - self.angle_min) / self.angle_increment))
-                        idx = max(0, min(idx, self.num_readings - 1))
-
-                        for di in (-1, 0, 1):
-                            j = idx + di
-                            if 0 <= j < self.num_readings:
-                                scan_ranges[j] = min(scan_ranges[j], dist)
-                        valid_points += 1
-                if valid_points > 0:
-                    self.last_scan_ranges = scan_ranges
-
-            # 5. 条件发布
-            self.publish_as_json(self.last_scan_ranges, stamp)
-
+        """回调函数现在极快：只负责存下最新的数据包"""
+        with self.sample_lock:
+            self.latest_sample = sample  # 覆盖旧的样本，直接丢弃积压帧
             
-        except Exception as e:
-            print(f"处理错误: {e}")
+    def processing_loop(self):
+        """Zenoh 订阅回调"""
+        while True:
+            try:
+                sample = None
+                with self.sample_lock:
+                    if self.latest_sample is not None:
+                        sample = self.latest_sample
+                        self.latest_sample = None # 处理完后清空
+                if sample is None:
+                    time.sleep(0.005) # 没数据时微休眠
+                    continue
+                
+                self.frame_count += 1
+                # 1. 解码图像 (假设是 CompressedImage 字节流) 或者 Image字节流
+                # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
+                # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
+                # 如果解码失败，可能需要跳过前几个字节的 ROS Header
+                payload_bytes = sample.payload.to_bytes()           
+                # 1. 解码图像并获取时间戳
+                frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
+                if frame is None:
+                    print("⚠ 无法解码图像")
+                    continue
+                # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
+                scan_ranges = np.full(self.num_readings, float('inf'))
+                # 2. 推理检测
+                # if self.frame_count % self.skip_n == 0:
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
+                if len(uv_points) > 0:
+                    valid_points = 0
+                    # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
+                    # 4. 投影逻辑 (逻辑与原代码一致)
+                    # for u, v in uv_points:
+                    #     res = self.pixel_to_base(u, v)
+                        # if res:
+                        #         x, y = res
+                    xyz_points = self.pixel_to_base_batch(uv_points)
+                    # 过滤掉无法投影到地面的 NaN 点
+                    valid_mask = ~np.isnan(xyz_points[:, 0])
+                    valid_xyz = xyz_points[valid_mask]
+                    if len(valid_xyz) > 0:                   
+                        for x, y in valid_xyz:
+                            # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
+                            dist = math.hypot(x, y)
+                            if dist < self.range_min or dist > self.range_max:
+                                continue
+                            
+                            angle = math.atan2(y, x)
+                            if not (self.angle_min <= angle <= self.angle_max):
+                                print(f"on_image_data：角度偏离，{angle}")
+                                continue
+                                
+                            idx = int(round((angle - self.angle_min) / self.angle_increment))
+                            idx = max(0, min(idx, self.num_readings - 1))
 
+                            for di in (-1, 0, 1):
+                                j = idx + di
+                                if 0 <= j < self.num_readings:
+                                    scan_ranges[j] = min(scan_ranges[j], dist)
+                            valid_points += 1
+
+                # 5. 条件发布
+                self.publish_as_json(scan_ranges, stamp)
+                
+            except Exception as e:
+                print(f"处理错误: {e}")
+                time.sleep(0.1)
+
+    def get_accurate_stamp(self,payload):
+        try:
+            # ROS 2 序列化后的前 4 字节是封装头 (Representation Identifier)
+            # 紧接着就是消息内容。对于 Image/CompressedImage，第一个字段是 Header。
+            # Header 的第一个字段是 Stamp (sec, nanosec)。
+            
+            # 尝试从偏移量 4 开始读取 (跳过 4 字节的 CDR Header)
+            sec, nsec = struct.unpack_from('<II', payload, 4)
+            stamp = sec + nsec * 1e-9
+            print(f"🕒 提取准确时间戳: {stamp:.6f}")
+            return stamp
+        except Exception:
+            return time.time()
+    
     # 输出统一为bgr
     def decode_ros2_image(self, payload, default_shape=(480, 640, 3)):
         # 关键修复 1: 确保进入函数的是 bytes 类型，或者是支持切片的视图
@@ -182,6 +222,7 @@ class ZenohSegScan:
                     frame = raw_data[-num_pixels:].reshape(default_shape)
                     # 默认为RGB
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    stamp = self.get_accurate_stamp(payload)
                     # save_image('rgb')
                     return frame, stamp
             except Exception as e:
@@ -197,17 +238,7 @@ class ZenohSegScan:
         if idx != -1:
             # 找到了 JPEG 开头，说明是压缩图像
             try:
-                # 尝试提取时间戳：通常在消息最开始的 8 字节 (sec, nsec)
-                # 注意：某些 Bridge 会在最前面加 4 字节的 CDR 封装头，如果是这样，偏移就是 4
-                # 这里先尝试 0，如果时间戳看起来很离谱，可以尝试偏移 4 或 8
-                sec, nsec = struct.unpack_from('<II', payload, 0)
-                if 1e8 < sec < 2e9:  # 合法的时间戳范围检查
-                    stamp = sec + nsec * 1e-9
-                else:
-                    # 尝试 CDR 偏移量
-                    sec, nsec = struct.unpack_from('<II', payload, 4)
-                    if 1e8 < sec < 2e9:
-                        stamp = sec + nsec * 1e-9
+                stamp = self.get_accurate_stamp(payload)
                 # 解码 JPEG
                 jpeg_data = payload[idx:]
                 nparr = np.frombuffer(jpeg_data, np.uint8)
@@ -222,6 +253,7 @@ class ZenohSegScan:
     def publish_as_json(self, ranges,stamp):
         """将雷达数据以 JSON 格式发布到 Zenoh"""
         # 替换 inf 为一个大数，因为标准 JSON 不支持 Infinity
+            
         safe_value = self.range_max + 1
         # ranges_list = [float(r) if (np.isfinite(r) and r < self.range_max) else safe_value for r in ranges]
         ranges_list = [float(r) if np.isfinite(r) else safe_value for r in ranges]
@@ -235,8 +267,9 @@ class ZenohSegScan:
             "range_min": self.range_min,
             "range_max": self.range_max
         }
-        
-        print(f"📡 发布的json {ranges_list}")
+
+        if np.any(np.isfinite(ranges)):
+            print(f"📡 发布有效json {ranges_list}")
         payload = json.dumps(msg).encode("utf-8")
         self.pub.put(payload=payload,
                         encoding="application/json")
@@ -291,7 +324,7 @@ class ZenohSegScan:
         
         # 物理约束：如果 rb_z >= 0，说明射线水平或向上射向天空，永远不会与地面相交。
         if rb_z >= -1e-6: 
-            print(f"射线射向天空，无法与地面相交")
+            # print(f"射线射向天空，无法与地面相交")
             return None 
         
         t = -self.camera_height / rb_z
