@@ -54,6 +54,54 @@ class SegFormerDetector:
         lab = cv2.merge((l, a, b))
         return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
 
+    def print_detected_categories(self, pred_map):
+        """
+        输入推理得到的 pred_map [H, W]
+        打印当前画面中出现的所有类别名称
+        """
+        # 1. 获取图中存在的所有唯一 ID
+        unique_ids = np.unique(pred_map)
+        
+        # 2. 获取映射表
+        id2label = self.model.config.id2label
+        
+        print("\n🔍 当前帧检测到以下类型:")
+        print("-" * 30)
+        for cls_id in unique_ids:
+            label = id2label.get(cls_id, f"Unknown({cls_id})")
+            # 统计该类别的像素占比，判断是否为主要特征
+            pixel_count = np.sum(pred_map == cls_id)
+            percentage = (pixel_count / pred_map.size) * 100
+            
+            # 标注该类别是否被你归类为“地面”
+            is_ground = " [地面✅]" if cls_id in self.ground_classes else ""
+            
+            print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
+    
+    def print_detected_categories(self, pred_map):
+        """
+        输入推理得到的 pred_map [H, W]
+        打印当前画面中出现的所有类别名称
+        """
+        # 1. 获取图中存在的所有唯一 ID
+        unique_ids = np.unique(pred_map)
+        
+        # 2. 获取映射表
+        id2label = self.model.config.id2label
+        
+        print("\n🔍 当前帧检测到以下类型:")
+        print("-" * 30)
+        for cls_id in unique_ids:
+            label = id2label.get(cls_id, f"Unknown({cls_id})")
+            # 统计该类别的像素占比，判断是否为主要特征
+            pixel_count = np.sum(pred_map == cls_id)
+            percentage = (pixel_count / pred_map.size) * 100
+            
+            # 标注该类别是否被你归类为“地面”
+            is_ground = " [地面✅]" if cls_id in self.ground_classes else ""
+            
+            print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
+
     # ----------------------------------------------------
     # 核心推理逻辑：时域平滑 + 概率过滤
     # ----------------------------------------------------
@@ -79,6 +127,8 @@ class SegFormerDetector:
             align_corners=False
         )[0].cpu().numpy()
 
+        pred_map = probs.argmax(dim=1)[0].cpu().numpy()
+        self.print_detected_categories(pred_map)
         # 3. 提取地面相关类别的最大概率值
         # 结果是一个 [H, W] 的矩阵，每个像素值代表“该点属于地面”的信心得分
         ground_prob = probs[self.ground_classes].max(axis=0)
@@ -230,9 +280,6 @@ def main():
         pts, vis = detector.get_ground_contact_points(frame)
 
     print(f"✅ 成功！当前帧检测到 {len(pts)} 个边界引导点。")
-    # 保存结果以供检查
-    cv2.imwrite("debug_result.jpg", vis)
-    print("💾 结果已保存至: debug_result.jpg")
 
 if __name__ == "__main__":
     main()
