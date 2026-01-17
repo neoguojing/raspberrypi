@@ -80,7 +80,7 @@ def generate_launch_description():
         "Vis/InlierDistance": "0.1",
 
         # 闭环策略
-        "Reg/Strategy": "0",
+        "Reg/Strategy": "0",  # 1=ICP (激光), 0=Visual
         "Reg/Force3DoF": "true",
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/NeighborLinkRefining": "true",
