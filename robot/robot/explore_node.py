@@ -43,6 +43,7 @@ class FinalExploreNode(Node):
         self.FINISH_THRESHOLD = 3     # 终止判定：连续 3 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
         self.MAP_SAVE_PATH = "auto_map_result" # 保存的文件名‘’
+        self.MIN_GOAL_DISTANCE = 0.8  # 至少 80cm 远
         
         # --- 状态控制 ---
         self.map_msg = None           # 实时地图缓存
@@ -158,6 +159,9 @@ class FinalExploreNode(Node):
 
             # 评分公式：Utility = 边界面积 - 距离权重 * 机器人到该点的距离
             dist = math.sqrt((wx_raw - rx)**2 + (wy_raw - ry)**2)
+            if dist < self.MIN_GOAL_DISTANCE:
+                continue 
+            
             score = stats[i, cv2.CC_STAT_AREA] - (dist * 2.2)
 
             if score > max_score:
@@ -331,6 +335,7 @@ class FinalExploreNode(Node):
         if status != 4:  # STATUS_SUCCEEDED = 4
             self.get_logger().warn('导航失败，加入黑名单')
             self.failed_goals.append(self.current_goal)
+            time.sleep(3.0)
 
     def _feedback_cb(self, feedback_msg):
         pass
