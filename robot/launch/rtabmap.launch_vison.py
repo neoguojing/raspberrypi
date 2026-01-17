@@ -53,7 +53,7 @@ def generate_launch_description():
         "topic_queue_size": 30,
 
         # 传感器订阅
-        "subscribe_rgb": False,
+        "subscribe_rgb": True,
         "subscribe_depth": LaunchConfiguration('depth'),
         "subscribe_stereo": False,
         "subscribe_scan": LaunchConfiguration('subscribe_scan'),
@@ -72,8 +72,7 @@ def generate_launch_description():
         # 视觉特征参数
         "Kp/DetectorStrategy": "2",
         "Kp/MaxFeatures": "1000",
-        
-        "Vis/EstimationType": "0",
+        "Vis/EstimationType": "2",
         "Vis/FeatureType": "2",
         "Vis/EpipolarGeometryVar": "0.5",
         "Vis/Iterations": "300",
@@ -81,7 +80,7 @@ def generate_launch_description():
         "Vis/InlierDistance": "0.1",
 
         # 闭环策略
-        "Reg/Strategy": "1",  # 1=ICP (激光), 0=Visual
+        "Reg/Strategy": "0",  # 1=ICP (激光), 0=Visual
         "Reg/Force3DoF": "true",
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/NeighborLinkRefining": "true",
@@ -94,12 +93,7 @@ def generate_launch_description():
 
         # 单目尺度恢复
         "Mem/StereoFromMotion": "true",
-        "Mem/UseOdomFeatures": "true",
-
-        "Icp/VoxelSize": "0.05",
-        "Icp/MaxCorrespondenceDistance": "0.1",
-        "Optimizer/Strategy": "2",
-        "Odom/ScanVariance": "0.0001"
+        "Mem/UseOdomFeatures": "true"
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',

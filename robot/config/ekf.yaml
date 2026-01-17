@@ -48,10 +48,10 @@ ekf_filter_node:
     imu0: /imu/data_raw
     imu0_config: [
       false, false, false,  # x, y, z (位置：IMU不提供)
-      false, false, true,  # roll, pitch, yaw (姿态：防止磁力计干扰，通常设为false)
+      false, false, false,  # roll, pitch, yaw (姿态：防止磁力计干扰，通常设为false)
       false, false, false,  # vx, vy, vz (线速度：ICM20948不提供，必须为false)
       true,  true,  true,   # vroll, vpitch, vyaw (角速度：开启)
-      true,  true,  true   # ax, ay, az (线性加速度：开启x和y，z通常有重力干扰设为false)
+      true,  true,  false   # ax, ay, az (线性加速度：开启x和y，z通常有重力干扰设为false)
     ]
 
     imu0_differential: false
@@ -87,6 +87,9 @@ ekf_filter_node:
     # 未观测项 ($z, roll, pitch, az$): 设为较大值（如 1e-6 到 1.0），表示完全不关心这些轴。
     # 顺序：x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az
     initial_estimate_covariance: [
-      1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 
-      1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 
-      1e-2, 1e-2, 1e-2]
+      1.0, 1.0, 1e-3,   # x, y 不确定度高
+      1e-3, 1e-3, 0.5,  # yaw 不确定度中等
+      1e-2, 1e-2, 1e-2,
+      1e-2, 1e-2, 1e-2,
+      1e-2, 1e-2, 1e-2
+    ]
