@@ -65,7 +65,7 @@ def generate_launch_description():
     return LaunchDescription([
         declare_use_sim_time,
         declare_image_compressed,
-        slam3_launch,
+        # slam3_launch,
         efk_launch,
         seg_launch,
         nv2_launch,

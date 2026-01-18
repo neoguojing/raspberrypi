@@ -96,8 +96,9 @@ def generate_launch_description():
         "Mem/StereoFromMotion": "true",
         "Mem/UseOdomFeatures": "true",
 
-        "Icp/VoxelSize": "0.05",
-        "Icp/MaxCorrespondenceDistance": "0.1",
+        "Icp/VoxelSize": "0.02",
+        "Icp/MaxCorrespondenceDistance": "0.2",
+        "Icp/Iterations": "50",
         "Optimizer/Strategy": "2",
         "Odom/ScanVariance": "0.0001"
     }

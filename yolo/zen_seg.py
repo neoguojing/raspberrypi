@@ -30,7 +30,7 @@ class ZenohSegScan:
         self.angle_max = 1.0
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
-        self.range_min = 0.3
+        self.range_min = 0.0
         self.range_max = 4.0
         # 保存上一次定位的障碍
         self.last_scan_ranges = np.full(self.num_readings, float('inf'))
@@ -145,11 +145,13 @@ class ZenohSegScan:
                                 
                             idx = int(round((angle - self.angle_min) / self.angle_increment))
                             idx = max(0, min(idx, self.num_readings - 1))
-
-                            for di in (-1, 0, 1):
-                                j = idx + di
-                                if 0 <= j < self.num_readings:
-                                    scan_ranges[j] = min(scan_ranges[j], dist)
+                            
+                            scan_ranges[idx] = min(scan_ranges[idx], dist)
+                            # 扩散导致障碍太大
+                            # for di in (-1, 0, 1):
+                            #     j = idx + di
+                            #     if 0 <= j < self.num_readings:
+                            #         scan_ranges[j] = min(scan_ranges[j], dist)
                             valid_points += 1
 
                 # 5. 条件发布

@@ -22,6 +22,7 @@ bt_navigator:
 
     navigate_through_poses:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+      
 
 
 # Controller Server (驾驶员)
@@ -56,29 +57,29 @@ controller_server:
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.05
-      yaw_goal_tolerance:  0.1
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance:  0.2
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 25
       model_dt: 0.05
-      batch_size: 500
+      batch_size: 250
       ax_max: 1.0
-      ax_min: -3.0
+      ax_min: -1.0
       ay_max: 3.0
       ay_min: -3.0
       az_max: 3.5
-      vx_std: 0.2
+      vx_std: 0.3
       vy_std: 0.2
-      wz_std: 0.4
+      wz_std: 0.2
       vx_max: 0.5
-      vx_min: -0.05 
+      vx_min: 0.0
       vy_max: 0.5
       wz_max: 1.9
       iteration_count: 1
-      prune_distance: 1.7
+      prune_distance: 2.5
       transform_tolerance: 0.1
-      temperature: 0.3
+      temperature: 0.5
       gamma: 0.015
       motion_model: "DiffDrive"
       visualize: false
@@ -167,7 +168,7 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 10.0
+      update_frequency: 20.0
       publish_frequency: 2.0
       global_frame: odom
       robot_base_frame: base_link
@@ -197,7 +198,7 @@ local_costmap:
         z_resolution: 0.05
         z_voxels: 8
         max_obstacle_height: 2.0
-        mark_threshold: 3
+        mark_threshold: 8
         observation_sources: scan slam_points rtabmap_obstacles
         scan:
           # A relative topic will be appended to the parent of the local_costmap namespace.
@@ -254,7 +255,7 @@ global_costmap:
       origin_x: -20.0
       origin_y: -20.0
       rolling_window: false # 全局地图通常固定在 map 原点
-      update_frequency: 5.0
+      update_frequency: 10.0
       publish_frequency: 2.0
       global_frame: map
       robot_base_frame: base_link
@@ -370,9 +371,20 @@ planner_server:
     introspection_mode: "metadata"
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.3
-      use_astar: true #开启A* 快且稳定
-      allow_unknown: false
+      tolerance: 0.15
+      use_astar: false #开启A* 快且稳定
+      allow_unknown: true
+
+      # plugin: "nav2_smac_planner/SmacPlannerHybrid"
+      # # Smac Planner 关键参数（大幅加速规划）
+      # motion_model: "DUBIN"         # 或 "REEDS_SHEPP"
+      # tolerance: 0.2                # 目标容忍距离
+      # downsample_costmap: true      # 下采样地图加速规划
+      # downsampling_factor: 2        # 下采样因子（2=速度提升4倍）
+      # allow_unknown: true           # 允许未知区域规划
+      # max_iterations: 1000000       # 增加迭代上限
+      # max_on_approach_iterations: 1000
+      # cost_travel_multiplier: 2.0   # 路径成本权重
 # Smoother Server (路径平滑器):
 # 核心功能：对规划器生成的折线路径进行平滑处理，使其更符合机器人的物理运动规律。
 #总结：它是**“修路工”**，把生硬的折线弯道修圆，减少机器人转弯时的顿挫。

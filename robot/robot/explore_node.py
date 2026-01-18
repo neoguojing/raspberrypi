@@ -240,7 +240,7 @@ class FinalExploreNode(Node):
                     self.send_nav_goal(self._make_pose(wx, wy, yaw))
                     self.nav_start_time = time.time()
                     self.current_goal = (wx, wy)
-                    self.get_logger().info(f"新目标点确定: ({wx:.2f}, {wy:.2f})")
+                    self.get_logger().info(f"✅ 新目标点确定: ({wx:.2f}, {wy:.2f}) | 机器人位置: ({rx:.2f}, {ry:.2f})")
                 else:
                     # 双重判定：
                     # 1. 找不到显著边界
@@ -259,6 +259,7 @@ class FinalExploreNode(Node):
                 
             # 3. 超时强制处理
             elif self.goal_handle and (time.time() - self.nav_start_time) > self.NAV_TIMEOUT:
+                self.get_logger().warning(f"⏰ 导航超时 ({self.NAV_TIMEOUT}s) - 目标点: ({self.current_goal[0]:.2f}, {self.current_goal[1]:.2f})")
                 self.goal_handle.cancel_goal_async()
                 with self.nav_lock:
                     self.nav_status = 'IDLE'
@@ -323,7 +324,7 @@ class FinalExploreNode(Node):
             with self.nav_lock:
                 self.nav_status = 'IDLE'
             return
-
+        self.get_logger().info("✅ 导航目标已接受，开始规划路径")
         self.result_future = self.goal_handle.get_result_async()
         self.result_future.add_done_callback(self._result_cb)
 
@@ -336,6 +337,8 @@ class FinalExploreNode(Node):
             self.get_logger().warn('导航失败，加入黑名单')
             self.failed_goals.append(self.current_goal)
             time.sleep(3.0)
+        else:
+            self.get_logger().info("✅ 导航成功到达目标点")
 
     def _feedback_cb(self, feedback_msg):
         pass
