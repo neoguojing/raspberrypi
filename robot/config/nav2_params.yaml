@@ -200,7 +200,8 @@ local_costmap:
         z_voxels: 8
         max_obstacle_height: 2.0
         mark_threshold: 8
-        observation_sources: scan slam_points rtabmap_obstacles
+        # observation_sources: scan slam_points rtabmap_obstacles
+        observation_sources: scan
         scan:
           # A relative topic will be appended to the parent of the local_costmap namespace.
           # For example:
@@ -237,8 +238,8 @@ local_costmap:
           topic: /cloud_obstacles
           data_type: PointCloud2
           origin_z: 0.05
-          marking: true           # 视觉障碍主力
-          clearing: true
+          marking: false           # 视觉障碍主力
+          clearing: false
           obstacle_max_range: 3.0
           min_obstacle_height: 0.0
           max_obstacle_height: 1.2
