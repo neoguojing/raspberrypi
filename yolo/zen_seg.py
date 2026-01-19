@@ -146,12 +146,12 @@ class ZenohSegScan:
                             idx = int(round((angle - self.angle_min) / self.angle_increment))
                             idx = max(0, min(idx, self.num_readings - 1))
                             
-                            scan_ranges[idx] = min(scan_ranges[idx], dist)
+                            # scan_ranges[idx] = min(scan_ranges[idx], dist)
                             # 扩散导致障碍太大
-                            # for di in (-1, 0, 1):
-                            #     j = idx + di
-                            #     if 0 <= j < self.num_readings:
-                            #         scan_ranges[j] = min(scan_ranges[j], dist)
+                            for di in (-1, 0, 1):
+                                j = idx + di
+                                if 0 <= j < self.num_readings:
+                                    scan_ranges[j] = min(scan_ranges[j], dist)
                             valid_points += 1
 
                 # 5. 条件发布

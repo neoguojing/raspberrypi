@@ -144,8 +144,16 @@ class SegFormerDetector:
                 + (1 - self.alpha) * ground_prob
             )
 
+        # ✅ 新增：对平滑后的概率图进行高斯模糊（空间平滑）
+        # 目的：消除局部噪声引起的概率抖动，防止虚假边界
+        blurred_ground_prob = cv2.GaussianBlur(
+            self.ema_ground_prob.astype(np.float32),
+            ksize=(5, 5),      # 核大小，可调（奇数）
+            sigmaX=1.0         # X方向标准差，控制模糊强度
+        )
+    
         # 5. 二值化：只有当平滑后的地面概率超过阈值时，才判定为地面
-        ground_mask = (self.ema_ground_prob > self.conf_threshold).astype(np.uint8)
+        ground_mask = (blurred_ground_prob > self.conf_threshold).astype(np.uint8)
 
         # 6. 形态学闭运算 (Closing)
         # 作用：填充地面掩码中细小的黑色空洞（如地砖缝隙、细小阴影），同时保持边缘位置准确
