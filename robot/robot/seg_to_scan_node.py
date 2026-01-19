@@ -82,6 +82,7 @@ class ZenohToLaserScan(Node):
             # 转换 ranges 列表 (处理 JSON 序列化后的数值)
             # scan_msg.ranges = [float(r) for r in data['ranges']]
             scan_msg.ranges = [float(r) if scan_msg.range_max > r else float('inf') for r in data['ranges']]
+            # scan_msg.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max for r in data['ranges']]
             
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)
@@ -91,8 +92,8 @@ class ZenohToLaserScan(Node):
             diff = now - t
             latency_sec = diff.nanoseconds / 1e9
 
-            if latency_sec > 0.5: # 超过 200ms 打印警告
-                self.get_logger().warn(f"数据积压！延迟高达: {latency_sec:.3f} s")
+            if latency_sec > 2.0: # 超过 1s 打印警告
+                self.get_logger().warn(f"数据积压！延迟高达: {latency_sec:.3f} s, {self.latest_scan}")
             
         except Exception as e:
             self.get_logger().error(f'解析 Zenoh 数据失败: {e}')

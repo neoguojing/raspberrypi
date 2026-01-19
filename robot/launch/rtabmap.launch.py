@@ -60,29 +60,36 @@ def generate_launch_description():
         "subscribe_odom_info": False,  # EKF / wheel odom
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
+        "Mem/UseOdomFeatures": "false",
+        "Vis/FeatureType": "0",
+        "Kp/DetectorStrategy": "0",
         # 核心：ICP 与 2D 设定
         "Reg/Strategy": "1",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",      # 2D 模式
         "Optimizer/Slam2D": "true",
         
         # ICP 参数微调
-        "Icp/VoxelSize": "0.05",
-        "Icp/MaxCorrespondenceDistance": "0.1",
+        "Icp/CorrespondenceRatio": "0.01",
+        "Icp/VoxelSize": "0.0",
+        "Icp/MaxCorrespondenceDistance": "0.15",
         "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
-        "Icp/Iterations": "30",
+        "Icp/Iterations": "50",
+        "Icp/PointToPlane": "false",
         
         # 地图生成
         "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/FromDepth": "false",
-        "Grid/RayTracing": "false",    # 开启射线追踪以清理地图
+        "Grid/RayTracing": "true",    # 开启射线追踪以清理地图
         "Grid/RangeMax": "4.0",      # 激光有效最远距离
         "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
+        "Grid/3D": "false",  
         
         # 内存与回环检测 (基于激光的扫描匹配回环)
         "RGBD/ProximityBySpace": "true", # 允许在靠近先前位置时通过 ICP 闭环
-        "RGBD/AngularUpdate": "0.05",    # 旋转 0.05 rad 更新一次
-        "RGBD/LinearUpdate": "0.1",      # 移动 0.1 m 更新一次
+        "RGBD/AngularUpdate": "0.1",    # 旋转 0.05 rad 更新一次
+        "RGBD/LinearUpdate": "0.3",      # 移动 0.1 m 更新一次
         "Mem/IncrementalMemory": "true", # False 则为纯定位模式
+        "Mem/GenerateCloud": "false",      # 不生成点云以节省资源
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',

@@ -39,11 +39,11 @@ class FinalExploreNode(Node):
 
         # --- 核心工程参数 ---
         self.SAFE_OFFSET = 0.45       # 安全退避距离：目标点会从边界向自由区回缩 45cm，防止撞墙
-        self.NAV_TIMEOUT = 120.0      # 导航超时：防止局部路径规划死循环
+        self.NAV_TIMEOUT = 60.0      # 导航超时：防止局部路径规划死循环
         self.FINISH_THRESHOLD = 3     # 终止判定：连续 3 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
         self.MAP_SAVE_PATH = "auto_map_result" # 保存的文件名‘’
-        self.MIN_GOAL_DISTANCE = 0.8  # 至少 80cm 远
+        self.MIN_GOAL_DISTANCE = 1.5  # 至少 80cm 远
         
         # --- 状态控制 ---
         self.map_msg = None           # 实时地图缓存
@@ -67,6 +67,14 @@ class FinalExploreNode(Node):
         self.goal_handle = None
         self.result_future = None
         self.nav_status = 'IDLE'  # IDLE / NAVIGATING
+        
+        self.global_costmap = None
+        self.costmap_sub = self.create_subscription(
+            OccupancyGrid,
+            '/global_costmap/costmap',
+            self.costmap_callback,
+            10
+        )
 
     def get_current_pose(self):
         try:
@@ -86,6 +94,10 @@ class FinalExploreNode(Node):
                 return t.transform.translation.x, t.transform.translation.y
             except:
                 return None, None
+
+    def costmap_callback(self, msg):
+        """接收全局代价地图，用于目标点安全性验证"""
+        self.global_costmap = msg
         
     def map_callback(self, msg):
         """地图回调：不断更新本地地图快照"""
@@ -106,6 +118,40 @@ class FinalExploreNode(Node):
         thread = threading.Thread(target=self.exploration_loop)
         thread.daemon = True
         thread.start()
+
+    def _is_costmap_safe(self, wx, wy, safe_threshold=60):
+        """
+        检查世界坐标 (wx, wy) 在全局代价地图中是否安全。
+        :param wx, wy: 世界坐标 (m)
+        :param safe_threshold: cost 阈值，低于此值认为安全（推荐 60～80）
+        :return: bool
+        """
+        if self.global_costmap is None:
+            return False  # 代价地图未加载，保守返回不安全
+
+        ox = self.global_costmap.info.origin.position.x
+        oy = self.global_costmap.info.origin.position.y
+        res = self.global_costmap.info.resolution
+        width = self.global_costmap.info.width
+        height = self.global_costmap.info.height
+
+        # 转换为栅格坐标
+        mx = int((wx - ox) / res)
+        my = int((wy - oy) / res)
+
+        # 边界检查
+        if mx < 0 or mx >= width or my < 0 or my >= height:
+            return False
+
+        index = my * width + mx
+        if index >= len(self.global_costmap.data):
+            return False
+
+        cost = self.global_costmap.data[index]
+        
+        # cost == 0: free, 1～252: 可通行但有代价, 253～255: lethal
+        # 我们要求 cost < safe_threshold 才认为安全
+        return cost < safe_threshold
 
     # ---------------- 核心算法：边界提取与评估 ----------------
 
@@ -162,7 +208,8 @@ class FinalExploreNode(Node):
             if dist < self.MIN_GOAL_DISTANCE:
                 continue 
             
-            score = stats[i, cv2.CC_STAT_AREA] - (dist * 2.2)
+            # score = stats[i, cv2.CC_STAT_AREA] - (dist * 2.2)
+            score = stats[i, cv2.CC_STAT_AREA] * 10 - dist  # 面积权重 ×10
 
             if score > max_score:
                 # --- 安全退避逻辑 (Vector Back-off) ---
@@ -171,6 +218,10 @@ class FinalExploreNode(Node):
                 angle = math.atan2(wy_raw - ry, wx_raw - rx)
                 wx_safe = wx_raw - self.SAFE_OFFSET * math.cos(angle)
                 wy_safe = wy_raw - self.SAFE_OFFSET * math.sin(angle)
+                
+                # ✅ 新增：检查退避后的点是否在 costmap 安全区
+                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=80):
+                    continue  # 跳过这个不安全的目标点
                 
                 max_score = score
                 best_goal = (wx_safe, wy_safe, angle)
@@ -336,7 +387,7 @@ class FinalExploreNode(Node):
         if status != 4:  # STATUS_SUCCEEDED = 4
             self.get_logger().warn('导航失败，加入黑名单')
             self.failed_goals.append(self.current_goal)
-            time.sleep(3.0)
+            # time.sleep(3.0)
         else:
             self.get_logger().info("✅ 导航成功到达目标点")
 
