@@ -46,8 +46,8 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.2
-      movement_time_allowance: 15.0
+      required_movement_radius: 0.1
+      movement_time_allowance: 30.0
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -57,8 +57,8 @@ controller_server:
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance:  0.2
+      xy_goal_tolerance: 0.15
+      yaw_goal_tolerance:  0.15
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 25
@@ -92,7 +92,7 @@ controller_server:
         # The validator can be configured with additional parameters if needed.
         plugin: "mppi::DefaultOptimalTrajectoryValidator"
         collision_lookahead_time: 2.0  # Time to look ahead to check for collisions
-        consider_footprint: false  # Whether to consider the full robot's footprint (or circle) in trajectory validation collision checks
+        consider_footprint: true  # Whether to consider the full robot's footprint (or circle) in trajectory validation collision checks
       AckermannConstraints:
         min_turning_r: 0.2
       critics:
@@ -131,7 +131,7 @@ controller_server:
         cost_weight: 3.81
         near_collision_cost: 253
         critical_cost: 300.0
-        consider_footprint: false
+        consider_footprint: true
         collision_cost: 1000000.0
         near_goal_distance: 1.0
         trajectory_point_step: 2
@@ -168,6 +168,7 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
+      footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       update_frequency: 20.0
       publish_frequency: 2.0
       global_frame: odom
@@ -176,7 +177,7 @@ local_costmap:
       width: 10
       height: 10
       resolution: 0.05
-      robot_radius: 0.13
+      # robot_radius: 0.13
       origin_z: 0.0
       plugins: ["voxel_layer", "inflation_layer"]
       # filters: ["keepout_filter"]
@@ -188,8 +189,8 @@ local_costmap:
       #   lethal_override_cost: 200
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.35
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.18
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: true
@@ -250,6 +251,7 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
+      footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       width: 100
       height: 100
       origin_x: -20.0
@@ -259,7 +261,7 @@ global_costmap:
       publish_frequency: 2.0
       global_frame: map
       robot_base_frame: base_link
-      robot_radius: 0.13
+      # robot_radius: 0.13
       resolution: 0.05
       track_unknown_space: true
       # plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
@@ -305,8 +307,8 @@ global_costmap:
         subscribe_to_updates: true
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.35
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.18
       always_send_full_costmap: true
       introspection_mode: "metadata"
 
@@ -518,9 +520,9 @@ collision_monitor:
       type: "polygon"
       action_type: "approach"
       footprint_topic: "local_costmap/published_footprint"
-      time_before_collision: 1.2
+      time_before_collision: 0.6
       simulation_time_step: 0.1
-      min_points: 6
+      min_points: 4
       visualize: false
       enabled: true
     observation_sources: ["scan"]
