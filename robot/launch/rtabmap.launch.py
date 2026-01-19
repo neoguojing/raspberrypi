@@ -60,47 +60,29 @@ def generate_launch_description():
         "subscribe_odom_info": False,  # EKF / wheel odom
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
-        # 地图参数
-        "Grid/Sensor": "0",  # 0=激光
-        "Grid/FromDepth": "false",
-        "Grid/3D": "false",
-        "Grid/RangeMax": "4.0",
-        "Grid/RayTracing": "true",
-        "Grid/CellSize": "0.05",
-        "Grid/OctoMap": "false",
-
-        # 视觉特征参数
-        "Kp/DetectorStrategy": "2",
-        "Kp/MaxFeatures": "1000",
+        # 核心：ICP 与 2D 设定
+        "Reg/Strategy": "1",          # 0=Visual, 1=ICP, 2=Visual+ICP
+        "Reg/Force3DoF": "true",      # 2D 模式
+        "Optimizer/Slam2D": "true",
         
-        "Vis/EstimationType": "0",
-        "Vis/FeatureType": "2",
-        "Vis/EpipolarGeometryVar": "0.5",
-        "Vis/Iterations": "300",
-        "Vis/MinInliers": "8",
-        "Vis/InlierDistance": "0.1",
-
-        # 闭环策略
-        "Reg/Strategy": "1",  # 1=ICP (激光), 0=Visual
-        "Reg/Force3DoF": "true",
-        "RGBD/OptimizeMaxError": "5.0",
-        "RGBD/NeighborLinkRefining": "true",
-
-        # 内存管理
-        "RGBD/LinearUpdate": "0.1",
-        "RGBD/AngularUpdate": "0.1",
-        "Mem/IncrementalMemory": "true",
-        "Mem/STMSize": "30",
-
-        # 单目尺度恢复
-        "Mem/StereoFromMotion": "true",
-        "Mem/UseOdomFeatures": "true",
-
-        "Icp/VoxelSize": "0.02",
-        "Icp/MaxCorrespondenceDistance": "0.2",
-        "Icp/Iterations": "50",
-        "Optimizer/Strategy": "2",
-        "Odom/ScanVariance": "0.0001"
+        # ICP 参数微调
+        "Icp/VoxelSize": "0.05",
+        "Icp/MaxCorrespondenceDistance": "0.1",
+        "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
+        "Icp/Iterations": "30",
+        
+        # 地图生成
+        "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
+        "Grid/FromDepth": "false",
+        "Grid/RayTracing": "false",    # 开启射线追踪以清理地图
+        "Grid/RangeMax": "4.0",      # 激光有效最远距离
+        "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
+        
+        # 内存与回环检测 (基于激光的扫描匹配回环)
+        "RGBD/ProximityBySpace": "true", # 允许在靠近先前位置时通过 ICP 闭环
+        "RGBD/AngularUpdate": "0.05",    # 旋转 0.05 rad 更新一次
+        "RGBD/LinearUpdate": "0.1",      # 移动 0.1 m 更新一次
+        "Mem/IncrementalMemory": "true", # False 则为纯定位模式
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
