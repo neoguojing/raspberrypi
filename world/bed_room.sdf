@@ -966,13 +966,13 @@
         <visual name='visual'>
           <geometry><box><size>0.1 2.2 2</size></box></geometry>
           <material>
-            <diffuse>1 1 1 1</diffuse>
-            <ambient>1 1 1 1</ambient>
+            <ambient>0.85 0.90 0.95 1</ambient>
+            <diffuse>0.85 0.90 0.95 1</diffuse>
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map></albedo_map>
-                <roughness>0.9</roughness> <metalness>0.0</metalness>
+                <roughness>0.8</roughness>
+                <metalness>0.0</metalness>
               </metal>
             </pbr>
           </material>
@@ -990,13 +990,13 @@
         <visual name='visual'>
           <geometry><box><size>0.1 1.8 2</size></box></geometry>
           <material>
-            <diffuse>1 1 1 1</diffuse>
-            <ambient>1 1 1 1</ambient>
+            <ambient>0.85 0.90 0.95 1</ambient>
+            <diffuse>0.85 0.90 0.95 1</diffuse>
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map></albedo_map>
-                <roughness>0.9</roughness> <metalness>0.0</metalness>
+                <roughness>0.8</roughness>
+                <metalness>0.0</metalness>
               </metal>
             </pbr>
           </material>
@@ -1013,13 +1013,13 @@
             </box>
           </geometry>
           <material>
-            <diffuse>1 1 1 1</diffuse>
-            <ambient>1 1 1 1</ambient>
+            <ambient>0.85 0.90 0.95 1</ambient>
+            <diffuse>0.85 0.90 0.95 1</diffuse>
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map></albedo_map>
-                <roughness>0.9</roughness> <metalness>0.0</metalness>
+                <roughness>0.8</roughness>
+                <metalness>0.0</metalness>
               </metal>
             </pbr>
           </material>
@@ -1061,13 +1061,13 @@
             </box>
           </geometry>
           <material>
-            <diffuse>1 1 1 1</diffuse>
-            <ambient>1 1 1 1</ambient>
+            <ambient>0.85 0.90 0.95 1</ambient>
+            <diffuse>0.85 0.90 0.95 1</diffuse>
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map></albedo_map>
-                <roughness>0.9</roughness> <metalness>0.0</metalness>
+                <roughness>0.8</roughness>
+                <metalness>0.0</metalness>
               </metal>
             </pbr>
           </material>
@@ -1109,13 +1109,13 @@
             </box>
           </geometry>
           <material>
-            <diffuse>1 1 1 1</diffuse>
-            <ambient>1 1 1 1</ambient>
+            <ambient>0.85 0.90 0.95 1</ambient>
+            <diffuse>0.85 0.90 0.95 1</diffuse>
             <specular>0.1 0.1 0.1 1</specular>
             <pbr>
               <metal>
-                <albedo_map></albedo_map>
-                <roughness>0.9</roughness> <metalness>0.0</metalness>
+                <roughness>0.8</roughness>
+                <metalness>0.0</metalness>
               </metal>
             </pbr>
           </material>
