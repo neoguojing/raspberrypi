@@ -5,6 +5,7 @@ from sensor_msgs.msg import LaserScan
 import zenoh
 import json
 import time
+import copy
 
 class ZenohToLaserScan(Node):
     def __init__(self):
@@ -13,14 +14,19 @@ class ZenohToLaserScan(Node):
         # 1. 声明 ROS 2 参数
         self.declare_parameter('zenoh_topic', 'rt/scan')
         self.declare_parameter('ros_topic', '/seg/scan')
+        self.declare_parameter('ros_topic_local', '/seg/scan/local')
+
         self.declare_parameter('frame_id', 'base_footprint')
 
         zenoh_topic = self.get_parameter('zenoh_topic').get_parameter_value().string_value
         ros_topic = self.get_parameter('ros_topic').get_parameter_value().string_value
+        ros_topic_local = self.get_parameter('ros_topic_local').get_parameter_value().string_value
+
         self.target_frame = self.get_parameter('frame_id').get_parameter_value().string_value
 
         # 2. 创建 ROS 2 发布者
         self.publisher_ = self.create_publisher(LaserScan, ros_topic, 10)
+        self.publisher_local = self.create_publisher(LaserScan, ros_topic_local, 10)
 
         # 3. 初始化 Zenoh 会话
         self.get_logger().info(f'🔗 正在连接 Zenoh 并订阅: {zenoh_topic}')
@@ -39,18 +45,25 @@ class ZenohToLaserScan(Node):
         )
 
         self.latest_scan = None
+        self.latest_scan_local = None
+
         # 10Hz
         self.timer = self.create_timer(1.0 / 10.0, self.publish_latest_scan)
 
         self.get_logger().info('✅ Zenoh -> ROS2 LaserScan 桥接节点已启动')
 
     def publish_latest_scan(self):
-        if self.latest_scan is None:
-            return
+        if self.latest_scan :
+                # 用当前 ROS 时间刷新时间戳（很重要）
+            # self.latest_scan.header.stamp = self.get_clock().now().to_msg()
+            self.publisher_.publish(self.latest_scan)
 
-        # 用当前 ROS 时间刷新时间戳（很重要）
-        self.latest_scan.header.stamp = self.get_clock().now().to_msg()
-        self.publisher_.publish(self.latest_scan)
+        if self.latest_scan_local :
+                # 用当前 ROS 时间刷新时间戳（很重要）
+            # self.latest_scan_local.header.stamp = self.get_clock().now().to_msg()
+            self.publisher_local.publish(self.latest_scan_local)
+        
+        
 
     def zenoh_callback(self, sample):
         try:
@@ -79,14 +92,17 @@ class ZenohToLaserScan(Node):
             scan_msg.range_min = float(data['range_min'])
             scan_msg.range_max = float(data['range_max'])
             
+            scan_local = copy.deepcopy(scan_msg)
+
             # 转换 ranges 列表 (处理 JSON 序列化后的数值)
             # scan_msg.ranges = [float(r) for r in data['ranges']]
             scan_msg.ranges = [float(r) if scan_msg.range_max > r else float('inf') for r in data['ranges']]
-            # scan_msg.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max for r in data['ranges']]
+            scan_local.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max-0.01 for r in data['ranges']]
             
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)
             self.latest_scan = scan_msg
+            self.latest_scan_local = scan_local
 
             now = node_clock.now()
             diff = now - t

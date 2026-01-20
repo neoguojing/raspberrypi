@@ -22,6 +22,7 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'zenoh_topic': 'rt/scan',
             'ros_topic': '/seg/scan',
+            'ros_topic_local':'/seg/scan/local',
             'frame_id': 'base_footprint'
         }]
     )
