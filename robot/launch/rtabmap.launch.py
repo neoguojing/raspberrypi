@@ -54,11 +54,12 @@ def generate_launch_description():
 
         # 传感器订阅
         "subscribe_rgb": False,
-        "subscribe_depth": LaunchConfiguration('depth'),
+        "subscribe_depth": False,
         "subscribe_stereo": False,
-        "subscribe_scan": LaunchConfiguration('subscribe_scan'),
+        "subscribe_scan": True,
         "subscribe_odom_info": False,  # EKF / wheel odom
-        "subscribe_imu": LaunchConfiguration('subscribe_imu'),
+        "subscribe_imu": False,
+        "subscribe_scan_cloud": False,
 
         "Mem/UseOdomFeatures": "false",
         "Vis/FeatureType": "0",
