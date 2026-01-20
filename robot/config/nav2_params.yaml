@@ -378,7 +378,7 @@ planner_server:
     introspection_mode: "metadata"
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.15
+      tolerance: 0.3
       use_astar: true #开启A* 快且稳定
       allow_unknown: true
 

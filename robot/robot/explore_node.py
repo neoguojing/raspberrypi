@@ -40,7 +40,7 @@ class FinalExploreNode(Node):
         # --- 核心工程参数 ---
         self.SAFE_OFFSET = 0.45       # 安全退避距离：目标点会从边界向自由区回缩 45cm，防止撞墙
         self.NAV_TIMEOUT = 60.0      # 导航超时：防止局部路径规划死循环
-        self.FINISH_THRESHOLD = 3     # 终止判定：连续 3 次扫描不到有效边界则认为地图已扫完
+        self.FINISH_THRESHOLD = 5     # 终止判定：连续 3 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
         self.MAP_SAVE_PATH = "auto_map_result" # 保存的文件名‘’
         self.MIN_GOAL_DISTANCE = 1.5  # 至少 80cm 远
