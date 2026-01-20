@@ -222,7 +222,7 @@ local_costmap:
         
         observation_sources: scan   # 数据来源：对应下方的 scan 字段
         scan:
-          topic: /seg/scan          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
+          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           max_obstacle_height: 1.2
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
           marking: true             # 如果射线上有击中点，则标记障碍物

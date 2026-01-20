@@ -135,3 +135,38 @@ collision_monitor    /seg/scan, TF(odom->base)       紧急刹车指令 (最高�
 | Global Costmap | 50×50 / track_unknown=true      |
 | Planner        | NavFn + tolerance=0.5           |
 | Controller     | max_vel_x=0.25 / sim_time=1.5   |
+
+## 定位过车
+### TF定位
+ros2 run tf2_ros tf2_monitor
+ros2 topic echo /tf --qos-durability volatile
+ros2 topic echo /tf_static --qos-durability transient_local
+
+ros2 run tf2_tools view_frames
+
+### scan传感器
+ros2 topic hz /seg/scan
+ros2 topic echo /scan --once
+
+### costmap
+ros2 topic hz /local_costmap/costmap
+ros2 topic hz /local_costmap/published_footprint
+ros2 topic echo /rosout | grep costmap
+
+###planner
+ros2 action list | grep Navigate
+ros2 action info /navigate_to_pose
+ros2 topic echo /plan --once
+ros2 topic hz /plan
+ros2 topic echo /rosout | grep planner
+
+### controller
+ros2 topic echo /cmd_vel
+ros2 topic echo /rosout | grep controller
+progress_checker:
+  plugin: "nav2_controller::SimpleProgressChecker"
+  required_movement_radius: 0.01
+  movement_time_allowance: 999.0
+👉 如果关掉后能走
+= 不是传感器问题，是“走得太慢被判死”
+
