@@ -148,10 +148,16 @@ class ZenohSegScan:
                             
                             # scan_ranges[idx] = min(scan_ranges[idx], dist)
                             # 扩散导致障碍太大
-                            for di in (-1, 0, 1):
+                            # for di in (-1, 0, 1):
+                            #     j = idx + di
+                            #     if 0 <= j < self.num_readings:
+                            #         scan_ranges[j] = min(scan_ranges[j], dist)
+                            # 高斯权重，中间可信度高，两边可信度低
+                            weights = [(-1, 0.7), (0, 1.0), (1, 0.7)]
+                            for di, w in weights:
                                 j = idx + di
                                 if 0 <= j < self.num_readings:
-                                    scan_ranges[j] = min(scan_ranges[j], dist)
+                                    scan_ranges[j] = min(scan_ranges[j], dist / w)
                             valid_points += 1
 
                 # 5. 条件发布
@@ -270,8 +276,8 @@ class ZenohSegScan:
             "range_max": self.range_max
         }
 
-        if np.any(np.isfinite(ranges)):
-            print(f"📡 发布有效json {ranges_list}")
+        # if np.any(np.isfinite(ranges)):
+        print(f"📡 发布有效json {ranges_list}")
         payload = json.dumps(msg).encode("utf-8")
         self.pub.put(payload=payload,
                         encoding="application/json")
