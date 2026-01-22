@@ -156,20 +156,8 @@ class FinalExploreNode(Node):
     # ---------------- 核心算法：边界提取与评估 ----------------
     def get_best_frontier(self):
         """
-        从当前 OccupancyGrid 中提取 frontier（已知自由区与未知区的交界），
-        对每个 frontier 连通块进行评分，选取最优目标点。
-
-        坐标系说明（非常重要）：
-        - OccupancyGrid：
-            * origin 在【左下角】
-            * (0,0) 为左下
-            * y 轴向上
-        - OpenCV 图像：
-            * (0,0) 在【左上角】
-            * y 轴向下
-        - 因此：cy -> world y 时必须做 (h - cy - 1) 翻转
+        改进版：引入动态退避与最小距离校验，解决小车原地不动的问题。
         """
-
         msg = self.map_msg
         if msg is None:
             self.get_logger().warn("get_best_frontier(): map_msg is None")
@@ -180,127 +168,85 @@ class FinalExploreNode(Node):
         res = msg.info.resolution
         ox, oy = msg.info.origin.position.x, msg.info.origin.position.y
 
-        # 获取机器人当前位姿（map -> base_link）
+        # 获取机器人当前位姿
         rx, ry = self.get_current_pose()
         if rx is None:
-            self.get_logger().warn("get_best_frontier(): robot pose unavailable (TF lookup failed)")
+            self.get_logger().warn("get_best_frontier(): robot pose unavailable")
             return None
 
-        # OccupancyGrid -> numpy
-        # data_np[y, x]，y=0 对应地图底部
+        # OccupancyGrid -> numpy 转换与图像处理
         data_np = np.array(msg.data).reshape((h, w))
-
-        # 构造 OpenCV 灰度图：
-        #   255 : free
-        #   127 : unknown
-        #   0   : occupied
         img = np.full((h, w), 127, dtype=np.uint8)
         img[data_np == 0] = 255
         img[data_np > 0] = 0
 
-        # 提取 free / unknown 区域
         free_mask = cv2.inRange(img, 250, 255)
         unknown_mask = cv2.inRange(img, 120, 135)
 
-        # 对 free 区域做膨胀，找“贴近 unknown 的 free”
-        dilated_free = cv2.dilate(
-            free_mask,
-            np.ones((3, 3), np.uint8),
-            iterations=1
-        )
+        dilated_free = cv2.dilate(free_mask, np.ones((3, 3), np.uint8), iterations=1)
         frontier_mask = cv2.bitwise_and(dilated_free, unknown_mask)
 
-        # 连通域分析：每个连通块代表一片 frontier
+        # 连通域分析
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frontier_mask)
 
         best_goal = None
         max_score = -float('inf')
-
-        # 最小 frontier 面积（像素）
-        # 与地图分辨率挂钩，约等于 0.2 平方米
         min_area_pixels = max(10, int(0.2 / res))
 
-        self.get_logger().info(
-            f"Frontier scan start | labels={num_labels} | "
-            f"map size=({w}x{h}) | res={res:.3f} | "
-            f"origin=({ox:.2f},{oy:.2f}) | robot=({rx:.2f},{ry:.2f})"
-        )
+        self.get_logger().info(f"🔍 扫描边界块数量: {num_labels-1}")
 
         for i in range(1, num_labels):
             area = stats[i, cv2.CC_STAT_AREA]
             if area < min_area_pixels:
-                # 面积过小，视为噪声
-                self.get_logger().debug(
-                    f"[Frontier {i}] skipped: area too small ({area} < {min_area_pixels})"
-                )
                 continue
 
-            # OpenCV centroid（像素坐标，左上角原点）
             cx, cy = centroids[i]
-
-            # 像素 -> 世界坐标
-            # 注意：cy 必须翻转为 OccupancyGrid 的左下角坐标系
             wx_raw = cx * res + ox
             wy_raw = (h - cy - 1) * res + oy
 
-            # 机器人到该 frontier 的距离
-            dist = math.hypot(wx_raw - rx, wy_raw - ry)
+            # 1. 计算原始距离
+            dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)
 
-            # 黑名单过滤
+            # 2. 黑名单过滤
             if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.7 for fx, fy in self.failed_goals):
-                self.get_logger().debug(
-                    f"[Frontier {i}] skipped: near failed goal | "
-                    f"world=({wx_raw:.2f},{wy_raw:.2f})"
-                )
                 continue
 
-            # 距离过滤（过近的小 frontier）
-            if dist < self.MIN_GOAL_DISTANCE and area < (min_area_pixels * 3):
-                self.get_logger().debug(
-                    f"[Frontier {i}] skipped: too close | "
-                    f"dist={dist:.2f} < {self.MIN_GOAL_DISTANCE:.2f}, area={area}"
-                )
-                continue
-
-            # 评分函数：面积优先，距离惩罚
-            score = area * 2.0 - dist * 1.5
-
-            self.get_logger().debug(
-                f"[Frontier {i}] candidate | "
-                f"area={area}, dist={dist:.2f}, score={score:.2f} | "
-                f"world=({wx_raw:.2f},{wy_raw:.2f})"
-            )
+            # 3. 评分函数：面积优先，距离惩罚
+            score = area * 2.0 - dist_to_robot * 1.5
 
             if score > max_score:
-                # 计算从 frontier 向机器人方向的安全回退点
                 angle = math.atan2(wy_raw - ry, wx_raw - rx)
-                wx_safe = wx_raw - self.SAFE_OFFSET * math.cos(angle)
-                wy_safe = wy_raw - self.SAFE_OFFSET * math.sin(angle)
 
-                # 使用 global costmap 校验安全性
-                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=100):
-                    self.get_logger().debug(
-                        f"[Frontier {i}] rejected by costmap | "
-                        f"safe=({wx_safe:.2f},{wy_safe:.2f})"
-                    )
+                # --- 核心改进：动态退避逻辑 ---
+                # 如果点很近，退避距离不能超过原始距离的一半
+                dynamic_offset = min(self.SAFE_OFFSET, dist_to_robot * 0.4)
+                
+                wx_safe = wx_raw - dynamic_offset * math.cos(angle)
+                wy_safe = wy_raw - dynamic_offset * math.sin(angle)
+
+                # --- 核心改进：防止“原地完成” ---
+                # 如果计算出的安全目标点离机器人太近（小于0.5m），Nav2 会直接认为到达
+                # 我们跳过太近的点，强制机器人寻找更有意义的远端目标
+                dist_safe = math.hypot(wx_safe - rx, wy_safe - ry)
+                if dist_safe < 0.5:
+                    self.get_logger().debug(f"跳过过近目标: dist={dist_safe:.2f}m")
+                    continue
+
+                # 4. 代价地图安全性校验
+                # 将阈值从 100 调低到 80，稍微严格一点防止蹭墙
+                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=80):
+                    self.get_logger().debug(f"点 ({wx_safe:.2f}, {wy_safe:.2f}) 代价过高，放弃")
                     continue
 
                 max_score = score
                 best_goal = (wx_safe, wy_safe, angle)
 
-                self.get_logger().info(
-                    f"[Frontier {i}] NEW BEST | "
-                    f"score={score:.2f} | "
-                    f"raw=({wx_raw:.2f},{wy_raw:.2f}) -> "
-                    f"safe=({wx_safe:.2f},{wy_safe:.2f})"
-                )
+        if best_goal:
+            self.get_logger().info(f"🎯 选定目标: {best_goal[0]:.2f}, {best_goal[1]:.2f} (得分: {max_score:.2f})")
+        else:
+            self.get_logger().warn("⚠️ 本轮未找到符合安全条件的有效边界")
 
-        self.get_logger().info(
-            f"Frontier scan done | best_goal={best_goal} | max_score={max_score:.2f}"
-        )
-        
         return best_goal
-
     # ---------------- 任务执行逻辑 ----------------
     def save_current_map(self):
         self.get_logger().info(f"正在保存地图...")
@@ -336,83 +282,116 @@ class FinalExploreNode(Node):
         return True
 
     def exploration_loop(self):
-        """探索主线程状态机"""
+        """
+        改进后的探索主线程状态机：
+        1. 强化结束判定：必须【找不到点】且【比例达标】才退出。
+        2. 引入自救逻辑：找不到点但比例不达标时，清空黑名单重试。
+        3. 状态监控：实时打印进度。
+        """
         
-        # 预热：等待定位数据（TF map -> base_link）生效
+        # --- 预热阶段 ---
+        self.get_logger().info("等待系统预热：正在同步定位与导航服务...")
         while rclpy.ok():
             rx, ry = self.get_current_pose()
             if rx is not None and self.wait_for_nav2_ready():
                 break
-            self.get_logger().info("等待机器人定位 / Nav2 就绪...")
             time.sleep(1.0)
+
+        self.get_logger().info("🚀 探索正式开始！")
 
         while rclpy.ok():
             # 获取地图统计数据
             unknown_ratio, known_count = self.get_unknown_ratio()
-            self.get_logger().info(f"当前地图未知区域占比: {unknown_ratio:.2%},{known_count} 已知像素点")
-            if known_count < 500: 
-                self.get_logger().warn(f"SLAM 未初始化或地图太小 (已知像素: {known_count})，等待中...", once=True)
-                time.sleep(1.0)
-                continue
-            if self.nav_status == 'IDLE':
-                # 1. 计算当前最优边界点
-                target = self.get_best_frontier()
-                if target:
-                    self.no_frontier_count = 0 # 重置结束计数器
-                    wx, wy, yaw = target
-                    # 发送目标位姿
-                    self.send_nav_goal(self._make_pose(wx, wy, yaw))
-                    self.nav_start_time = time.time()
-                    self.current_goal = (wx, wy)
-                    self.get_logger().info(f"✅ 新目标点确定: ({wx:.2f}, {wy:.2f}) | 机器人位置: ({rx:.2f}, {ry:.2f})")
-                else:
-                    # 双重判定：
-                    # 1. 找不到显著边界
-                    # 2. 或者未知区域已经非常少（例如仅剩 3%）
-                    if target is None or unknown_ratio < self.UNKNOWN_THRESHOLD:
-                        self.no_frontier_count += 1
-                        if self.no_frontier_count >= self.FINISH_THRESHOLD:
-                            self.get_logger().info("判定依据：未知区域比例达标或边界消失。")
-                            break
-                    time.sleep(2.0)
-                    continue
-
-            # 2. 监控当前导航任务
-            if self.nav_status == 'IDLE':
-                time.sleep(1.0) # 冷却防止频繁计算
-                
-            # 3. 超时强制处理
-            elif self.goal_handle and (time.time() - self.nav_start_time) > self.NAV_TIMEOUT:
-                self.get_logger().warning(f"⏰ 导航超时 ({self.NAV_TIMEOUT}s) - 目标点: ({self.current_goal[0]:.2f}, {self.current_goal[1]:.2f})")
-                self.goal_handle.cancel_goal_async()
-                with self.nav_lock:
-                    self.nav_status = 'IDLE'
-                self.failed_goals.append(self.current_goal)
+            progress = 1.0 - unknown_ratio
             
+            # 每隔一段时间打印一次进度
+            self.get_logger().info(f"📊 探索进度: {progress:.2%} | 已知像素: {known_count}")
+
+            # 1. 如果当前没有导航任务，尝试寻找新目标
+            if self.nav_status == 'IDLE':
+                target = self.get_best_frontier()
+                
+                if target:
+                    # 发现有效目标点
+                    self.no_frontier_count = 0 
+                    wx, wy, yaw = target
+                    self.current_goal = (wx, wy)
+                    self.send_nav_goal(self._make_pose(wx, wy, yaw))
+                    self.get_logger().info(f"📍 前往新边界: ({wx:.2f}, {wy:.2f})")
+                    time.sleep(1.0) # 给状态更新留一点时间
+                
+                else:
+                    # --- 关键：判定是否真的结束 ---
+                    if unknown_ratio < self.UNKNOWN_THRESHOLD:
+                        # 情况 A：地图已经扫得差不多了
+                        self.no_frontier_count += 1
+                        self.get_logger().info(f"🧐 未发现新边界，进度已达标 ({progress:.2%})，确认中 {self.no_frontier_count}/{self.FINISH_THRESHOLD}")
+                        
+                        if self.no_frontier_count >= self.FINISH_THRESHOLD:
+                            self.get_logger().info("✅ 地图探索完整，准备保存并回航！")
+                            break
+                    else:
+                        # 情况 B：地图没扫完但没点可去了（被黑名单过滤或路径不通）
+                        self.get_logger().warn("⚠️ 进度不达标但暂无有效路径！执行自救逻辑...")
+                        
+                        # 自救动作 1：清空黑名单，给之前失败的点一个重试的机会
+                        if len(self.failed_goals) > 0:
+                            self.get_logger().info("🧹 清空黑名单，准备重新扫描不可达区域...")
+                            self.failed_goals.clear()
+                        
+                        # 自救动作 2：原地等待，或者你可以在这里调用 Nav2 的 Spin 行为
+                        # 此处通过增加等待时间让 SLAM 更新更多细节
+                        time.sleep(3.0) 
+                        continue
+
+            # 2. 如果正在导航中，检查超时
+            elif self.nav_status == 'NAVIGATING':
+                elapsed_time = time.time() - self.nav_start_time
+                if elapsed_time > self.NAV_TIMEOUT:
+                    self.get_logger().warning(f"⏰ 导航超时 ({self.NAV_TIMEOUT}s)，放弃当前点。")
+                    if self.goal_handle:
+                        self.goal_handle.cancel_goal_async()
+                    
+                    with self.nav_lock:
+                        self.nav_status = 'IDLE'
+                    self.failed_goals.append(self.current_goal)
+
+            # 循环频率控制
             time.sleep(0.5)
 
-        # --- 探索结束后的收尾工作 ---
+        # --- 任务收尾 ---
+        self.get_logger().info("🏁 正在执行收尾流程...")
         
-        # 第一步：保存当前地图
-        self.save_current_map()
-        
-        # 第二步：回到机器人起始坐标点 (0,0)
-        self.get_logger().info("探索完成，正在指令机器人回到起始点...")
-        self.send_nav_goal(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
-        
-        # 等待回航结束
-        while rclpy.ok() and self.nav_status != 'IDLE':
-            time.sleep(1.0)
-        
-        self.get_logger().info("任务结束：地图已保存，机器人已停稳。")
+        # 保存地图
+        try:
+            self.save_current_map()
+        except Exception as e:
+            self.get_logger().error(f"地图保存失败: {e}")
 
+        # 回航
+        if hasattr(self, 'start_pose_x'):
+            self.get_logger().info(f"🏠 正在回到起点: ({self.start_pose_x:.2f}, {self.start_pose_y:.2f})")
+            self.send_nav_goal(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
+            
+            # 等待机器人到家
+            while rclpy.ok():
+                if self.nav_status == 'IDLE':
+                    break
+                time.sleep(1.0)
+
+        self.get_logger().info("🎮 任务全部完成，节点准备退出。")
     def get_unknown_ratio(self):
-        """计算未知区域占比"""
         data = np.array(self.map_msg.data)
-        # 只统计有效范围内的点（忽略地图边缘可能存在的巨大空白区，如果需要）
+        # 过滤掉地图中从未被射线扫到过的纯空白区域（可选）
+        # 或者只统计以机器人为中心 20x20 米范围内的比例
         unknown = np.count_nonzero(data == -1)
-        known = np.count_nonzero(data != -1)
-        if (unknown + known) == 0: return 1.0
+        free = np.count_nonzero(data == 0)
+        occupied = np.count_nonzero(data > 0)
+        
+        known = free + occupied
+        if known == 0: return 1.0, 0
+        
+        # 返回 未知 / (未知 + 已知)
         return unknown / (unknown + known), known
 
     def _make_pose(self, x, y, yaw):

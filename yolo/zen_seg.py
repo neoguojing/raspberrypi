@@ -30,10 +30,10 @@ class ZenohSegScan:
         self.angle_max = 1.0
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
-        self.range_min = 0.0
+        self.range_min = 0.15
         self.range_max = 4.0
-        # 保存上一次定位的障碍
-        self.last_scan_ranges = np.full(self.num_readings, float('inf'))
+        # 物理模拟：假设激光光斑有 1.5 倍角分辨率的宽度，产生重叠
+        self.beam_overlap_indices = 2
 
         # 加载相机内参
         self.load_sensor_config(config_path)
@@ -68,6 +68,7 @@ class ZenohSegScan:
         
         self.latest_sample = None
         self.sample_lock = threading.Lock()
+        self.last_valid_scan = np.full(self.num_readings, self.range_max)
         
         # 启动一个独立的处理线程
         self.process_thread = threading.Thread(target=self.processing_loop, daemon=True)
@@ -114,6 +115,13 @@ class ZenohSegScan:
                 if frame is None:
                     print("⚠ 无法解码图像")
                     continue
+                
+                if self.frame_count % self.skip_n != 0:
+                    # 关键：即使不推理，也要发布 scan，保持 RTAB-MAP 心跳
+                    if self.last_valid_scan is not None:
+                        self.publish_as_json(self.last_valid_scan, stamp)
+                    continue
+                
                 # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
                 scan_ranges = np.full(self.num_readings, float('inf'))
                 # 2. 推理检测
@@ -148,19 +156,20 @@ class ZenohSegScan:
                             
                             # scan_ranges[idx] = min(scan_ranges[idx], dist)
                             # 扩散导致障碍太大
-                            # for di in (-1, 0, 1):
-                            #     j = idx + di
-                            #     if 0 <= j < self.num_readings:
-                            #         scan_ranges[j] = min(scan_ranges[j], dist)
-                            # 高斯权重，中间可信度高，两边可信度低
-                            weights = [(-1, 0.7), (0, 1.0), (1, 0.7)]
-                            for di, w in weights:
+                            for di in (-1, 0, 1):
                                 j = idx + di
                                 if 0 <= j < self.num_readings:
-                                    scan_ranges[j] = min(scan_ranges[j], dist / w)
+                                    scan_ranges[j] = min(scan_ranges[j], dist)
+                            # 高斯权重，中间可信度高，两边可信度低
+                            # weights = [(-1, 0.7), (0, 1.0), (1, 0.7)]
+                            # for di, w in weights:
+                            #     j = idx + di
+                            #     if 0 <= j < self.num_readings:
+                            #         scan_ranges[j] = min(scan_ranges[j], dist / w)
                             valid_points += 1
 
                 # 5. 条件发布
+                self.last_valid_scan = scan_ranges.copy()
                 self.publish_as_json(scan_ranges, stamp)
                 
             except Exception as e:
