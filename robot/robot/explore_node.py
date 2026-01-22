@@ -43,7 +43,7 @@ class FinalExploreNode(Node):
         self.FINISH_THRESHOLD = 5     # 终止判定：连续 3 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
         self.MAP_SAVE_PATH = "auto_map_result" # 保存的文件名‘’
-        self.MIN_GOAL_DISTANCE = 1.5  # 至少 80cm 远
+        self.MIN_GOAL_DISTANCE = 0.8  # 至少 80cm 远
         
         # --- 状态控制 ---
         self.map_msg = None           # 实时地图缓存
@@ -154,77 +154,150 @@ class FinalExploreNode(Node):
         return cost < safe_threshold
 
     # ---------------- 核心算法：边界提取与评估 ----------------
-
     def get_best_frontier(self):
         """
-        核心算法：
-        1. 像素分析提取自由区与未知区的交界
-        2. 将像素坐标精准映射到物理坐标（修复 Y 轴翻转）
-        3. 评分筛选出最优目标
+        从当前 OccupancyGrid 中提取 frontier（已知自由区与未知区的交界），
+        对每个 frontier 连通块进行评分，选取最优目标点。
+
+        坐标系说明（非常重要）：
+        - OccupancyGrid：
+            * origin 在【左下角】
+            * (0,0) 为左下
+            * y 轴向上
+        - OpenCV 图像：
+            * (0,0) 在【左上角】
+            * y 轴向下
+        - 因此：cy -> world y 时必须做 (h - cy - 1) 翻转
         """
+
         msg = self.map_msg
+        if msg is None:
+            self.get_logger().warn("get_best_frontier(): map_msg is None")
+            return None
+
+        # 地图基本参数
         w, h = msg.info.width, msg.info.height
         res = msg.info.resolution
         ox, oy = msg.info.origin.position.x, msg.info.origin.position.y
-        
-        # 获取机器人实时位置用于计算距离得分
-        rx, ry = self.get_current_pose()
-        if rx is None: return None
 
-        # 将栅格地图转换为 OpenCV 格式 (0:障碍, 127:未知, 255:自由)
+        # 获取机器人当前位姿（map -> base_link）
+        rx, ry = self.get_current_pose()
+        if rx is None:
+            self.get_logger().warn("get_best_frontier(): robot pose unavailable (TF lookup failed)")
+            return None
+
+        # OccupancyGrid -> numpy
+        # data_np[y, x]，y=0 对应地图底部
         data_np = np.array(msg.data).reshape((h, w))
+
+        # 构造 OpenCV 灰度图：
+        #   255 : free
+        #   127 : unknown
+        #   0   : occupied
         img = np.full((h, w), 127, dtype=np.uint8)
         img[data_np == 0] = 255
         img[data_np > 0] = 0
 
-        # 图像处理提取边界线：寻找自由区边缘且紧邻未知区的点
+        # 提取 free / unknown 区域
         free_mask = cv2.inRange(img, 250, 255)
         unknown_mask = cv2.inRange(img, 120, 135)
-        dilated_free = cv2.dilate(free_mask, np.ones((3,3), np.uint8), iterations=1)
+
+        # 对 free 区域做膨胀，找“贴近 unknown 的 free”
+        dilated_free = cv2.dilate(
+            free_mask,
+            np.ones((3, 3), np.uint8),
+            iterations=1
+        )
         frontier_mask = cv2.bitwise_and(dilated_free, unknown_mask)
 
-        # 连通域聚类：将离散的边界点聚集为块，并计算其中心点
+        # 连通域分析：每个连通块代表一片 frontier
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frontier_mask)
+
         best_goal = None
         max_score = -float('inf')
 
+        # 最小 frontier 面积（像素）
+        # 与地图分辨率挂钩，约等于 0.2 平方米
+        min_area_pixels = max(10, int(0.2 / res))
+
+        self.get_logger().info(
+            f"Frontier scan start | labels={num_labels} | "
+            f"map size=({w}x{h}) | res={res:.3f} | "
+            f"origin=({ox:.2f},{oy:.2f}) | robot=({rx:.2f},{ry:.2f})"
+        )
+
         for i in range(1, num_labels):
-            if stats[i, cv2.CC_STAT_AREA] < 10: continue # 忽略面积过小的噪点边界
-            
+            area = stats[i, cv2.CC_STAT_AREA]
+            if area < min_area_pixels:
+                # 面积过小，视为噪声
+                self.get_logger().debug(
+                    f"[Frontier {i}] skipped: area too small ({area} < {min_area_pixels})"
+                )
+                continue
+
+            # OpenCV centroid（像素坐标，左上角原点）
             cx, cy = centroids[i]
-            
-            # --- 重要：坐标系转换修复 ---
-            # 物理世界 X = 像素 X * 分辨率 + 原点 X
-            # 物理世界 Y = (图像高 - 像素 Y - 1) * 分辨率 + 原点 Y (修复镜像问题)
+
+            # 像素 -> 世界坐标
+            # 注意：cy 必须翻转为 OccupancyGrid 的左下角坐标系
             wx_raw = cx * res + ox
             wy_raw = (h - cy - 1) * res + oy
 
-            # 黑名单过滤：如果该点距离之前的失败点太近，则跳过
-            if any(math.dist((wx_raw, wy_raw), f) < 0.7 for f in self.failed_goals):
+            # 机器人到该 frontier 的距离
+            dist = math.hypot(wx_raw - rx, wy_raw - ry)
+
+            # 黑名单过滤
+            if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.7 for fx, fy in self.failed_goals):
+                self.get_logger().debug(
+                    f"[Frontier {i}] skipped: near failed goal | "
+                    f"world=({wx_raw:.2f},{wy_raw:.2f})"
+                )
                 continue
 
-            # 评分公式：Utility = 边界面积 - 距离权重 * 机器人到该点的距离
-            dist = math.sqrt((wx_raw - rx)**2 + (wy_raw - ry)**2)
-            if dist < self.MIN_GOAL_DISTANCE:
-                continue 
-            
-            # score = stats[i, cv2.CC_STAT_AREA] - (dist * 2.2)
-            score = stats[i, cv2.CC_STAT_AREA] * 10 - dist  # 面积权重 ×10
+            # 距离过滤（过近的小 frontier）
+            if dist < self.MIN_GOAL_DISTANCE and area < (min_area_pixels * 3):
+                self.get_logger().debug(
+                    f"[Frontier {i}] skipped: too close | "
+                    f"dist={dist:.2f} < {self.MIN_GOAL_DISTANCE:.2f}, area={area}"
+                )
+                continue
+
+            # 评分函数：面积优先，距离惩罚
+            score = area * 2.0 - dist * 1.5
+
+            self.get_logger().debug(
+                f"[Frontier {i}] candidate | "
+                f"area={area}, dist={dist:.2f}, score={score:.2f} | "
+                f"world=({wx_raw:.2f},{wy_raw:.2f})"
+            )
 
             if score > max_score:
-                # --- 安全退避逻辑 (Vector Back-off) ---
-                # 为了防止导航目标点刚好落在未知区或墙上，我们计算机器人到边界的向量
-                # 将目标点沿着这个向量向机器人方向回缩一段距离，确保目标在“已探测到的安全区”
+                # 计算从 frontier 向机器人方向的安全回退点
                 angle = math.atan2(wy_raw - ry, wx_raw - rx)
                 wx_safe = wx_raw - self.SAFE_OFFSET * math.cos(angle)
                 wy_safe = wy_raw - self.SAFE_OFFSET * math.sin(angle)
-                
-                # ✅ 新增：检查退避后的点是否在 costmap 安全区
-                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=80):
-                    continue  # 跳过这个不安全的目标点
-                
+
+                # 使用 global costmap 校验安全性
+                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=100):
+                    self.get_logger().debug(
+                        f"[Frontier {i}] rejected by costmap | "
+                        f"safe=({wx_safe:.2f},{wy_safe:.2f})"
+                    )
+                    continue
+
                 max_score = score
                 best_goal = (wx_safe, wy_safe, angle)
+
+                self.get_logger().info(
+                    f"[Frontier {i}] NEW BEST | "
+                    f"score={score:.2f} | "
+                    f"raw=({wx_raw:.2f},{wy_raw:.2f}) -> "
+                    f"safe=({wx_safe:.2f},{wy_safe:.2f})"
+                )
+
+        self.get_logger().info(
+            f"Frontier scan done | best_goal={best_goal} | max_score={max_score:.2f}"
+        )
         
         return best_goal
 
