@@ -206,7 +206,7 @@ local_costmap:
       # --- 膨胀层：为障碍物边缘增加缓冲区，防止机器人“擦边” ---
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
+        cost_scaling_factor: 8.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
         inflation_radius: 0.18      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
 
       # --- 体素层：处理 3D 障碍物（即使只有 2D 雷达也推荐，用于管理高度信息） ---
@@ -280,7 +280,9 @@ global_costmap:
       track_unknown_space: true # 是否追踪未知区域（在探索时非常重要）
 
       # 插件配置：静态地图层 + 膨胀层
-      plugins: ["static_layer", "inflation_layer"]
+      # plugins: ["static_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -313,7 +315,7 @@ global_costmap:
       # --- 膨胀层：全局规划需要更大的余量，确保生成的路径远离墙壁 ---
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
+        cost_scaling_factor: 8.0
         inflation_radius: 0.18
 
       always_send_full_costmap: true # 每次都发送完整地图而非增量，虽然耗带宽但更稳定

@@ -30,7 +30,7 @@ class ZenohSegScan:
         self.angle_max = 1.0
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
-        self.range_min = 0.15
+        self.range_min = 0.1
         self.range_max = 4.0
         # 物理模拟：假设激光光斑有 1.5 倍角分辨率的宽度，产生重叠
         self.beam_overlap_indices = 2
@@ -69,6 +69,7 @@ class ZenohSegScan:
         self.latest_sample = None
         self.sample_lock = threading.Lock()
         self.last_valid_scan = np.full(self.num_readings, self.range_max)
+        self.scan_alpha = 0.2
         
         # 启动一个独立的处理线程
         self.process_thread = threading.Thread(target=self.processing_loop, daemon=True)
@@ -139,10 +140,12 @@ class ZenohSegScan:
                     # 过滤掉无法投影到地面的 NaN 点
                     valid_mask = ~np.isnan(xyz_points[:, 0])
                     valid_xyz = xyz_points[valid_mask]
-                    if len(valid_xyz) > 0:                   
+                    if len(valid_xyz) > 0:
+                        valid_xyz = self.check_and_refine_by_angle(valid_xyz)                   
                         for x, y in valid_xyz:
                             # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
-                            dist = math.hypot(x, y)
+                            # dist = math.hypot(x, y)
+                            dist = round(math.hypot(x, y) / 0.02) * 0.02
                             if dist < self.range_min or dist > self.range_max:
                                 continue
                             
@@ -160,14 +163,24 @@ class ZenohSegScan:
                                 j = idx + di
                                 if 0 <= j < self.num_readings:
                                     scan_ranges[j] = min(scan_ranges[j], dist)
-                            # 高斯权重，中间可信度高，两边可信度低
-                            # weights = [(-1, 0.7), (0, 1.0), (1, 0.7)]
-                            # for di, w in weights:
-                            #     j = idx + di
-                            #     if 0 <= j < self.num_readings:
-                            #         scan_ranges[j] = min(scan_ranges[j], dist / w)
+                                
+                                    
                             valid_points += 1
 
+                if self.last_valid_scan is not None:
+                    # 1. 识别两帧都有效的区域（非 inf 且在量程内）
+                    # 注意：如果你的 scan_ranges 初始化为 float('inf')，判断有效性用 isfinite
+                    current_valid = np.isfinite(scan_ranges)
+                    previous_valid = np.isfinite(self.last_valid_scan)
+                    
+                    # 只有两帧都有效的点才做平滑，防止把“新出现的障碍物”拉出拖影
+                    blend_mask = current_valid & previous_valid
+                    
+                    # 应用指数移动平均 (EMA)
+                    # self.scan_alpha 建议设为 0.2 ~ 0.3
+                    scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
+                                              (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
+                    
                 # 5. 条件发布
                 self.last_valid_scan = scan_ranges.copy()
                 self.publish_as_json(scan_ranges, stamp)
@@ -367,6 +380,9 @@ class ZenohSegScan:
         if len(uv_points) == 0:
             return np.empty((0, 2))
 
+        # --- 优化1：ROI过滤 (只看图像高度 85% 以上的部分，防止车头干扰) ---
+        uv_points = np.atleast_2d(uv_points)
+        mask_roi = uv_points[:, 1] < (self.height * 0.85)
         # --- 1. 批量消除畸变与归一化 ---
         # uv_points shape: [N, 2] -> reshape 为 cv2 要求的 [N, 1, 2]
         pts = np.array(uv_points, dtype=np.float32).reshape(-1, 1, 2)
@@ -392,7 +408,8 @@ class ZenohSegScan:
 
         # --- 4. 射线与地面求交 ---
         # 物理约束过滤：只保留射向地面的点 (rb_z < -1e-6)
-        valid_mask = rb_z < -1e-6
+        # valid_mask = rb_z < -1e-6
+        valid_mask = (rb_z < -0.01) & mask_roi
         
         # 初始化结果矩阵
         num_pts = len(uv_points)
@@ -408,10 +425,89 @@ class ZenohSegScan:
         X = t * rb_x[valid_mask] + self.camera_x_offset
         Y = t * rb_y[valid_mask]
         
-        results[valid_mask] = np.column_stack([X, Y])
+        # --- 优化3：物理距离二次过滤 (过滤掉 0.2m 以内的抖动点) ---
+        dist_sq = X**2 + Y**2
+        phys_mask = dist_sq > (0.2 ** 2)
         
+        # 定义最终能够写入 results 的布尔掩码（长度为 num_pts）
+        valid_and_far = np.zeros(num_pts, dtype=bool)
+        valid_and_far[valid_mask] = phys_mask 
+
+        # 【关键修正】：使用 phys_mask 提取 X 和 Y 中真正有效的元素
+        results[valid_and_far] = np.column_stack([X[phys_mask], Y[phys_mask]])
+
         return results
     
+    def refine_wall_points(self, points_xyz):
+        """
+        利用直线拟合修正沿着墙方向的透视偏移
+        """
+        # 如果点太少，无法拟合直线，直接返回原数据
+        if len(points_xyz) < 10: 
+            return points_xyz
+        
+        try:
+            # 1. 使用 cv2.fitLine 进行直线拟合 (最小二乘法)
+            # 返回 [vx, vy, x0, y0]，其中 (vx, vy) 是方向向量，(x0, y0) 是直线上的一点
+            # 这里的 points_xyz 需要是 float32 类型
+            data = points_xyz[:, :2].astype(np.float32)
+            [vx, vy, x0, y0] = cv2.fitLine(data, cv2.DIST_L2, 0, 0.01, 0.01)
+            
+            # 2. 几何投影：将原始散点投影到拟合出的直线上
+            # 公式：P_new = P_anchor + <P_orig - P_anchor, V_dir> * V_dir
+            refined_points = []
+            vx, vy, x0, y0 = float(vx), float(vy), float(x0), float(y0)
+            
+            for x, y in data:
+                # 计算向量 (x-x0, y-y0) 在方向向量 (vx, vy) 上的投影长度
+                dot_product = (x - x0) * vx + (y - y0) * vy
+                # 得到直线上的新点
+                new_x = x0 + dot_product * vx
+                new_y = y0 + dot_product * vy
+                refined_points.append([new_x, new_y])
+                
+            return np.array(refined_points)
+        except Exception as e:
+            print(f"直线拟合失败: {e}")
+            return points_xyz
+        
+    def check_and_refine_by_angle(self, points_xyz):
+        """
+        基于观测几何角度决定是否执行拟合
+        """
+        if len(points_xyz) < 15:
+            return points_xyz
+
+        try:
+            # 1. 粗略拟合，获取墙的方向向量 (vx, vy)
+            data = points_xyz[:, :2].astype(np.float32)
+            [vx, vy, x0, y0] = cv2.fitLine(data, cv2.DIST_L2, 0, 0.01, 0.01)
+            wall_vec = np.array([vx[0], vy[0]])
+
+            # 2. 计算观测向量 (从原点到点云中心)
+            center_x = np.mean(data[:, 0])
+            center_y = np.mean(data[:, 1])
+            view_vec = np.array([center_x, center_y])
+            
+            # 归一化向量
+            wall_vec /= np.linalg.norm(wall_vec)
+            view_vec /= np.linalg.norm(view_vec)
+
+            # 3. 计算夹角余弦值 (取绝对值，因为方向向量是双向的)
+            cos_theta = abs(np.dot(wall_vec, view_vec))
+            
+            # 4. 判定逻辑
+            # cos_theta > 0.866 意味着夹角小于 30 度 (属于掠射角/小夹角)
+            if cos_theta > 0.85:
+                # print(f"📐 检测到小夹角 ({cos_theta:.2f})，启动强力 RANSAC 纠偏")
+                return self.refine_wall_points(points_xyz) 
+            else:
+                # print(f"平视视角，数据置信度高，仅做轻微平滑")
+                return points_xyz
+
+        except Exception as e:
+            return points_xyz
+        
     def generate_and_publish_pointcloud(self, pseudo_pixels, stamp):
         """
         将像素点转换为 3D 点云并发布
