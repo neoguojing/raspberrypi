@@ -191,7 +191,7 @@ class FinalExploreNode(Node):
 
         best_goal = None
         max_score = -float('inf')
-        min_area_pixels = max(10, int(0.2 / res))
+        min_area_pixels = max(4, int(0.2 / res))
 
         self.get_logger().info(f"🔍 扫描边界块数量: {num_labels-1}")
 
@@ -202,13 +202,15 @@ class FinalExploreNode(Node):
 
             cx, cy = centroids[i]
             wx_raw = cx * res + ox
-            wy_raw = (h - cy - 1) * res + oy
+            # wy_raw = (h - cy - 1) * res + oy
+            wy_raw = cy * res + oy
 
             # 1. 计算原始距离
             dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)
 
             # 2. 黑名单过滤
             if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.7 for fx, fy in self.failed_goals):
+                self.get_logger().warn(f"黑名单过滤!!!")
                 continue
 
             # 3. 评分函数：面积优先，距离惩罚
@@ -228,14 +230,16 @@ class FinalExploreNode(Node):
                 # 如果计算出的安全目标点离机器人太近（小于0.5m），Nav2 会直接认为到达
                 # 我们跳过太近的点，强制机器人寻找更有意义的远端目标
                 dist_safe = math.hypot(wx_safe - rx, wy_safe - ry)
-                if dist_safe < 0.5:
-                    self.get_logger().debug(f"跳过过近目标: dist={dist_safe:.2f}m")
-                    continue
+                if dist_safe < 0.25:
+                    self.get_logger().warn(f"跳过过近目标: dist={dist_safe:.2f}m")
+                    # 如果这是唯一的块，即便近也要试一下，不直接 continue
+                    if num_labels > 2: 
+                        continue
 
                 # 4. 代价地图安全性校验
                 # 将阈值从 100 调低到 80，稍微严格一点防止蹭墙
-                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=80):
-                    self.get_logger().debug(f"点 ({wx_safe:.2f}, {wy_safe:.2f}) 代价过高，放弃")
+                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=120):
+                    self.get_logger().warn(f"点 ({wx_safe:.2f}, {wy_safe:.2f}) 代价过高，放弃")
                     continue
 
                 max_score = score
@@ -380,6 +384,7 @@ class FinalExploreNode(Node):
                 time.sleep(1.0)
 
         self.get_logger().info("🎮 任务全部完成，节点准备退出。")
+        
     def get_unknown_ratio(self):
         data = np.array(self.map_msg.data)
         # 过滤掉地图中从未被射线扫到过的纯空白区域（可选）
