@@ -141,7 +141,7 @@ class ZenohSegScan:
                     valid_mask = ~np.isnan(xyz_points[:, 0])
                     valid_xyz = xyz_points[valid_mask]
                     if len(valid_xyz) > 0:
-                        valid_xyz = self.check_and_refine_by_angle(valid_xyz)                   
+                        # valid_xyz = self.check_and_refine_by_angle(valid_xyz)                   
                         for x, y in valid_xyz:
                             # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
                             # dist = math.hypot(x, y)

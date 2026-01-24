@@ -220,7 +220,8 @@ local_costmap:
         max_obstacle_height: 2.0    # 考虑的最大障碍物高度
         mark_threshold: 8           # 当列中有多少个体素被占用时，标记为障碍物
         
-        observation_sources: scan   # 数据来源：对应下方的 scan 字段
+        # observation_sources: scan rtabmap_obstacles  # 数据来源：对应下方的 scan 字段
+        observation_sources: rtabmap_obstacles
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           topic: /seg/scan
@@ -231,26 +232,16 @@ local_costmap:
           raytrace_max_range: 4.5   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
-          
-        slam_points:
-          topic: /slam3/map_points
-          data_type: PointCloud2
-          origin_z: 0.05
-          marking: false          # ⚠️ 不直接标障碍
-          clearing: false
-          obstacle_max_range: 3.0
-          min_obstacle_height: 0.0
-          max_obstacle_height: 1.2
-          raytrace_max_range: 0.0
 
         rtabmap_obstacles:
-          topic: /cloud_obstacles
+          topic: /rtabmap/cloud_obstacles
           data_type: PointCloud2
           origin_z: 0.05
-          marking: false           # 视觉障碍主力
-          clearing: false
-          obstacle_max_range: 3.0
-          min_obstacle_height: 0.0
+          marking: true           # 视觉障碍主力
+          clearing: true
+          raytrace_max_range: 4.5   # 激光清理的最大范围
+          obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
+          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           max_obstacle_height: 1.2
 
       always_send_full_costmap: true
@@ -286,14 +277,9 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
-        observation_sources: scan
+        # observation_sources: scan rtabmap_obstacles
+        observation_sources: rtabmap_obstacles
         scan:
-          # A relative topic will be appended to the parent of the global_costmap namespace.
-          # For example:
-          #   * User chosen namespace is `tb4`.
-          #   * User chosen topic is `scan`.
-          #   * Topic will be remapped to `/tb4/scan` without `global_costmap`.
-          #   * Use global topic `/scan` if you do not wish the node namespace to apply
           topic: /seg/scan # ← YOLO-Seg 输出
           max_obstacle_height: 2.0
           clearing: true
@@ -305,12 +291,26 @@ global_costmap:
           obstacle_min_range: 0.0
           observation_persistence: 0.5  # 单位：秒
           expected_update_rate: 1.0     # 期望至少每秒1次更新
+
+        rtabmap_obstacles:
+          topic: /rtabmap/cloud_obstacles
+          data_type: PointCloud2
+          origin_z: 0.05
+          marking: true           # 视觉障碍主力
+          clearing: true
+          raytrace_max_range: 4.0
+          raytrace_min_range: 0.3
+          obstacle_max_range: 3.9
+          obstacle_min_range: 0.3
+          observation_persistence: 0.5  # 单位：秒
+          expected_update_rate: 1.0     # 期望至少每秒1次更新
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: true # 确保能够接收到 late-joiner 类型的地图消息
         enabled: true
         subscribe_to_updates: true
+        # map_topic: /rtabmap/grid_prob_map
 
       # --- 膨胀层：全局规划需要更大的余量，确保生成的路径远离墙壁 ---
       inflation_layer:
@@ -535,10 +535,17 @@ collision_monitor:
       min_points: 12
       visualize: false
       enabled: true
-    observation_sources: ["scan"]
+    # observation_sources: ["scan", "rtabmap_obstacles"]
+    observation_sources: ["rtabmap_obstacles"]
     scan:
       type: "scan"
       topic: "/seg/scan" # ← YOLO-Seg 输出
+      min_height: 0.0
+      max_height: 2.0
+      enabled: true
+    rtabmap_obstacles:
+      type: "pointcloud"
+      topic: "/rtabmap/cloud_obstacles"
       min_height: 0.0
       max_height: 2.0
       enabled: true

@@ -50,6 +50,13 @@ def generate_launch_description():
                    'compressed': image_compressed
                 }.items()
     )
+    
+    map_stereo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.stereo.launch.py')),
+        launch_arguments={'use_sim_time': use_sim_time,
+                   'compressed': image_compressed
+                }.items()
+    )
 
     # 包含 nv2 节点
     nv2_launch = IncludeLaunchDescription(
@@ -67,8 +74,9 @@ def generate_launch_description():
         declare_image_compressed,
         # slam3_launch,
         efk_launch,
-        seg_launch,
-        nv2_launch,
+        # seg_launch,
+        # nv2_launch,
         explore_launch,
-        map_launch, #必须在nv2_launch后面，一个bug
+        # map_launch, #必须在nv2_launch后面，一个bug
+        map_stereo_launch
     ])

@@ -202,8 +202,8 @@ class FinalExploreNode(Node):
 
             cx, cy = centroids[i]
             wx_raw = cx * res + ox
-            # wy_raw = (h - cy - 1) * res + oy
-            wy_raw = cy * res + oy
+            wy_raw = (h - cy - 1) * res + oy
+            # wy_raw = cy * res + oy
 
             # 1. 计算原始距离
             dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)

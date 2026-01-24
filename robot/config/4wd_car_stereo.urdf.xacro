@@ -1,0 +1,398 @@
+<?xml version="1.0"?>
+<robot name="n20_sg90_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===================== -->
+  <!-- 1. 物理参数定义 -->
+  <!-- ===================== -->
+  <!-- 轮子半径（米） -->
+  <xacro:property name="wheel_radius" value="0.021"/>
+  <!-- 轮子宽度 -->
+  <xacro:property name="wheel_width" value="0.018"/>
+  <!-- 前后轮轴距 -->
+  <xacro:property name="wheel_base" value="0.097"/>
+  <!-- 左右轮距 -->
+  <xacro:property name="track_width" value="0.12"/>
+  <!-- 车体质量 -->
+  <xacro:property name="body_mass" value="0.8"/>
+
+  <!-- ===================== -->
+  <!-- 2. 材质定义 -->
+  <!-- ===================== -->
+  <material name="n20_sg90_robot_white"><color rgba="1 1 1 1"/></material>
+  <material name="n20_sg90_robot_black"><color rgba="0.1 0.1 0.1 1"/></material>
+  <material name="n20_sg90_robot_red"><color rgba="0.8 0 0 1"/></material>
+
+  <!-- ===================== -->
+  <!-- 3. Base Frame -->
+  <!-- ===================== -->
+
+  <!-- ROS 语义用地面投影点（Nav2/TF 标准） -->
+  <link name="base_footprint"/>
+
+  <!-- base_footprint → base_link -->
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <!-- base_link 抬高一个轮子半径 -->
+    <origin xyz="0 0 0.021" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- 4. 车体主体 -->
+  <!-- ===================== -->
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.21 0.09 0.021"/></geometry>
+      <material name="n20_sg90_robot_white"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.21 0.09 0.021"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="${body_mass}"/>
+      <!-- 简化惯性矩阵（合理即可） -->
+      <inertia ixx="0.001" ixy="0" ixz="0"
+               iyy="0.003" iyz="0"
+               izz="0.003"/>
+    </inertial>
+  </link>
+
+  <!-- ===================== -->
+  <!-- 5. 后轮（驱动轮） -->
+  <!-- ===================== -->
+  <xacro:macro name="rear_wheel" params="suffix y_reflect">
+    <link name="rear_${suffix}_wheel">
+      <visual>
+        <!-- cylinder 默认轴向是 Z，这里旋转到 Y -->
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="n20_sg90_robot_black"/>
+      </visual>
+      <inertial>
+        <mass value="0.05"/>
+        <inertia ixx="0.0001" ixy="0" ixz="0"
+                 iyy="0.0001" iyz="0"
+                 izz="0.0001"/>
+      </inertial>
+      <!-- 碰撞 -->
+      <collision>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- 后轮连续旋转（驱动） -->
+    <joint name="rear_${suffix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="rear_${suffix}_wheel"/>
+      <origin xyz="-${wheel_base/2} ${y_reflect * track_width/2} 0"/>
+      <!-- 绕 Y 轴转动 -->
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- ===================== -->
+  <!-- 6. 前轮（转向 + 旋转） -->
+  <!-- ===================== -->
+  <xacro:macro name="front_wheel" params="suffix y_reflect">
+     <!-- 转向关节中间 link（Ackermann 必须） -->
+    <link name="front_${suffix}_steer_link">
+      <inertial>
+        <mass value="0.02"/>
+        <inertia ixx="0.00001" ixy="0" ixz="0"
+                 iyy="0.00001" iyz="0"
+                 izz="0.00001"/>
+      </inertial>
+    </link>
+     <!-- 转向关节 -->
+    <joint name="front_${suffix}_steer_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="front_${suffix}_steer_link"/>
+      <origin xyz="${wheel_base/2} ${y_reflect * track_width/2} 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="-0.52" upper="0.52" effort="1.0" velocity="2.0"/>
+    </joint>
+    <!-- 实际轮子 -->
+    <link name="front_${suffix}_wheel">
+      <visual>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="n20_sg90_robot_black"/>
+      </visual>
+      <collision>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.05"/>
+        <inertia ixx="0.0001" ixy="0" ixz="0"
+                 iyy="0.0001" iyz="0"
+                 izz="0.0001"/>
+      </inertial>
+    </link>
+    <!-- 轮子旋转 -->
+    <joint name="front_${suffix}_wheel_joint" type="continuous">
+      <parent link="front_${suffix}_steer_link"/>
+      <child link="front_${suffix}_wheel"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.1" friction="0.1"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- 实例化四个轮子 -->
+  <xacro:rear_wheel  suffix="left"  y_reflect="1"/>
+  <xacro:rear_wheel  suffix="right" y_reflect="-1"/>
+  <xacro:front_wheel suffix="left"  y_reflect="1"/>
+  <xacro:front_wheel suffix="right" y_reflect="-1"/>
+
+  <!-- ===================== -->
+  <!-- 7. IMU -->
+  <!-- ===================== -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.03"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- 8. Camera -->
+  <!-- ===================== -->
+<link name="camera_link">
+  <inertial>
+    <mass value="0.01"/>
+    <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+  </inertial>
+</link>
+
+<joint name="camera_base_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="camera_link"/>
+  <origin xyz="0.1 0 0.05" rpy="0 0.1484 0"/>
+</joint>
+
+  <link name="stereo_left_camera_link">
+    <visual>
+      <geometry><box size="0.018 0.025 0.025"/></geometry>
+      <material name="n20_sg90_robot_red"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.018 0.025 0.025"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="stereo_left_camera_joint" type="fixed">
+    <parent link="camera_link"/> <child link="stereo_left_camera_link"/>
+    <origin xyz="0 0.03 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="stereo_left_camera_optical"/>
+  <joint name="stereo_left_camera_optical_joint" type="fixed">
+    <parent link="stereo_left_camera_link"/>
+    <child link="stereo_left_camera_optical"/>
+    <origin rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <link name="stereo_right_camera_link">
+    <visual>
+      <geometry><box size="0.018 0.025 0.025"/></geometry>
+      <material name="n20_sg90_robot_red"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.018 0.025 0.025"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="stereo_right_camera_joint" type="fixed">
+    <parent link="camera_link"/> <child link="stereo_right_camera_link"/>
+    <origin xyz="0 -0.03 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="stereo_right_camera_optical"/>
+  <joint name="stereo_right_camera_optical_joint" type="fixed">
+    <parent link="stereo_right_camera_link"/>
+    <child link="stereo_right_camera_optical"/>
+    <origin rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- 9. Gazebo 插件 -->
+  <!-- ===================== -->
+  <gazebo>
+
+    <!-- Ackermann 转向系统 -->
+    <plugin filename="gz-sim-ackermann-steering-system"
+            name="gz::sim::systems::AckermannSteering">
+      <left_joint>front_left_wheel_joint</left_joint>
+      <right_joint>front_right_wheel_joint</right_joint>
+      <left_steering_joint>front_left_steer_joint</left_steering_joint>
+      <right_steering_joint>front_right_steer_joint</right_steering_joint>
+      <rear_left_joint>rear_left_wheel_joint</rear_left_joint>
+      <rear_right_joint>rear_right_wheel_joint</rear_right_joint>
+      <wheel_separation>${track_width}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <kingpin_width>${track_width}</kingpin_width>
+      <steering_limit>0.52</steering_limit>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/wheel_odom</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <publish_odom_tf>false</publish_odom_tf>
+    </plugin>
+
+    <!-- IMU & 传感器系统 -->
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <!-- <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin> -->
+
+    <plugin filename="gz-sim-joint-state-publisher-system"
+        name="gz::sim::systems::JointStatePublisher">
+        <topic>/joint_states</topic>
+        <joint_name>front_left_steer_joint</joint_name>
+        <joint_name>front_right_steer_joint</joint_name>
+        <joint_name>rear_left_wheel_joint</joint_name>
+        <joint_name>rear_right_wheel_joint</joint_name>
+    </plugin>
+  </gazebo>
+
+  <!-- ===================== -->
+  <!-- 10. Gazebo IMU 传感器 -->
+  <!-- ===================== -->
+  <gazebo reference="imu_link">
+    <sensor name="icm20948" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>/imu/data_raw</topic>
+      <!-- <gz_frame_id>imu_link</gz_frame_id> -->
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- ===================== -->
+  <!-- 11. Gazebo Camera -->
+  <!-- ===================== -->
+<gazebo reference="stereo_left_camera_link">
+  <sensor name="stereo_left" type="camera">
+    <always_on>1</always_on>
+    <update_rate>30</update_rate>
+    <visualize>true</visualize>
+    <topic>/camera/left/image_raw</topic>
+    <gz_frame_id>stereo_left_camera_optical</gz_frame_id>
+    <camera>
+      <horizontal_fov>2.2689</horizontal_fov>
+      <image>
+        <width>1280</width>
+        <height>720</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.02</near>
+        <far>300</far>
+      </clip>
+      <lens>
+        <intrinsics>
+          <fx>1076.44595</fx>
+          <fy>1074.97836</fy>
+          <cx>621.79270</cx>
+          <cy>359.76983</cy>
+          <s>0.0</s>
+        </intrinsics>
+      </lens>
+      <distortion>
+        <k1>-0.23732660</k1>
+        <k2>-0.27874955</k2>
+        <p1>-0.00997783</p1>
+        <p2>0.00048385</p2>
+        <k3>0.48486160</k3>
+        <center>0.4857 0.4997</center>
+      </distortion>
+    </camera>
+  </sensor>
+</gazebo>
+
+<!-- Right Camera -->
+<gazebo reference="stereo_right_camera_link">
+  <sensor name="stereo_right" type="camera">
+    <always_on>1</always_on>
+    <update_rate>30</update_rate>
+    <visualize>true</visualize>
+    <topic>/camera/right/image_raw</topic>
+    <gz_frame_id>stereo_right_camera_optical</gz_frame_id>
+    <camera>
+      <horizontal_fov>2.2689</horizontal_fov>
+      <image>
+        <width>1280</width>
+        <height>720</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.02</near>
+        <far>300</far>
+      </clip>
+      <lens>
+        <intrinsics>
+          <fx>1076.44595</fx>
+          <fy>1074.97836</fy>
+          <cx>621.79270</cx>
+          <cy>359.76983</cy>
+          <s>0.0</s>
+        </intrinsics>
+      </lens>
+      <distortion>
+        <k1>-0.23732660</k1>
+        <k2>-0.27874955</k2>
+        <p1>-0.00997783</p1>
+        <p2>0.00048385</p2>
+        <k3>0.48486160</k3>
+        <center>0.4857 0.4997</center>
+      </distortion>
+    </camera>
+  </sensor>
+</gazebo>
+
+
+  <!-- 轮子摩擦力 -->
+  <gazebo reference="front_left_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="front_right_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="rear_left_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+  <gazebo reference="rear_right_wheel">
+    <mu1>1.0</mu1><mu2>1.0</mu2><kp>1000000.0</kp><kd>1.0</kd>
+  </gazebo>
+
+</robot>

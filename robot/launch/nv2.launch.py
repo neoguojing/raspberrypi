@@ -48,26 +48,26 @@ def generate_launch_description():
     )
 
     # ---------- Map Saver（你原来是对的） ----------
-    map_saver = GroupAction([
-        Node(
-            package='nav2_map_server',
-            executable='map_saver_server',
-            name='map_saver_server',
-            output='screen',
-            parameters=[{'use_sim_time': use_sim_time}],
-        ),
-        Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_map_saver',
-            output='screen',
-            parameters=[{
-                'use_sim_time': use_sim_time,
-                'autostart': True,
-                'node_names': ['map_saver_server'],
-            }],
-        ),
-    ])
+    # map_saver = GroupAction([
+    #     Node(
+    #         package='nav2_map_server',
+    #         executable='map_saver_server',
+    #         name='map_saver_server',
+    #         output='screen',
+    #         parameters=[{'use_sim_time': use_sim_time}],
+    #     ),
+    #     Node(
+    #         package='nav2_lifecycle_manager',
+    #         executable='lifecycle_manager',
+    #         name='lifecycle_manager_map_saver',
+    #         output='screen',
+    #         parameters=[{
+    #             'use_sim_time': use_sim_time,
+    #             'autostart': True,
+    #             'node_names': ['map_saver_server'],
+    #         }],
+    #     ),
+    # ])
 
     return LaunchDescription([
         declare_use_sim_time,
@@ -75,5 +75,5 @@ def generate_launch_description():
         declare_autostart,
         nav2_container,
         navigation,
-        map_saver,
+        # map_saver,
     ])

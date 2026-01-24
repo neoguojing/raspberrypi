@@ -12,6 +12,10 @@ def generate_launch_description():
     sim_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'sim.launch.py')),
     )
+
+    sim_stereo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'sim.stereo.launch.py')),
+    )
     
     algo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'algo.launch.py')),
@@ -22,6 +26,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        sim_launch,
+        # sim_launch,
+        sim_stereo_launch,
         algo_launch
     ])
