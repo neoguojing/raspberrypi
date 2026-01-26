@@ -57,7 +57,11 @@ def generate_launch_description():
         # 双目匹配参数
         "Stereo/MinDisparity": "1",
         "Stereo/MaxDisparity": "256",
-        "Stereo/OpticalFlow": "false" # false 则使用特征匹配，true 则使用光流
+        "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
+
+        "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
+        "Vis/MaxFeatures": "600",
+        "RGBD/OptimizeFromGraphEnd": "false",
     }
 
     rtabmap_slam = Node(
@@ -101,7 +105,7 @@ def generate_launch_description():
         DeclareLaunchArgument('left_camera_info_topic', default_value='/camera/left/camera_info'),
         DeclareLaunchArgument('right_camera_info_topic', default_value='/camera/right/camera_info'),
         
-        DeclareLaunchArgument('odom_topic', default_value='/odom'),
+        DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
         DeclareLaunchArgument('scan_topic', default_value='/scan'),
 
