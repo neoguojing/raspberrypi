@@ -60,8 +60,19 @@ def generate_launch_description():
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
+        "Odom/ResetCountdown": "0",  # 禁止 odom reset
+
         "Vis/MaxFeatures": "600",
-        "RGBD/OptimizeFromGraphEnd": "false",
+        
+        # 地图稳定性
+        "Mem/IncrementalMemory": "true",
+        "Mem/InitWMWithAllNodes": "false",
+
+        # 回环后不整体平移地图
+        "RGBD/OptimizeFromGraphEnd": "true",
+
+        # 限制 map 更新频率
+        "Rtabmap/DetectionRate": "1",  # 1Hz 就够
     }
 
     rtabmap_slam = Node(

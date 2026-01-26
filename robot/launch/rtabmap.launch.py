@@ -91,6 +91,9 @@ def generate_launch_description():
         "RGBD/LinearUpdate": "0.3",      # 移动 0.1 m 更新一次
         "Mem/IncrementalMemory": "true", # False 则为纯定位模式
         "Mem/GenerateCloud": "false",      # 不生成点云以节省资源
+
+        "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
+        "Odom/ResetCountdown": "0",  # 禁止 odom reset
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
