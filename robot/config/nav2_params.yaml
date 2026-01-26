@@ -78,11 +78,11 @@ controller_server:
       ay_min: -3.0
       az_max: 3.5                        # 最大角加速度
       vx_std: 0.4                        # X 速度采样标准差（控制探索范围）
-      vy_std: 0.2                        # Y 速度采样标准差
+      vy_std: 0.0                        # Y 速度采样标准差
       wz_std: 0.2                        # 角速度采样标准差
       vx_max: 0.6                        # 最大平移速度 (m/s)
       vx_min: -0.1                        # 最小平移速度（0表示不允许倒车）
-      vy_max: 0.5                        # 最大横移速度（差速轮应设为 0）
+      vy_max: 0.0                        # 最大横移速度（差速轮应设为 0）
       wz_max: 1.9                        # 最大旋转速度 (rad/s)
       iteration_count: 1                 # 优化迭代次数
       prune_distance: 2.5                # 从路径中裁剪多远以外的点
