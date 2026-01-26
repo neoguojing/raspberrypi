@@ -143,7 +143,7 @@ def generate_launch_description():
         # -------------------
         # 基础参数
         # -------------------
-        DeclareLaunchArgument('namespace', default_value='rtabmap'),
+        DeclareLaunchArgument('namespace', default_value=''),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('localization', default_value='false'),
         DeclareLaunchArgument('subscribe_scan', default_value='true'),

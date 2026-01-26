@@ -47,6 +47,16 @@ def generate_launch_description():
         # 地图参数
         # "Grid/Sensor": "0", 
         "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
+        "Grid/MinDepth": "0.8",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
+        "Grid/MaxDepth": "4.0",  # 远距离太虚的数据也不要
+        "Grid/RangeMax": "3.0",          # 不要看太远，减少点云密度
+        "Grid/CellSize": "0.1",
+        "Grid/MaxGroundHeight": "0.1", 
+        "Grid/MaxObstacleSlope": "60",
+        "Grid/NormalsSegmentation": "true",
+        "Grid/ClusterRadius": "0.1",   # 较小的聚类半径
+        "Grid/MinClusterSize": "5",    # 忽略掉孤立的小簇点（降噪的同时提速）
+        "Grid/FlatObstacleDetected": "true", # 针对平整地面障碍的特殊检测方案
 
         # 视觉特征与闭环
         "Vis/EstimationType": "1",    # 1=Stereo (双目特征估计)
@@ -69,6 +79,7 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
 
         # 回环后不整体平移地图
+        "RGBD/OptimizeMaxError": "5.0",
         "RGBD/OptimizeFromGraphEnd": "true",
 
         # 限制 map 更新频率
@@ -98,14 +109,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         # 基础参数
-        DeclareLaunchArgument('namespace', default_value='rtabmap'),
+        DeclareLaunchArgument('namespace', default_value=''),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('subscribe_scan', default_value='false'),
         DeclareLaunchArgument('subscribe_imu', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
 
         # TF
-        DeclareLaunchArgument('frame_id', default_value='base_link'),
+        DeclareLaunchArgument('frame_id', default_value='base_footprint'),
         DeclareLaunchArgument('odom_frame_id', default_value='odom'),
         DeclareLaunchArgument('map_frame_id', default_value='map'),
         DeclareLaunchArgument('publish_tf_map', default_value='true'),
