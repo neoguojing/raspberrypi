@@ -85,15 +85,25 @@ def generate_launch_description():
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/NeighborLinkRefining": "true",
 
-        # 内存管理
-        "RGBD/LinearUpdate": "0.1",
-        "RGBD/AngularUpdate": "0.1",
-        "Mem/IncrementalMemory": "true",
-        "Mem/STMSize": "30",
-
         # 单目尺度恢复
         "Mem/StereoFromMotion": "true",
-        "Mem/UseOdomFeatures": "true"
+        "Mem/UseOdomFeatures": "true",
+
+        "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
+        "Odom/ResetCountdown": "0",  # 禁止 odom reset
+
+        # 地图稳定性
+        "Mem/IncrementalMemory": "true",
+        "Mem/InitWMWithAllNodes": "false",
+        "Mem/STMSize": "30",
+
+        # 回环后不整体平移地图
+        "RGBD/OptimizeFromGraphEnd": "true",
+        "RGBD/LinearUpdate": "0.1",
+        "RGBD/AngularUpdate": "0.1",
+
+        # 限制 map 更新频率
+        "Rtabmap/DetectionRate": "1",  # 1Hz 就够
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
