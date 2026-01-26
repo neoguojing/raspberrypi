@@ -44,7 +44,7 @@ def generate_launch_description():
     )
 
     # 包含 rtabmap 节点
-    map_launch = IncludeLaunchDescription(
+    map_scan_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
         launch_arguments={'use_sim_time': use_sim_time,
                    'compressed': image_compressed
@@ -75,8 +75,8 @@ def generate_launch_description():
         # slam3_launch,
         efk_launch,
         # seg_launch,
-        # nv2_launch,
+        # map_scan_launch,
+        map_stereo_launch,
+        nv2_launch,
         explore_launch,
-        # map_launch, #必须在nv2_launch后面，一个bug
-        map_stereo_launch
     ])
