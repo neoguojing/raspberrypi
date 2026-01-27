@@ -47,7 +47,6 @@ def generate_launch_description():
         }.items(),
     )
 
-    # ---------- Map Saver（你原来是对的） ----------
     map_saver = GroupAction([
         Node(
             package='nav2_map_server',
