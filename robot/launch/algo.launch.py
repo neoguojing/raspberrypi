@@ -77,7 +77,7 @@ def generate_launch_description():
         launch_arguments=common_args,
         condition=IfCondition(
             PythonExpression([
-                sensor_mode, "' == 'laser'"
+                "'", sensor_mode, "' == 'laser'"
             ])
         )
     )
