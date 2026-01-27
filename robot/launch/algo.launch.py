@@ -22,7 +22,7 @@ def generate_launch_description():
         DeclareLaunchArgument('compressed', default_value='true'),
         DeclareLaunchArgument(
             'slam_backend',
-            default_value='slam_toolbox',
+            default_value='rtabmap',
             description='orbslam3 | rtabmap | slam_toolbox'
         ),
         DeclareLaunchArgument(
