@@ -70,7 +70,7 @@ def generate_launch_description():
         "map_frame_id": LaunchConfiguration('map_frame_id'),
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,  # 双目通常需要近似同步
-        "queue_size": 10,
+        "queue_size": 30,
 
         # --- 核心切换：开启双目订阅 ---
         "subscribe_rgb": False,        # 双目模式下关闭普通 RGB 订阅
@@ -86,11 +86,11 @@ def generate_launch_description():
         "Grid/MaxDepth": "4.0",  # 远距离太虚的数据也不要
         "Grid/RangeMax": "3.0",          # 不要看太远，减少点云密度
         "Grid/CellSize": "0.1",
-        "Grid/MaxGroundHeight": "0.1", 
+        "Grid/MaxGroundHeight": "0.1", # 调整地面高度阈值，适应不同机器人底盘高度
         "Grid/MaxObstacleSlope": "60",
-        "Grid/NormalsSegmentation": "true",
+        "Grid/NormalsSegmentation": "false", # 关闭法线分割，节省计算
         "Grid/ClusterRadius": "0.1",   # 较小的聚类半径
-        "Grid/MinClusterSize": "5",    # 忽略掉孤立的小簇点（降噪的同时提速）
+        "Grid/MinClusterSize": "50",    # 忽略掉孤立的小簇点（降噪的同时提速）
         "Grid/FlatObstacleDetected": "true", # 针对平整地面障碍的特殊检测方案
 
         # 视觉特征与闭环
@@ -107,7 +107,7 @@ def generate_launch_description():
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
 
-        "Vis/MaxFeatures": "400",
+        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
         
         # 地图稳定性
         "Mem/IncrementalMemory": "true",
@@ -116,10 +116,12 @@ def generate_launch_description():
         # 回环后不整体平移地图
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/OptimizeFromGraphEnd": "true",
+        "RGBD/LinearUpdate": "0.01",
+        "RGBD/AngularUpdate": "0.01",
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "5",
-        "Rtabmap/TimeThr": "50",
+        "Rtabmap/DetectionRate": "1",
+        "Rtabmap/TimeThr": "0",
     }
 
     rtabmap_stereo = Node(

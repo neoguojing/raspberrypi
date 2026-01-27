@@ -496,12 +496,12 @@ collision_monitor:
       enabled: true
     # observation_sources: ["scan", "rtabmap_obstacles"]
     observation_sources: ["rtabmap_obstacles"]
-    scan:
-      type: "scan"
-      topic: "/seg/scan" # ← YOLO-Seg 输出
-      min_height: 0.0
-      max_height: 2.0
-      enabled: true
+    # scan:
+    #   type: "scan"
+    #   topic: "/seg/scan" # ← YOLO-Seg 输出
+    #   min_height: 0.0
+    #   max_height: 2.0
+    #   enabled: true
 
     rtabmap_obstacles:
       type: "pointcloud"
