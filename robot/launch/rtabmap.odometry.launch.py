@@ -86,7 +86,7 @@ def generate_launch_description():
     icp_odom = Node(
         package='rtabmap_odom',
         executable='icp_odometry',
-        name='icp_odometry',
+        name='rtabmap_odometry',
         condition=IfCondition(PythonExpression([odom_mode, " == 'icp'"])),
 
         output='screen',

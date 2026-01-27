@@ -24,6 +24,41 @@ def generate_launch_description():
     # 1. 图像解压节点 (如果是双目压缩，需要解压左右两路)
     # ===============================
     # 注意：为了简洁，这里演示 raw 模式，如需压缩，需为 left 和 right 各开一个 republish 节点
+    # ===============================
+    # 1. 左目图像解压
+    # ===============================
+    republish_left = Node(
+        package='image_transport',
+        executable='republish',
+        name='republish_left',
+        namespace=namespace,
+        condition=IfCondition(compressed),
+        parameters=[{'use_sim_time': use_sim_time}],
+        arguments=['compressed', 'raw'],
+        remappings=[
+            ('in/compressed', [left_image_topic, '/compressed']),
+            ('out', [left_image_topic, '_relay']),
+        ],
+        output='screen'
+    )
+
+    # ===============================
+    # 2. 右目图像解压
+    # ===============================
+    republish_right = Node(
+        package='image_transport',
+        executable='republish',
+        name='republish_right',
+        namespace=namespace,
+        condition=IfCondition(compressed),
+        parameters=[{'use_sim_time': use_sim_time}],
+        arguments=['compressed', 'raw'],
+        remappings=[
+            ('in/compressed', [right_image_topic, '/compressed']),
+            ('out', [right_image_topic, '_relay']),
+        ],
+        output='screen'
+    )
 
     # ===============================
     # 2. RTAB-Map 核心参数 (双目版)
@@ -87,11 +122,12 @@ def generate_launch_description():
         "Rtabmap/TimeThr": "50",
     }
 
-    rtabmap_slam = Node(
+    rtabmap_stereo = Node(
         package='rtabmap_slam',
         executable='rtabmap', # 或者使用 'stereo_odometry' 如果你需要 RTAB-Map 计算里程计
-        name='rtabmap',
+        name='rtabmap_stereo',
         namespace=namespace,
+        condition=UnlessCondition(compressed),
         output='screen',
         parameters=[slam_parameters],
         remappings=[
@@ -107,6 +143,28 @@ def generate_launch_description():
         ],
         arguments=['--delete_db_on_start']
     )
+
+    rtabmap_stereo_compressed = Node(
+        package='rtabmap_slam',
+        executable='rtabmap',
+        name='rtabmap_stereo_compressed',
+        namespace=namespace,
+        condition=IfCondition(compressed),
+        output='screen',
+        parameters=[slam_parameters],
+        remappings=[
+            ("left/image_rect", [left_image_topic, '_relay']),
+            ("right/image_rect", [right_image_topic, '_relay']),
+            ("left/camera_info", left_camera_info),
+            ("right/camera_info", right_camera_info),
+
+            ("odom", LaunchConfiguration('odom_topic')),
+            ("map", LaunchConfiguration('map_topic')),
+            ("scan", LaunchConfiguration('scan_topic'))
+        ],
+        arguments=['--delete_db_on_start']
+    )
+
 
     return LaunchDescription([
         # 基础参数
@@ -132,5 +190,16 @@ def generate_launch_description():
         DeclareLaunchArgument('map_topic', default_value='/map'),
         DeclareLaunchArgument('scan_topic', default_value='/scan'),
 
-        rtabmap_slam,
+        # -------------------
+        # 解压
+        # -------------------
+        republish_left,
+        republish_right,
+
+        # -------------------
+        # RTAB-Map
+        # -------------------
+        rtabmap_stereo,
+        rtabmap_stereo_compressed,
+
     ])

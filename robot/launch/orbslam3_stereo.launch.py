@@ -30,7 +30,7 @@ def generate_launch_description():
     orb_slam3_node = Node(
         package='orbslam3',          # 你的 colcon 包名
         executable='mono',           # 你的 C++ 可执行文件名
-        name='orbslam3_mono',
+        name='orbslam3_stereo',
         output='screen',
         # ORB-SLAM3 的 C++ 节点通常通过 main(argc, argv) 接收参数
         # prefix=['gdb -ex run -ex bt -ex quit --args'],

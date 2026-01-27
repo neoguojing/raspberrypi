@@ -98,7 +98,7 @@ def generate_launch_description():
     rtabmap_slam = Node(
         package='rtabmap_slam',
         executable='rtabmap',
-        name='rtabmap',
+        name='rtabmap_laser',
         namespace=namespace,
         condition=UnlessCondition(compressed),
         output='screen',
@@ -120,7 +120,7 @@ def generate_launch_description():
     rtabmap_slam_compressed = Node(
         package='rtabmap_slam',
         executable='rtabmap',
-        name='rtabmap',
+        name='rtabmap_laser_compressed',
         namespace=namespace,
         condition=IfCondition(compressed),
         output='screen',
