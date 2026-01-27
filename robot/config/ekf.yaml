@@ -25,6 +25,19 @@ ekf_filter_node:
     odom0_relative: true
     odom0_queue_size: 10
 
+    odom1: /visual_odom
+    odom1_config: [
+      true,  true,  false,   # x y z   ← 用位姿
+      false, false, true,    # roll pitch yaw ← 只用 yaw
+      false, false, false,   # vx vy vz
+      false, false, false,   # vroll vpitch vyaw
+      false, false, false    # ax ay az
+    ]
+
+    odom1_differential: false
+    odom1_relative: true
+    odom1_queue_size: 10
+
     # ========================
     # 2. IMU 输入ICM-20948
     # ========================

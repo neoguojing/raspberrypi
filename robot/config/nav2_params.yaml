@@ -354,16 +354,6 @@ planner_server:
       use_astar: true #开启A* 快且稳定
       allow_unknown: true
 
-      # plugin: "nav2_smac_planner/SmacPlannerHybrid"
-      # # Smac Planner 关键参数（大幅加速规划）
-      # motion_model: "DUBIN"         # 或 "REEDS_SHEPP"
-      # tolerance: 0.2                # 目标容忍距离
-      # downsample_costmap: true      # 下采样地图加速规划
-      # downsampling_factor: 2        # 下采样因子（2=速度提升4倍）
-      # allow_unknown: true           # 允许未知区域规划
-      # max_iterations: 1000000       # 增加迭代上限
-      # max_on_approach_iterations: 1000
-      # cost_travel_multiplier: 2.0   # 路径成本权重
 # Smoother Server (路径平滑器):
 # 核心功能：对规划器生成的折线路径进行平滑处理，使其更符合机器人的物理运动规律。
 #总结：它是**“修路工”**，把生硬的折线弯道修圆，减少机器人转弯时的顿挫。

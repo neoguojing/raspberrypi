@@ -107,7 +107,7 @@ def generate_launch_description():
     return LaunchDescription([
 
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('odom_mode', default_value='stereo'),
+        DeclareLaunchArgument('odom_mode', default_value='icp'),
 
         DeclareLaunchArgument('frame_id', default_value='base_footprint'),
         DeclareLaunchArgument('odom_frame_id', default_value='odom'),
@@ -124,7 +124,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info', default_value='/camera/color/camera_info'),
 
         # icp
-        DeclareLaunchArgument('scan', default_value='/scan'),
+        DeclareLaunchArgument('scan', default_value='/seg/scan'),
 
         stereo_odom,
         rgbd_odom,
