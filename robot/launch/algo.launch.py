@@ -21,8 +21,8 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='true'),
         DeclareLaunchArgument(
-            'slam_toolbox',
-            default_value='rtabmap',
+            'slam_backend',
+            default_value='slam_toolbox',
             description='orbslam3 | rtabmap | slam_toolbox'
         ),
         DeclareLaunchArgument(
