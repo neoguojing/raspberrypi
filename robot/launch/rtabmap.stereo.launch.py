@@ -35,7 +35,7 @@ def generate_launch_description():
         "map_frame_id": LaunchConfiguration('map_frame_id'),
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,  # 双目通常需要近似同步
-        "queue_size": 30,
+        "queue_size": 10,
 
         # --- 核心切换：开启双目订阅 ---
         "subscribe_rgb": False,        # 双目模式下关闭普通 RGB 订阅
@@ -66,13 +66,13 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "1",
-        "Stereo/MaxDisparity": "256",
+        "Stereo/MaxDisparity": "128",
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
 
-        "Vis/MaxFeatures": "600",
+        "Vis/MaxFeatures": "400",
         
         # 地图稳定性
         "Mem/IncrementalMemory": "true",
@@ -83,7 +83,8 @@ def generate_launch_description():
         "RGBD/OptimizeFromGraphEnd": "true",
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "1",  # 1Hz 就够
+        "Rtabmap/DetectionRate": "5",
+        "Rtabmap/TimeThr": "50",
     }
 
     rtabmap_slam = Node(
