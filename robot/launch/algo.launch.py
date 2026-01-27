@@ -3,33 +3,37 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription,DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration,PythonExpression
+from launch.conditions import IfCondition
 
 def generate_launch_description():
     pkg_path = get_package_share_directory('robot')
 
-    # 1. 定义统一的参数
-    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
-    declare_use_sim_time = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false', # 模拟环境默认为 true
-        description='Use simulation (Gazebo) clock if true'
-    )
+    # ===============================
+    # 参数
+    # ===============================
+    use_sim_time = LaunchConfiguration('use_sim_time')
+    compressed = LaunchConfiguration('compressed')
+    slam_backend = LaunchConfiguration('slam_backend')
+    sensor_mode = LaunchConfiguration('sensor_mode')
 
-    image_compressed = LaunchConfiguration('compressed', default='true')
-    declare_image_compressed = DeclareLaunchArgument(
-        'compressed',
-        default_value='true', # 模拟环境默认为 false
-        description='是否压缩图片'
-    )
+    declare_args = [
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument('compressed', default_value='true'),
+        DeclareLaunchArgument(
+            'slam_backend',
+            default_value='rtabmap',
+            description='orbslam3 | rtabmap | slam_toolbox'
+        ),
+        DeclareLaunchArgument(
+            'sensor_mode',
+            default_value='stereo',
+            description='mono | stereo | laser'
+        ),
+    ]
 
-    # 2. 统一定义需要传递给子 Launch 的参数字典
     common_args = {'use_sim_time': use_sim_time}.items()
 
-    slam3_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')),
-        launch_arguments=common_args
-    )
 
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
@@ -37,25 +41,108 @@ def generate_launch_description():
         launch_arguments=common_args
     )
 
-    # 包含 seg 节点 安装包不兼容,需要从外部zenoh 写入
-    seg_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'seg.launch.py')),
-        launch_arguments=common_args
+    # slam3 momo
+    orbslam3_mono = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'orbslam3_mono.launch.py')
+        ),
+        launch_arguments=common_args,
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'orbslam3' and '",
+                sensor_mode, "' == 'mono'"
+            ])
+        )
     )
 
-    # 包含 rtabmap 节点
-    map_scan_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')),
-        launch_arguments={'use_sim_time': use_sim_time,
-                   'compressed': image_compressed
-                }.items()
+    orbslam3_stereo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'orbslam3_stereo.launch.py')
+        ),
+        launch_arguments=common_args,
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'orbslam3' and '",
+                sensor_mode, "' == 'stereo'"
+            ])
+        )
     )
-    
-    map_stereo_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.stereo.launch.py')),
-        launch_arguments={'use_sim_time': use_sim_time,
-                   'compressed': image_compressed
-                }.items()
+
+
+    # 视觉模拟激光
+    seg_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'seg.launch.py')
+        ),
+        launch_arguments=common_args,
+        condition=IfCondition(
+            PythonExpression([
+                sensor_mode, "' == 'laser'"
+            ])
+        )
+    )
+
+
+    # rtabmap 激光
+    rtabmap_laser = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'rtabmap.launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'compressed': compressed
+        }.items(),
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'rtabmap' and '",
+                sensor_mode, "' == 'laser'"
+            ])
+        )
+    )
+
+    # rtabmap 单目
+    rtabmap_mono = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'rtabmap.momo.launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'compressed': compressed
+        }.items(),
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'rtabmap' and '",
+                sensor_mode, "' == 'mono'"
+            ])
+        )
+    )
+    # rtabmap 双目
+    rtabmap_stereo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'rtabmap.stereo.launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'compressed': compressed
+        }.items(),
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'rtabmap' and '",
+                sensor_mode, "' == 'stereo'"
+            ])
+        )
+    )
+
+    slam_toolbox = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_path, 'launch', 'slam_toolbox.launch.py')
+        ),
+        launch_arguments=common_args,
+        condition=IfCondition(
+            PythonExpression([
+                "'", slam_backend, "' == 'slam_toolbox'"
+            ])
+        )
     )
 
     # 包含 nv2 节点
@@ -70,13 +157,15 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        declare_use_sim_time,
-        declare_image_compressed,
-        # slam3_launch,
+        *declare_args,
         efk_launch,
-        # seg_launch,
-        # map_scan_launch,
-        map_stereo_launch,
+        orbslam3_mono,
+        orbslam3_stereo,
+        seg_launch,
+        rtabmap_laser,
+        rtabmap_mono,
+        rtabmap_stereo,
+        slam_toolbox,
         nv2_launch,
         explore_launch,
     ])

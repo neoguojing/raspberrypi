@@ -107,7 +107,7 @@ def generate_launch_description():
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
-        executable='rtabmap',
+        executable='rtabmap_momo',
         name='rtabmap',
         namespace=namespace,
         condition=UnlessCondition(compressed),
@@ -130,7 +130,7 @@ def generate_launch_description():
     rtabmap_slam_compressed = Node(
         package='rtabmap_slam',
         executable='rtabmap',
-        name='rtabmap',
+        name='rtabmap_momo_compressed',
         namespace=namespace,
         condition=IfCondition(compressed),
         output='screen',
