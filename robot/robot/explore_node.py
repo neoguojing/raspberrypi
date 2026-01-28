@@ -28,7 +28,7 @@ class FinalExploreNode(Node):
         # --- 可调参数 ---
         self.declare_parameter('save_map_service', '/map_saver/save_map')
         self.declare_parameter('initial_spin_duration', 6.0)  # 启动时原地旋转搜周围
-        self.declare_parameter('stuck_timeout', 8.0)         # 导航时无移动判定为卡住
+        self.declare_parameter('stuck_timeout', 15)         # 导航时无移动判定为卡住
         self.declare_parameter('stuck_min_move', 0.05)      # 判定为“移动”的最小距离 (m)
         self.declare_parameter('recovery_backoff_time', 1.0)
         self.declare_parameter('recovery_rotate_time', 2.0)
