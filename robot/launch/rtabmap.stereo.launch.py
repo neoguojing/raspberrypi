@@ -107,7 +107,7 @@ def generate_launch_description():
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
 
-        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
+        "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
         
         # 地图稳定性
         "Mem/IncrementalMemory": "true",
@@ -116,8 +116,8 @@ def generate_launch_description():
         # 回环后不整体平移地图
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/OptimizeFromGraphEnd": "true",
-        "RGBD/LinearUpdate": "0.01",
-        "RGBD/AngularUpdate": "0.01",
+        "RGBD/LinearUpdate": "0.0",
+        "RGBD/AngularUpdate": "0.0",
 
         # 限制 map 更新频率
         "Rtabmap/DetectionRate": "1",
