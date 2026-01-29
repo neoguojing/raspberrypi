@@ -262,10 +262,10 @@ global_costmap:
       footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       
       # 地图尺寸：如果 rolling_window 为 false，系统会自动根据 static_layer 加载的大小调整
-      width: 100
-      height: 100
-      origin_x: -20.0
-      origin_y: -20.0
+      # width: 100
+      # height: 100
+      # origin_x: -20.0
+      # origin_y: -20.0
       
       rolling_window: false     # 全局地图是静止不动的
       update_frequency: 10.0
@@ -278,35 +278,36 @@ global_costmap:
       track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
 
       # 插件配置：静态地图层 + 膨胀层
-      plugins: ["static_layer", "inflation_layer","obstacle_layer"]
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: true
-        observation_sources: rtabmap_obstacles
-        scan:
-          # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          topic: /seg/scan
-          sensor_frame: camera_link
-          inf_is_valid: true
-          max_obstacle_height: 1.2
-          clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
-          marking: true             # 如果射线上有击中点，则标记障碍物
-          data_type: "LaserScan"
-          raytrace_max_range: 4.5   # 激光清理的最大范围
-          obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+      plugins: ["static_layer", "inflation_layer"]
+      # plugins: ["static_layer", "inflation_layer","obstacle_layer"]
+      # obstacle_layer:
+      #   plugin: "nav2_costmap_2d::ObstacleLayer"
+      #   enabled: true
+      #   observation_sources: rtabmap_obstacles
+      #   scan:
+      #     # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
+      #     topic: /seg/scan
+      #     sensor_frame: camera_link
+      #     inf_is_valid: true
+      #     max_obstacle_height: 1.2
+      #     clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
+      #     marking: true             # 如果射线上有击中点，则标记障碍物
+      #     data_type: "LaserScan"
+      #     raytrace_max_range: 4.5   # 激光清理的最大范围
+      #     obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
+      #     observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
 
-        rtabmap_obstacles:
-          topic: /cloud_obstacles
-          data_type: PointCloud2
-          sensor_frame: camera_link
-          marking: true           # 视觉障碍主力
-          clearing: true
-          raytrace_max_range: 4.5   # 激光清理的最大范围
-          obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
-          min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
-          max_obstacle_height: 2.0
+      #   rtabmap_obstacles:
+      #     topic: /cloud_obstacles
+      #     data_type: PointCloud2
+      #     sensor_frame: camera_link
+      #     marking: true           # 视觉障碍主力
+      #     clearing: true
+      #     raytrace_max_range: 4.5   # 激光清理的最大范围
+      #     obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
+      #     observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+      #     min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
+      #     max_obstacle_height: 2.0
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
