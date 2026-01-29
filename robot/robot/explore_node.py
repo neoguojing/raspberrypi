@@ -28,7 +28,7 @@ class FinalExploreNode(Node):
         # --- 可调参数 ---
         self.declare_parameter('save_map_service', '/map_saver/save_map')
         self.declare_parameter('initial_spin_duration', 6.0)  # 启动时原地旋转搜周围
-        self.declare_parameter('stuck_timeout', 15)         # 导航时无移动判定为卡住
+        self.declare_parameter('stuck_timeout', 30)         # 导航时无移动判定为卡住
         self.declare_parameter('stuck_min_move', 0.05)      # 判定为“移动”的最小距离 (m)
         self.declare_parameter('recovery_backoff_time', 1.0)
         self.declare_parameter('recovery_rotate_time', 2.0)
@@ -52,7 +52,7 @@ class FinalExploreNode(Node):
         self.FINISH_THRESHOLD = 5     # 终止判定：连续 FINISH_THRESHOLD 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
         self.MAP_SAVE_PATH = "auto_map_result" # 保存的文件名前缀
-        self.MIN_GOAL_DISTANCE = 0.8  # 至少 80cm 远
+        self.MIN_GOAL_DISTANCE = 0.2  # 至少 80cm 远
 
         # --- 状态控制 ---
         self.map_msg = None           # 实时地图缓存
