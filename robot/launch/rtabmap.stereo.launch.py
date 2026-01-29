@@ -81,26 +81,27 @@ def generate_launch_description():
 
         # 地图参数
         # "Grid/Sensor": "0", 
+        "Grid/RayTracing": "true",  
         "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
-        "Grid/MinDepth": "0.8",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
-        "Grid/MaxDepth": "4.0",  # 远距离太虚的数据也不要
+        "Grid/MinDepth": "0.5",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
+        "Grid/MaxDepth": "3.0",  # 远距离太虚的数据也不要
         "Grid/RangeMin": "0.3",
         "Grid/RangeMax": "4.0",  # 不要看太远，减少点云密度
         "Grid/CellSize": "0.1",
-        "Grid/MinGroundHeight": "-0.3",
-        "Grid/MaxGroundHeight": "0.2", # 调整地面高度阈值，适应不同机器人底盘高度
+        "Grid/MinGroundHeight": "-0.15",
+        "Grid/MaxGroundHeight": "0.05", # 调整地面高度阈值，适应不同机器人底盘高度
         "Grid/MaxObstacleSlope": "60",
         "Grid/NormalK": "20",
         "Grid/NormalRadius": "0.15",
-        "Grid/MaxGroundAngle": "35.0",
-        "Grid/NormalsSegmentation": "false", # 关闭法线分割，节省计算
-        "Grid/ClusterRadius": "0.1",   # 较小的聚类半径
-        "Grid/MinClusterSize": "30",    # 忽略掉孤立的小簇点（降噪的同时提速）
-        "Grid/FlatObstacleDetected": "true", # 针对平整地面障碍的特殊检测方案
+        "Grid/MaxGroundAngle": "45.0",
+        "Grid/NormalsSegmentation": "true", # 关闭法线分割，节省计算
+        "Grid/ClusterRadius": "0.15",   # 较小的聚类半径
+        "Grid/MinClusterSize": "100",    # 忽略掉孤立的小簇点（降噪的同时提速）
+        "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
         "Grid/GroundIsObstacle": "false",
         # 4. 清理无效障碍（超重要）
-        "Grid/NoiseFilteringRadius": "0.2",
-        "Grid/NoiseFilteringMinNeighbors": "3",
+        "Grid/NoiseFilteringRadius": "0.3",
+        "Grid/NoiseFilteringMinNeighbors": "5",
 
         
 
@@ -112,8 +113,8 @@ def generate_launch_description():
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Both
         
         # 双目匹配参数
-        "Stereo/MinDisparity": "1",
-        "Stereo/MaxDisparity": "128",
+        "Stereo/MinDisparity": "3",
+        "Stereo/MaxDisparity": "100",
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
@@ -126,7 +127,7 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
 
         # 回环后不整体平移地图
-        "RGBD/OptimizeMaxError": "5.0",
+        "RGBD/OptimizeMaxError": "8.0",
         "RGBD/OptimizeFromGraphEnd": "true",
         "RGBD/LinearUpdate": "0.0",
         "RGBD/AngularUpdate": "0.0",
