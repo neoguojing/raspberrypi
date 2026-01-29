@@ -70,7 +70,7 @@ def generate_launch_description():
         "Optimizer/Slam2D": "true",
         
         # ICP 参数微调
-        "Icp/CorrespondenceRatio": "0.01",
+        "Icp/CorrespondenceRatio": "0.05",
         "Icp/VoxelSize": "0.0",
         "Icp/MaxCorrespondenceDistance": "0.15",
         "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
@@ -86,7 +86,7 @@ def generate_launch_description():
         "Grid/3D": "false",  
         
         # 内存与回环检测 (基于激光的扫描匹配回环)
-        "RGBD/ProximityBySpace": "true", # 允许在靠近先前位置时通过 ICP 闭环
+        "RGBD/ProximityBySpace": "false", # 允许在靠近先前位置时通过 ICP 闭环
         "RGBD/AngularUpdate": "0.1",    # 旋转 0.05 rad 更新一次
         "RGBD/LinearUpdate": "0.3",      # 移动 0.1 m 更新一次
         "Mem/IncrementalMemory": "true", # False 则为纯定位模式
