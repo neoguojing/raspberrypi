@@ -88,13 +88,13 @@ def generate_launch_description():
         "Grid/RangeMin": "0.3",
         "Grid/RangeMax": "4.0",  # 不要看太远，减少点云密度
         "Grid/CellSize": "0.1",
-        "Grid/MinGroundHeight": "-0.15",
-        "Grid/MaxGroundHeight": "0.05", # 调整地面高度阈值，适应不同机器人底盘高度
+        "Grid/MinGroundHeight": "-0.1",
+        "Grid/MaxGroundHeight": "0.3", # 调整地面高度阈值，适应不同机器人底盘高度
         "Grid/MaxObstacleSlope": "60",
         "Grid/NormalK": "20",
         "Grid/NormalRadius": "0.15",
         "Grid/MaxGroundAngle": "45.0",
-        "Grid/NormalsSegmentation": "true", # 关闭法线分割，节省计算
+        "Grid/NormalsSegmentation": "false", # 关闭法线分割，节省计算
         "Grid/ClusterRadius": "0.15",   # 较小的聚类半径
         "Grid/MinClusterSize": "100",    # 忽略掉孤立的小簇点（降噪的同时提速）
         "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
@@ -114,7 +114,7 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "3",
-        "Stereo/MaxDisparity": "100",
+        "Stereo/MaxDisparity": "128",
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
