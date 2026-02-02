@@ -87,8 +87,8 @@ def generate_launch_description():
         
         # 内存与回环检测 (基于激光的扫描匹配回环)
         "RGBD/ProximityBySpace": "false", # 允许在靠近先前位置时通过 ICP 闭环
-        "RGBD/AngularUpdate": "0.1",    # 旋转 0.05 rad 更新一次
-        "RGBD/LinearUpdate": "0.3",      # 移动 0.1 m 更新一次
+        "RGBD/AngularUpdate": "0.0",    # 旋转 0.05 rad 更新一次
+        "RGBD/LinearUpdate": "0.0",      # 移动 0.1 m 更新一次
         "Mem/IncrementalMemory": "true", # False 则为纯定位模式
         "Mem/GenerateCloud": "false",      # 不生成点云以节省资源
 

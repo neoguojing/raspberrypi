@@ -28,7 +28,7 @@ class FinalExploreNode(Node):
         # --- 可调参数 ---
         self.declare_parameter('save_map_service', '/map_saver/save_map')
         self.declare_parameter('initial_spin_duration', 6.0)  # 启动时原地旋转搜周围
-        self.declare_parameter('stuck_timeout', 30)         # 导航时无移动判定为卡住
+        self.declare_parameter('stuck_timeout', 120)         # 导航时无移动判定为卡住
         self.declare_parameter('stuck_min_move', 0.05)      # 判定为“移动”的最小距离 (m)
         self.declare_parameter('recovery_backoff_time', 1.0)
         self.declare_parameter('recovery_rotate_time', 2.0)
@@ -47,7 +47,7 @@ class FinalExploreNode(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # --- 核心工程参数 ---
-        self.SAFE_OFFSET = 0.45       # 安全退避距离：目标点会从边界向自由区回缩 45cm，防止撞墙
+        self.SAFE_OFFSET = 0.2       # 安全退避距离：目标点会从边界向自由区回缩 45cm，防止撞墙
         self.NAV_TIMEOUT = 60.0      # 导航超时：防止局部路径规划死循环
         self.FINISH_THRESHOLD = 5     # 终止判定：连续 FINISH_THRESHOLD 次扫描不到有效边界则认为地图已扫完
         self.UNKNOWN_THRESHOLD = 0.05  # 如果未知区域比例低于 5%，则认为完成
@@ -93,6 +93,9 @@ class FinalExploreNode(Node):
         self.last_moved_time = time.time()
 
     def get_current_pose(self):
+        """
+        获取机器人当前位姿 (x, y, yaw)，包含详细的调试日志。
+        """
         try:
             # 尝试使用最新时间点查询 TF
             now = rclpy.time.Time()
@@ -104,35 +107,77 @@ class FinalExploreNode(Node):
             )
             x = t.transform.translation.x
             y = t.transform.translation.y
-            # 更新最后移动时间
+            
+            # --- 新增：四元数转 Yaw (偏航角) ---
+            q = t.transform.rotation
+            # 公式: yaw = atan2(2*(w*z + x*y), 1 - 2*(y^2 + z^2))
+            siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+            cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+            yaw = math.atan2(siny_cosp, cosy_cosp)
+            
+            # 增加成功获取坐标和角度的日志 (每秒打印一次防止刷屏)
+            self.get_logger().info(
+                f"📍 当前机器人位姿: x={x:.3f}, y={y:.3f}, yaw={math.degrees(yaw):.1f}°",
+                throttle_duration_sec=1.0
+            )
+            
+            # 更新最后移动时间 (用于卡住检测)
             self._update_motion_track(x, y)
-            return x, y
-        except Exception:
-            self.get_logger().warn("get_current_pose failed")
-            # 失败时尝试查找最近的一次有效变换
+            
+            # 为了兼容 get_best_frontier 的解包，建议返回三个值
+            return x, y, yaw
+
+        except TransformException as e:
+            # 第一次尝试失败，打印警告日志
+            self.get_logger().warn(f"⚠️ 实时 TF 查找失败 (map -> base_link): {str(e)}")
+            
+            # 失败时尝试查找最近的一次有效变换 (Time 0)
             try:
-                t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time(seconds=0))
+                t = self.tf_buffer.lookup_transform(
+                    'map', 
+                    'base_link', 
+                    rclpy.time.Time(seconds=0)
+                )
                 x = t.transform.translation.x
                 y = t.transform.translation.y
+                
+                # 同样转换角度
+                q = t.transform.rotation
+                yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+                
+                self.get_logger().info(f"⏳ 使用最近一次有效 TF: x={x:.3f}, y={y:.3f}, yaw={math.degrees(yaw):.1f}°")
+                
                 self._update_motion_track(x, y)
-                return x, y
-            except:
-                self.get_logger().error("get_current_pose failed")
-                return None, None
-
+                return x, y, yaw
+                
+            except Exception as e2:
+                # 彻底失败，打印错误日志
+                self.get_logger().error(f"❌ 严重错误：无法获取任何有效机器人位姿! {str(e2)}")
+                return None, None, None
     def _update_motion_track(self, x, y):
         # 如果last_pose尚未初始化，直接赋值
         if self.last_pose[0] is None:
             self.last_pose = (x, y)
             self.last_moved_time = time.time()
+            self.get_logger().info("🆕 运动轨迹跟踪已初始化起点")
             return
 
         lx, ly = self.last_pose
+        # 计算当前位置与上次记录“有效移动”位置的距离
         dx = math.hypot(x - lx, y - ly)
         stuck_min_move = self.get_parameter('stuck_min_move').value
+
         if dx >= stuck_min_move:
+            # 只有移动距离超过阈值，才认为机器人没卡住，更新时间戳
             self.last_moved_time = time.time()
             self.last_pose = (x, y)
+            # 使用 debug 级别避免日志刷屏，调试时可改为 info
+            self.get_logger().debug(f"🏃 机器人正在移动: 移动增量 {dx:.3f}m > 阈值 {stuck_min_move}m，重置卡住计时器")
+        else:
+            # 如果距离太小，不更新 last_moved_time，计时器会继续累加
+            idle_time = time.time() - self.last_moved_time
+            if idle_time > 5.0:  # 只有静止超过5秒才打印，防止高频刷屏
+                self.get_logger().warn(f"⚠️ 机器人疑似静止: 累计位移 {dx:.3f}m < 阈值 {stuck_min_move}m，已停滞 {idle_time:.1f}s", throttle_duration_sec=2.0)
 
     def costmap_callback(self, msg):
         """接收全局代价地图，用于目标点安全性验证"""
@@ -191,7 +236,7 @@ class FinalExploreNode(Node):
         self.timer.cancel()
 
         # 记录起点坐标
-        rx, ry = self.get_current_pose()
+        rx, ry, _ = self.get_current_pose()
         if rx is not None:
             self.start_pose_x, self.start_pose_y = rx, ry
 
@@ -202,7 +247,7 @@ class FinalExploreNode(Node):
 
     def _is_costmap_safe(self, wx, wy, safe_threshold=100):
         if self.global_costmap is None:
-            self.get_logger().warn("安全检查失败：全局代价地图尚未收到")
+            self.get_logger().warn("⚠️ 安全检查失败：全局代价地图 (Global Costmap) 尚未收到", throttle_duration_sec=5.0)
             return False
 
         info = self.global_costmap.info
@@ -210,16 +255,18 @@ class FinalExploreNode(Node):
         res = info.resolution
         w, h = info.width, info.height
 
+        # 世界坐标转地图像素坐标
         mx = int((wx - ox) / res)
         my = int((wy - oy) / res)
 
-        # 检查是否在地图数组范围内
+        # 1. 检查是否在地图数组范围内
         if mx < 0 or mx >= w or my < 0 or my >= h:
-            self.get_logger().warn(f"点 ({wx:.2f}, {wy:.2f}) 超出代价地图边界")
+            self.get_logger().warn(f"🚫 目标点 ({wx:.2f}, {wy:.2f}) 超出地图边界 [mx:{mx}, my:{my}]")
             return False
 
-        # 检查中心点及周边小范围区域
+        # 2. 检查中心点及周边小范围区域（半径约 15cm）
         check_radius = max(1, int(0.15 / res)) 
+        
         for dx in range(-check_radius, check_radius + 1):
             for dy in range(-check_radius, check_radius + 1):
                 curr_mx, curr_my = mx + dx, my + dy
@@ -230,120 +277,167 @@ class FinalExploreNode(Node):
                 index = curr_my * w + curr_mx
                 cost = self.global_costmap.data[index]
 
-                # 关键判定日志
+                # 判定不安全的情况
+                reason = ""
                 if cost == -1 or cost == 255:
-                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 落在未知区域(cost={cost})")
-                    return False
-                if cost >= 253:
-                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 触碰致命障碍(cost={cost})")
-                    return False
-                if cost > safe_threshold:
-                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 代价过高({cost} > {safe_threshold})")
+                    reason = f"未知区域 (cost={cost})"
+                elif cost >= 253:
+                    reason = f"致命障碍 (cost={cost})"
+                elif cost > safe_threshold:
+                    reason = f"代价过高 ({cost} > {safe_threshold})"
+
+                if reason:
+                    # 打印具体哪个像素点导致了不安全
+                    self.get_logger().info(
+                        f"❌ 目标点 ({wx:.2f}, {wy:.2f}) 不安全: {reason} "
+                        f"位于偏移量 [dx:{dx}, dy:{dy}]", 
+                        throttle_duration_sec=1.0  # 相同位置不频繁刷屏
+                    )
                     return False
 
+        # 3. 全部检查通过
+        self.get_logger().debug(f"✅ 目标点 ({wx:.2f}, {wy:.2f}) 安全检查通过 (Radius: {check_radius})")
         return True
 
     # ---------------- 核心算法：边界提取与评估 ----------------
     def get_best_frontier(self):
         msg = self.map_msg
-        if msg is None: return None
+        if msg is None: 
+            self.get_logger().warn("🔍 探测中止：由于尚未收到地图数据")
+            return None
 
+        # --- 1. 获取基础数据 ---
         w, h = msg.info.width, msg.info.height
         res = msg.info.resolution
         ox, oy = msg.info.origin.position.x, msg.info.origin.position.y
-        rx, ry = self.get_current_pose()
-        if rx is None: return None
-
-        # 1. 预处理地图：区分自由、障碍、未知
-        data_np = np.array(msg.data).reshape((h, w))
         
-        # 建立掩码
-        img = np.full((h, w), 127, dtype=np.uint8)  # 默认未知
-        img[data_np == 0] = 255                    # 自由区域
-        img[data_np > 0] = 0                       # 障碍物区域
+        # 获取当前位姿（包括朝向 current_yaw）
+        rx, ry, current_yaw = self.get_current_pose() 
+        if rx is None: 
+            return None
 
-        # --- 优化 A：对障碍物进行膨胀，防止选点离墙太近 ---
-        kernel = np.ones((int(0.3/res), int(0.3/res)), np.uint8) # 30cm 膨胀
+        # --- 2. 图像预处理与边界提取 ---
+        data_np = np.array(msg.data).reshape((h, w))
+        img = np.full((h, w), 127, dtype=np.uint8)
+        img[data_np == 0] = 255  # 自由空间
+        img[data_np > 0] = 0    # 障碍物
+
+        # 障碍物膨胀 (30cm) 保证选点不会太贴墙
+        kernel = np.ones((int(0.3/res), int(0.3/res)), np.uint8)
         obs_mask = cv2.inRange(img, 0, 10)
         dilated_obs = cv2.dilate(obs_mask, kernel, iterations=1)
         
-        # 在自由区域中扣除掉靠近障碍物的部分
+        # 安全自由区域
         safe_free_mask = cv2.bitwise_and(cv2.inRange(img, 250, 255), cv2.bitwise_not(dilated_obs))
 
-        # 2. 提取边界 (Frontier)
-        # 边界定义：在安全自由区内，且邻域内有未知区域
+        # 提取边界 (Frontier): 在安全自由区边缘且邻接未知区域
         unknown_mask = cv2.inRange(img, 120, 135)
         dilated_safe_free = cv2.dilate(safe_free_mask, np.ones((3,3), np.uint8), iterations=1)
         frontier_mask = cv2.bitwise_and(dilated_safe_free, unknown_mask)
 
-        # 3. 连通域分析
+        # --- 3. 连通域分析 ---
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frontier_mask)
         
+        if num_labels <= 1:
+            self.get_logger().info("ℹ️ 地图扫描完毕或无可用边界")
+            return None
+
         best_goal = None
         max_score = -float('inf')
-        min_area_pixels = max(5, int(0.15 / res)) # 最小边界尺寸要求
+        min_area_pixels = max(5, int(0.15 / res))
+        
+        valid_frontier_count = 0
+        discard_reasons = {"area": 0, "dist": 0, "blacklist": 0, "safety": 0}
 
         for i in range(1, num_labels):
             area = stats[i, cv2.CC_STAT_AREA]
-            if area < min_area_pixels: continue
+            if area < min_area_pixels:
+                discard_reasons["area"] += 1
+                continue
 
-            # 边界中心的世界坐标
             cx, cy = centroids[i]
-            # wx_raw = cx * res + ox
-            # wy_raw = (h - cy - 1) * res + oy
             wx_raw = ox + (cx + 0.5) * res
             wy_raw = oy + (cy + 0.5) * res
 
             dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)
             
-            # 过滤过近或黑名单点
-            if dist_to_robot < 0.4: continue
-            if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.6 for fx, fy in self.failed_goals):
+            # 过滤距离过近的点
+            if dist_to_robot < 0.4:
+                discard_reasons["dist"] += 1
                 continue
 
-            # 计算朝向 (指向未知区域中心)
-            angle = math.atan2(wy_raw - ry, wx_raw - rx)
+            # 过滤黑名单
+            if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.6 for fx, fy in self.failed_goals):
+                discard_reasons["blacklist"] += 1
+                continue
 
-            # --- 优化 B：安全的退避位置计算 ---
-            # 尝试在机器人与边界点的连线上，找一个距离边界 0.45m 的点
+            # --- 4. 关键优化：角度平滑处理 ---
+            # 原始指向角度
+            raw_angle = math.atan2(wy_raw - ry, wx_raw - rx)
+            
+            if dist_to_robot < 1.2:
+                # 方案 A: 距离较近时，保持当前朝向，不特意转身
+                target_yaw = current_yaw
+            else:
+                # 方案 B: 距离较远时，允许转向，但限制转向幅度 (例如最大允许偏转 45度)
+                angle_diff = (raw_angle - current_yaw + math.pi) % (2 * math.pi) - math.pi
+                max_delta = math.radians(45.0)
+                clamped_diff = max(min(angle_diff, max_delta), -max_delta)
+                target_yaw = current_yaw + clamped_diff
+
+            # --- 5. 退避点计算 (确保目标点在已知安全区) ---
             offset = self.SAFE_OFFSET 
             if dist_to_robot < offset + 0.2:
-                offset = dist_to_robot * 0.5 # 距离太近时缩小退避距离
+                offset = dist_to_robot * 0.5
 
-            wx_goal = wx_raw - offset * math.cos(angle)
-            wy_goal = wy_raw - offset * math.sin(angle)
+            wx_goal = wx_raw - offset * math.cos(raw_angle)
+            wy_goal = wy_raw - offset * math.sin(raw_angle)
 
-            # --- 优化 C：多重安全性检查 ---
-            # 1. 检查目标点是否落在障碍物膨胀区
+            # 安全性检查 (Costmap 校验)
             if not self._is_costmap_safe(wx_goal, wy_goal, safe_threshold=100):
-                # 如果不安全，尝试微调角度或缩小偏移量
+                discard_reasons["safety"] += 1
                 continue
 
-            # 评分：面积大优先，距离中等优先（避免总是跑最远或者最近）
-            # 使用高斯型距离评分，鼓励机器人去 2.0m - 5.0m 左右的点
+            # --- 6. 评分逻辑 ---
+            valid_frontier_count += 1
+            # 高斯距离评分：倾向于去 3.0m 左右的点
             dist_score = 10.0 / (1.0 + abs(dist_to_robot - 3.0)) 
             score = area * 1.0 + dist_score * 5.0
 
             if score > max_score:
                 max_score = score
-                best_goal = (wx_goal, wy_goal, angle)
+                best_goal = (wx_goal, wy_goal, target_yaw)
+
+        # --- 7. 日志输出 ---
+        if best_goal:
+            self.get_logger().info(
+                f"🎯 选定最佳目标: ({best_goal[0]:.2f}, {best_goal[1]:.2f}), "
+                f"目标朝向: {math.degrees(best_goal[2]):.1f}°, 候选点: {valid_frontier_count}"
+            )
+        else:
+            self.get_logger().warn(
+                f"⚠️ 未选出目标。统计: 面积({discard_reasons['area']}), "
+                f"过近({discard_reasons['dist']}), 黑名单({discard_reasons['blacklist']}), "
+                f"不安全({discard_reasons['safety']})"
+            )
 
         return best_goal
 
     # ---------------- 恢复动作 ----------------
     def _publish_twist_for(self, linear_x=0.0, angular_z=0.0, duration=0.5):
-        t_end = time.time() + duration
-        twist = Twist()
-        twist.linear.x = linear_x
-        twist.angular.z = angular_z
-        rate_hz = 10
-        period = 1.0 / rate_hz
-        while time.time() < t_end and rclpy.ok():
-            self.cmd_vel_pub.publish(twist)
-            time.sleep(period)
-        # 停止
-        stop = Twist()
-        self.cmd_vel_pub.publish(stop)
+        # t_end = time.time() + duration
+        # twist = Twist()
+        # twist.linear.x = linear_x
+        # twist.angular.z = angular_z
+        # rate_hz = 10
+        # period = 1.0 / rate_hz
+        # while time.time() < t_end and rclpy.ok():
+        #     self.cmd_vel_pub.publish(twist)
+        #     time.sleep(period)
+        # # 停止
+        # stop = Twist()
+        # self.cmd_vel_pub.publish(stop)
+        pass
 
     def recovery_behavior(self):
         """当检测到卡住或局部规划失败时调用：后退 + 原地旋转，尝试重新建立可行路径"""
@@ -365,9 +459,9 @@ class FinalExploreNode(Node):
         self._publish_twist_for(linear_x=backoff_speed, duration=backoff_time)
         time.sleep(0.2)
         # 2) 随机方向原地旋转（扩大感知）
-        direction = random.choice([-1.0, 1.0])
-        self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
-        time.sleep(0.1)
+        # direction = random.choice([-1.0, 1.0])
+        # self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
+        # time.sleep(0.1)
 
     # ---------------- 任务执行逻辑 ----------------
     def save_current_map(self):
@@ -404,146 +498,129 @@ class FinalExploreNode(Node):
 
     def exploration_loop(self):
         """
-        改进后的探索主线程状态机：
-        1. 强化结束判定：必须【找不到点】且【比例达标】才退出。
-        2. 引入自救逻辑：找不到点但比例不达标时，清空黑名单重试。
-        3. 状态监控：实时打印进度。
-        4. 卡住检测与恢复动作（后退 + 旋转扫描）。
+        改进后的探索主线程状态机，增加了增强型调试日志。
         """
 
         # --- 预热阶段 ---
-        self.get_logger().info("等待系统预热：正在同步定位与导航服务...")
+        self.get_logger().info("⏳ 等待系统预热：正在同步定位与导航服务...")
         while rclpy.ok():
-            rx, ry = self.get_current_pose()
-            if rx is not None and self.wait_for_nav2_ready():
+            rx, ry, _ = self.get_current_pose()
+            nav_ready = self.wait_for_nav2_ready()
+            if rx is not None and nav_ready:
+                self.get_logger().info(f"✅ 系统就绪！当前起点坐标: ({rx:.2f}, {ry:.2f})")
                 break
+            self.get_logger().info("😴 等待中：定位或导航 ActionServer 尚未完全启动...", throttle_duration_sec=5.0)
             time.sleep(1.0)
 
-        # 启动时做一次原地旋转，帮助 SLAM 快速获取周围观测
+        # 启动时旋转
         initial_spin = self.get_parameter('initial_spin_duration').value
         if initial_spin and initial_spin > 0:
-            self.get_logger().info(f"🔄 启动扫描：原地旋转 {initial_spin}s")
+            self.get_logger().info(f"🔄 启动扫描：原地旋转 {initial_spin}s 以激活 SLAM 观测")
             self._publish_twist_for(angular_z=0.6, duration=initial_spin)
 
-        self.get_logger().info("🚀 探索正式开始！")
-
+        self.get_logger().info("🚀 自动探索正式开启！")
         stuck_timeout = self.get_parameter('stuck_timeout').value
 
         while rclpy.ok():
-            # 获取地图统计数据
             if self.map_msg is None:
-                time.sleep(0.2)
+                self.get_logger().warn("⚠️ 丢失地图数据，等待订阅回调...")
+                time.sleep(0.5)
                 continue
 
+            # 进度统计
             unknown_ratio, known_count = self.get_unknown_ratio()
             progress = 1.0 - unknown_ratio
+            self.get_logger().info(f"📊 [实时进度] 已探索: {progress:.1%} | 已知像素: {known_count} | 状态: {self.nav_status}")
 
-            # 每隔一段时间打印一次进度
-            self.get_logger().info(f"📊 探索进度: {progress:.2%} | 已知像素: {known_count}")
-
-            # 1. 如果当前没有导航任务，尝试寻找新目标
+            # 1. 寻找目标逻辑 (IDLE 状态)
             if self.nav_status == 'IDLE':
+                self.get_logger().info("🔍 正在寻找下一个边界点...")
                 target = self.get_best_frontier()
-
+                
                 if target:
-                    # 发现有效目标点
                     self.no_frontier_count = 0 
                     wx, wy, yaw = target
                     self.current_goal = (wx, wy)
+                    self.get_logger().info(f"📍 发现新目标: ({wx:.2f}, {wy:.2f})，发送导航请求...")
                     self.send_nav_goal(self._make_pose(wx, wy, yaw))
-                    self.get_logger().info(f"📍 前往新边界: ({wx:.2f}, {wy:.2f})")
-                    time.sleep(1.0) # 给状态更新留一点时间
-
+                    time.sleep(1.0) 
                 else:
-                    # --- 关键：判定是否真的结束 ---
+                    # --- 结束判定与自救逻辑 ---
                     if unknown_ratio < self.UNKNOWN_THRESHOLD:
-                        # 情况 A：地图已经扫得差不多了
                         self.no_frontier_count += 1
-                        self.get_logger().info(f"🧐 未发现新边界，进度已达标 ({progress:.2%})，确认中 {self.no_frontier_count}/{self.FINISH_THRESHOLD}")
+                        self.get_logger().info(f"🧐 剩余未知区域 {unknown_ratio:.2%} 低于阈值。确认中: {self.no_frontier_count}/{self.FINISH_THRESHOLD}")
                         
                         if self.no_frontier_count >= self.FINISH_THRESHOLD:
-                            self.get_logger().info("✅ 地图探索完整，准备保存并回航！")
+                            self.get_logger().info("🎊 [任务达成] 地图探索完整度达标，准备收尾。")
                             break
                     else:
-                        # 情况 B：地图没扫完但没点可去了（被黑名单过滤或路径不通）
-                        self.get_logger().warn("⚠️ 进度不达标但暂无有效路径！执行自救逻辑...")
+                        self.get_logger().warn("⚠️ 进度未达标 ({:.1%}) 但找不到有效点！执行自救逻辑...".format(progress))
                         
-                        # 自救动作 1：清空黑名单，给之前失败的点一个重试的机会
+                        # 自救动作 1：清空黑名单
                         if len(self.failed_goals) > 0:
-                            self.get_logger().info("🧹 清空黑名单，准备重新扫描不可达区域...")
+                            self.get_logger().info(f"🧹 尝试清空黑名单 (共 {len(self.failed_goals)} 个点)，给予重试机会")
                             self.failed_goals.clear()
                         
-                        # 自救动作 2：原地旋转再试
-                        self._publish_twist_for(angular_z=0.6, duration=2.0)
+                        # 自救动作 2：强制旋转探测
+                        self.get_logger().info("🔄 执行原地旋转以刷新感知范围...")
+                        self._publish_twist_for(angular_z=0.4, duration=3.0)
                         time.sleep(1.0)
-                        continue
 
-            # 2. 如果正在导航中，检查超时与卡住情况
+            # 2. 导航监控逻辑 (NAVIGATING 状态)
             elif self.nav_status == 'NAVIGATING':
                 elapsed_time = time.time() - self.nav_start_time
-
-                # 卡住检测：若在一段时间内机器人没有实际位移，触发恢复
                 time_since_moved = time.time() - self.last_moved_time
-                if time_since_moved > stuck_timeout:
-                    self.get_logger().warning(f"⛔ 检测到机器人可能卡住 (未移动 {time_since_moved:.1f}s)，触发恢复")
-                    # 取消当前导航目标
-                    if self.goal_handle is not None:
-                        try:
-                            cancel_future = self.goal_handle.cancel_goal_async()
-                            # 等待短时间让 action 确认取消
-                            timeout = 1.0
-                            start_c = time.time()
-                            while not cancel_future.done() and time.time() - start_c < timeout:
-                                time.sleep(0.05)
-                        except Exception as e:
-                            self.get_logger().warn(f"cancel goal exception: {e}")
 
-                    # 执行恢复动作
+                # 卡住检测
+                if time_since_moved > stuck_timeout:
+                    self.get_logger().error(f"⛔ [卡住检测] 机器人已停滞 {time_since_moved:.1f}s！触发强制恢复")
+                    
+                    # 取消任务
+                    if self.goal_handle is not None:
+                        self.get_logger().info("🛑 正在取消当前无法到达的导航任务...")
+                        self.goal_handle.cancel_goal_async()
+
                     self.recovery_behavior()
 
-                    # 将该点记为失败并回到空闲状态
                     with self.nav_lock:
                         self.nav_status = 'IDLE'
-
+                    
                     if hasattr(self, 'current_goal'):
+                        self.get_logger().warn(f"🚫 点 {self.current_goal} 已列入黑名单")
                         self.failed_goals.append(self.current_goal)
                     continue
 
+                # 超时检测
                 if elapsed_time > self.NAV_TIMEOUT:
-                    self.get_logger().warning(f"⏰ 导航超时 ({self.NAV_TIMEOUT}s)，放弃当前点。")
+                    self.get_logger().error(f"⏰ [超时] 导航耗时 {elapsed_time:.1f}s 超过预设上限，放弃该点")
                     if self.goal_handle:
-                        try:
-                            self.goal_handle.cancel_goal_async()
-                        except Exception:
-                            pass
+                        self.goal_handle.cancel_goal_async()
+                    
                     with self.nav_lock:
                         self.nav_status = 'IDLE'
                     self.failed_goals.append(self.current_goal)
 
-            # 循环频率控制
             time.sleep(0.4)
 
         # --- 任务收尾 ---
-        self.get_logger().info("🏁 正在执行收尾流程...")
+        self.get_logger().info("🏁 [收尾阶段] 探索结束，开始清理工作...")
         
         # 保存地图
-        try:
-            self.save_current_map()
-        except Exception as e:
-            self.get_logger().error(f"地图保存失败: {e}")
+        self.save_current_map()
 
         # 回航
         if hasattr(self, 'start_pose_x'):
-            self.get_logger().info(f"🏠 正在回到起点: ({self.start_pose_x:.2f}, {self.start_pose_y:.2f})")
+            self.get_logger().info(f"🏠 [回航] 准备返回起点坐标: ({self.start_pose_x:.2f}, {self.start_pose_y:.2f})")
             self.send_nav_goal(self._make_pose(self.start_pose_x, self.start_pose_y, 0.0))
             
-            # 等待机器人到家
             while rclpy.ok():
                 if self.nav_status == 'IDLE':
+                    self.get_logger().info("✅ 已成功回到起点附近。")
                     break
+                self.get_logger().info("🚶 回归中...", throttle_duration_sec=5.0)
                 time.sleep(1.0)
 
-        self.get_logger().info("🎮 任务全部完成，节点准备退出。")
+        self.get_logger().info("🎮 [FINISH] 探索任务全部完成，节点即将关闭。")
         
     def get_unknown_ratio(self):
         data = np.array(self.map_msg.data)
@@ -565,8 +642,8 @@ class FinalExploreNode(Node):
         p.pose.position.x = x
         p.pose.position.y = y
         # 将角度转为四元数 Z/W
-        p.pose.orientation.z = math.sin(yaw/2)
-        p.pose.orientation.w = math.cos(yaw/2)
+        # p.pose.orientation.z = math.sin(yaw/2)
+        # p.pose.orientation.w = math.cos(yaw/2)
         return p
     
     def send_nav_goal(self, pose: PoseStamped):

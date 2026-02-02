@@ -55,7 +55,7 @@ controller_server:
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.5      # 在下面时间内至少要移动 0.1 米
-      movement_time_allowance: 10.0      # 30秒内没动静则认为卡死并触发恢复行为
+      movement_time_allowance: 30.0      # 30秒内没动静则认为卡死并触发恢复行为
 
     # --- 目标到达检查器：决定何时算“到了” ---
     goal_checker:
@@ -70,12 +70,12 @@ controller_server:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 40                     # 预测步数
       model_dt: 0.05                     # 每步预测的时间间隔（秒）。预测总时长 = 40 * 0.05 = 2.0秒
-      batch_size: 250                    # 采样轨迹数量。数值越大避障越好，但越吃 CPU/GPU
+      batch_size: 150                    # 采样轨迹数量。数值越大避障越好，但越吃 CPU/GPU
       ax_max: 1.0                        # 最大 X 向加速度
       ax_min: -1.0                       # 最大 X 向减速度
       ay_max: 3.0                        # 最大 Y 向加速度（差速轮通常忽略，除非滑移）
       ay_min: -3.0
-      az_max: 3.5                        # 最大角加速度
+      az_max: 0.5                        # 最大角加速度
       vx_std: 0.4                        # X 速度采样标准差（控制探索范围）
       vy_std: 0.0                        # Y 速度采样标准差
       wz_std: 0.2                        # 角速度采样标准差
@@ -85,7 +85,7 @@ controller_server:
       wz_max: 1.9                        # 最大旋转速度 (rad/s)
       iteration_count: 1                 # 优化迭代次数
       prune_distance: 2.5                # 从路径中裁剪多远以外的点
-      transform_tolerance: 0.1           # 坐标变换容忍度
+      transform_tolerance: 1.0           # 坐标变换容忍度
       temperature: 0.5                   # 采样热度，影响轨迹筛选的灵敏度
       gamma: 0.015                       # 奖励函数的平滑系数
       motion_model: "Ackermann"          # 运动模型：阿克曼 (Ackermann)
@@ -116,7 +116,13 @@ controller_server:
           "PathFollowCritic",            # 路径跟随：轨迹是否在全局路径前方
           "PathAngleCritic",             # 路径角度：朝向是否与路径方向一致
           "PreferForwardCritic",         # 偏好前进：惩罚后退行为
+          "ObstaclesCritic",
         ]
+      ObstaclesCritic:
+        enabled: true
+        low_cost_distance: 0.2    # 距离障碍物多近开始惩罚
+        consider_footprint: false # 设为 false 可以大幅提升计算速度并减少卡死
+        collision_cost: 100.0     # 尝试降低这个值（原值通常很高）
 
       ConstraintCritic:
         enabled: true
@@ -144,17 +150,17 @@ controller_server:
       CostCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.81                # 避障权重
-        near_collision_cost: 230         # 靠近碰撞时的代价阈值
+        cost_weight: 1.5                # 避障权重
+        near_collision_cost: 180         # 靠近碰撞时的代价阈值
         critical_cost: 250.0             # 危险代价阈值
-        consider_footprint: true         # 避障时计算完整轮廓（重要！）
-        collision_cost: 1000000.0        # 发生碰撞的惩罚（天文数字）
-        near_goal_distance: 0.5          # 靠近目标 1m 时降低避障敏感度
+        consider_footprint: false         # 避障时计算完整轮廓（重要！）
+        collision_cost: 500.0        # 发生碰撞的惩罚（天文数字）
+        near_goal_distance: 1.0          # 靠近目标 1m 时降低避障敏感度
 
       PathAlignCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 3.0                # 权重高，会让机器人更死板地贴着全局路线走
+        cost_weight: 100.0                # 权重高，会让机器人更死板地贴着全局路线走
         max_path_occupancy_ratio: 0.05
         trajectory_point_step: 4
         threshold_to_consider: 0.5
@@ -193,10 +199,10 @@ local_costmap:
       global_frame: odom       # 局部地图参考系：必须用 odom 以保证局部运动的平滑性
       # robot_base_frame: base_link
       robot_base_frame: base_footprint
-      transform_tolerance: 1.0
+      transform_tolerance: 1.5
       rolling_window: true     # 窗口随机器人移动：地图永远以机器人为中心
-      width: 10                # 局部窗口宽度（米）
-      height: 10               # 局部窗口高度（米）
+      width: 5                # 局部窗口宽度（米）
+      height: 5               # 局部窗口高度（米）
       resolution: 0.05         # 栅格分辨率（5厘米/格）
 
       # 插件配置：决定了地图由哪些层叠加而成
@@ -216,8 +222,8 @@ local_costmap:
         enabled: true
         observation_sources: rtabmap_obstacles
         scan:
-          # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          topic: /seg/scan
+          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
+          # topic: /seg/scan
           sensor_frame: camera_link
           inf_is_valid: true
           max_obstacle_height: 0.3
@@ -227,6 +233,7 @@ local_costmap:
           raytrace_max_range: 4.5   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          expected_update_rate: 1.0
       # --- 体素层：处理 3D 障碍物（即使只有 2D 雷达也推荐，用于管理高度信息） ---
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -278,8 +285,8 @@ global_costmap:
       track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
 
       # 插件配置：静态地图层 + 膨胀层
-      # plugins: ["static_layer", "inflation_layer"]
-      plugins: ["static_layer", "inflation_layer","obstacle_layer"]
+      plugins: ["static_layer", "inflation_layer"]
+      # plugins: ["static_layer", "inflation_layer","obstacle_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -447,7 +454,7 @@ behavior_server:
     # robot_base_frame: base_link
     robot_base_frame: base_footprint
 
-    transform_tolerance: 0.1
+    transform_tolerance: 1.0
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
@@ -516,7 +523,7 @@ collision_monitor:
     cmd_vel_in_topic: "cmd_vel_smoothed"
     cmd_vel_out_topic: "cmd_vel"
     state_topic: "collision_monitor_state"
-    transform_tolerance: 1.0
+    transform_tolerance: 1.5
     source_timeout: 5.0
     base_shift_correction: false
     stop_pub_timeout: 2.0
