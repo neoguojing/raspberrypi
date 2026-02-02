@@ -32,8 +32,8 @@ class FinalExploreNode(Node):
         self.declare_parameter('stuck_min_move', 0.05)      # 判定为“移动”的最小距离 (m)
         self.declare_parameter('recovery_backoff_time', 1.0)
         self.declare_parameter('recovery_rotate_time', 2.0)
-        self.declare_parameter('recovery_backoff_speed', 0.08)
-        self.declare_parameter('recovery_rotate_speed', 0.6)
+        self.declare_parameter('recovery_backoff_speed', 0.1)
+        self.declare_parameter('recovery_rotate_speed', 0.1)
 
         # 初始化 Nav2 简单导航接口 (ActionClient)
         self.navigator = ActionClient(
@@ -108,6 +108,7 @@ class FinalExploreNode(Node):
             self._update_motion_track(x, y)
             return x, y
         except Exception:
+            self.get_logger().warn("get_current_pose failed")
             # 失败时尝试查找最近的一次有效变换
             try:
                 t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time(seconds=0))
@@ -116,6 +117,7 @@ class FinalExploreNode(Node):
                 self._update_motion_track(x, y)
                 return x, y
             except:
+                self.get_logger().error("get_current_pose failed")
                 return None, None
 
     def _update_motion_track(self, x, y):
@@ -135,10 +137,51 @@ class FinalExploreNode(Node):
     def costmap_callback(self, msg):
         """接收全局代价地图，用于目标点安全性验证"""
         self.global_costmap = msg
+        # 使用类变量确保只打印一次，避免日志刷屏
+        if not hasattr(self, '_costmap_logged'):
+            info = msg.info
+            data_np = np.array(msg.data)
+            
+            # 计算代价统计
+            max_cost = np.max(data_np)
+            min_cost = np.min(data_np)
+            avg_cost = np.mean(data_np)
+            # 统计高代价点（通常 > 100 表示靠近障碍物）
+            high_cost_count = np.count_nonzero(data_np > 100)
+            lethal_count = np.count_nonzero(data_np >= 253)
+
+            self.get_logger().info("==== 全局代价地图 (Global Costmap) 结构解析 ====")
+            self.get_logger().info(f"数据类型: {type(msg.data)} | 长度: {len(msg.data)}")
+            self.get_logger().info(f"地图尺寸: {info.width} x {info.height} (总像素: {info.width * info.height})")
+            self.get_logger().info(f"分辨率: {info.resolution:.4f} m/pixel")
+            self.get_logger().info(f"地图原点: x={info.origin.position.x:.2f}, y={info.origin.position.y:.2f}")
+            self.get_logger().info(f"代价值范围: [{min_cost} ~ {max_cost}] | 平均值: {avg_cost:.2f}")
+            self.get_logger().info(f"危险点统计: 较高代价(>100): {high_cost_count} | 致命障碍(>=253): {lethal_count}")
+            self.get_logger().info("============================================")
+            
+            self._costmap_logged = True
 
     def map_callback(self, msg):
         """地图回调：不断更新本地地图快照"""
         self.map_msg = msg
+        # 仅在收到地图的前几次打印格式信息，避免刷屏
+        if not hasattr(self, '_map_logged_once'):
+            data_np = np.array(msg.data)
+            unique_values = np.unique(data_np)
+            
+            self.get_logger().info("--- 地图格式校验 ---")
+            self.get_logger().info(f"地图分辨率: {msg.info.resolution:.3f} m/pixel")
+            self.get_logger().info(f"地图尺寸: {msg.info.width}x{msg.info.height}")
+            self.get_logger().info(f"原始数据数值范围: {unique_values}")
+            
+            # 统计分布
+            unknown_count = np.count_nonzero(data_np == -1)
+            free_count = np.count_nonzero(data_np == 0)
+            obs_count = np.count_nonzero(data_np > 0)
+            
+            self.get_logger().info(f"像素统计 -> 未知(-1): {unknown_count}, 自由(0): {free_count}, 障碍(>0): {obs_count}")
+            self.get_logger().info("-------------------")
+            self._map_logged_once = True
 
     def _start_logic(self):
         """启动逻辑：仅执行一次，开启独立的计算线程"""
@@ -157,141 +200,133 @@ class FinalExploreNode(Node):
         thread.daemon = True
         thread.start()
 
-    def _is_costmap_safe(self, wx, wy, safe_threshold=60):
-        """
-        检查世界坐标 (wx, wy) 在全局代价地图中是否安全。
-        :param wx, wy: 世界坐标 (m)
-        :param safe_threshold: cost 阈值，低于此值认为安全（推荐 60～120）
-        :return: bool
-        """
+    def _is_costmap_safe(self, wx, wy, safe_threshold=100):
         if self.global_costmap is None:
-            return False  # 代价地图未加载，保守返回不安全
+            self.get_logger().warn("安全检查失败：全局代价地图尚未收到")
+            return False
 
-        ox = self.global_costmap.info.origin.position.x
-        oy = self.global_costmap.info.origin.position.y
-        res = self.global_costmap.info.resolution
-        width = self.global_costmap.info.width
-        height = self.global_costmap.info.height
+        info = self.global_costmap.info
+        ox, oy = info.origin.position.x, info.origin.position.y
+        res = info.resolution
+        w, h = info.width, info.height
 
-        # 转换为栅格坐标
         mx = int((wx - ox) / res)
         my = int((wy - oy) / res)
 
-        # 边界检查
-        if mx < 0 or mx >= width or my < 0 or my >= height:
+        # 检查是否在地图数组范围内
+        if mx < 0 or mx >= w or my < 0 or my >= h:
+            self.get_logger().warn(f"点 ({wx:.2f}, {wy:.2f}) 超出代价地图边界")
             return False
 
-        index = my * width + mx
-        if index >= len(self.global_costmap.data):
-            return False
+        # 检查中心点及周边小范围区域
+        check_radius = max(1, int(0.15 / res)) 
+        for dx in range(-check_radius, check_radius + 1):
+            for dy in range(-check_radius, check_radius + 1):
+                curr_mx, curr_my = mx + dx, my + dy
+                
+                if curr_mx < 0 or curr_mx >= w or curr_my < 0 or curr_my >= h:
+                    continue
+                    
+                index = curr_my * w + curr_mx
+                cost = self.global_costmap.data[index]
 
-        cost = self.global_costmap.data[index]
+                # 关键判定日志
+                if cost == -1 or cost == 255:
+                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 落在未知区域(cost={cost})")
+                    return False
+                if cost >= 253:
+                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 触碰致命障碍(cost={cost})")
+                    return False
+                if cost > safe_threshold:
+                    self.get_logger().debug(f"坐标({wx:.2f}, {wy:.2f}) 不安全: 代价过高({cost} > {safe_threshold})")
+                    return False
 
-        # cost == 0: free, 1～252: 可通行但有代价, 253～255: lethal
-        # 我们要求 cost < safe_threshold 才认为安全
-        return cost < safe_threshold
+        return True
 
     # ---------------- 核心算法：边界提取与评估 ----------------
     def get_best_frontier(self):
-        """
-        改进版：引入动态退避与最小距离校验，解决小车原地不动的问题。
-        """
         msg = self.map_msg
-        if msg is None:
-            self.get_logger().warn("get_best_frontier(): map_msg is None")
-            return None
+        if msg is None: return None
 
-        # 地图基本参数
         w, h = msg.info.width, msg.info.height
         res = msg.info.resolution
         ox, oy = msg.info.origin.position.x, msg.info.origin.position.y
-
-        # 获取机器人当前位姿
         rx, ry = self.get_current_pose()
-        if rx is None:
-            self.get_logger().warn("get_best_frontier(): robot pose unavailable")
-            return None
+        if rx is None: return None
 
-        # OccupancyGrid -> numpy 转换与图像处理
+        # 1. 预处理地图：区分自由、障碍、未知
         data_np = np.array(msg.data).reshape((h, w))
-        img = np.full((h, w), 127, dtype=np.uint8)
-        img[data_np == 0] = 255
-        img[data_np > 0] = 0
+        
+        # 建立掩码
+        img = np.full((h, w), 127, dtype=np.uint8)  # 默认未知
+        img[data_np == 0] = 255                    # 自由区域
+        img[data_np > 0] = 0                       # 障碍物区域
 
-        free_mask = cv2.inRange(img, 250, 255)
+        # --- 优化 A：对障碍物进行膨胀，防止选点离墙太近 ---
+        kernel = np.ones((int(0.3/res), int(0.3/res)), np.uint8) # 30cm 膨胀
+        obs_mask = cv2.inRange(img, 0, 10)
+        dilated_obs = cv2.dilate(obs_mask, kernel, iterations=1)
+        
+        # 在自由区域中扣除掉靠近障碍物的部分
+        safe_free_mask = cv2.bitwise_and(cv2.inRange(img, 250, 255), cv2.bitwise_not(dilated_obs))
+
+        # 2. 提取边界 (Frontier)
+        # 边界定义：在安全自由区内，且邻域内有未知区域
         unknown_mask = cv2.inRange(img, 120, 135)
+        dilated_safe_free = cv2.dilate(safe_free_mask, np.ones((3,3), np.uint8), iterations=1)
+        frontier_mask = cv2.bitwise_and(dilated_safe_free, unknown_mask)
 
-        dilated_free = cv2.dilate(free_mask, np.ones((3, 3), np.uint8), iterations=1)
-        frontier_mask = cv2.bitwise_and(dilated_free, unknown_mask)
-
-        # 连通域分析
+        # 3. 连通域分析
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frontier_mask)
-
+        
         best_goal = None
         max_score = -float('inf')
-        min_area_pixels = max(4, int(0.2 / res))
-
-        self.get_logger().info(f"🔍 扫描边界块数量: {num_labels-1}")
+        min_area_pixels = max(5, int(0.15 / res)) # 最小边界尺寸要求
 
         for i in range(1, num_labels):
             area = stats[i, cv2.CC_STAT_AREA]
-            if area < min_area_pixels:
-                continue
+            if area < min_area_pixels: continue
 
+            # 边界中心的世界坐标
             cx, cy = centroids[i]
-            wx_raw = cx * res + ox
-            wy_raw = (h - cy - 1) * res + oy
+            # wx_raw = cx * res + ox
+            # wy_raw = (h - cy - 1) * res + oy
+            wx_raw = ox + (cx + 0.5) * res
+            wy_raw = oy + (cy + 0.5) * res
 
-            # 1. 计算原始距离
             dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)
-
-            # 2. 黑名单过滤
-            if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.5 for fx, fy in self.failed_goals):
-                self.get_logger().warn(f"黑名单过滤!!!")
+            
+            # 过滤过近或黑名单点
+            if dist_to_robot < 0.4: continue
+            if any(math.hypot(wx_raw - fx, wy_raw - fy) < 0.6 for fx, fy in self.failed_goals):
                 continue
 
-            # 3. 评分函数：面积优先，距离惩罚
-            score = area * 5.0 - dist_to_robot * 1.5
+            # 计算朝向 (指向未知区域中心)
+            angle = math.atan2(wy_raw - ry, wx_raw - rx)
+
+            # --- 优化 B：安全的退避位置计算 ---
+            # 尝试在机器人与边界点的连线上，找一个距离边界 0.45m 的点
+            offset = self.SAFE_OFFSET 
+            if dist_to_robot < offset + 0.2:
+                offset = dist_to_robot * 0.5 # 距离太近时缩小退避距离
+
+            wx_goal = wx_raw - offset * math.cos(angle)
+            wy_goal = wy_raw - offset * math.sin(angle)
+
+            # --- 优化 C：多重安全性检查 ---
+            # 1. 检查目标点是否落在障碍物膨胀区
+            if not self._is_costmap_safe(wx_goal, wy_goal, safe_threshold=100):
+                # 如果不安全，尝试微调角度或缩小偏移量
+                continue
+
+            # 评分：面积大优先，距离中等优先（避免总是跑最远或者最近）
+            # 使用高斯型距离评分，鼓励机器人去 2.0m - 5.0m 左右的点
+            dist_score = 10.0 / (1.0 + abs(dist_to_robot - 3.0)) 
+            score = area * 1.0 + dist_score * 5.0
 
             if score > max_score:
-                angle = math.atan2(wy_raw - ry, wx_raw - rx)
-
-                # --- 核心改进：动态退避逻辑 ---
-                # 如果点很近，退避距离不能超过原始距离的一半
-                dynamic_offset = min(self.SAFE_OFFSET, dist_to_robot * 0.4)
-                
-                wx_safe = wx_raw - dynamic_offset * math.cos(angle)
-                wy_safe = wy_raw - dynamic_offset * math.sin(angle)
-
-                # --- 核心改进：防止“原地完成” ---
-                dist_safe = math.hypot(wx_safe - rx, wy_safe - ry)
-                if dist_safe < 0.25:
-                    self.get_logger().warn(f"跳过过近目标: dist={dist_safe:.2f}m")
-                    # 如果这是唯一的块，即便近也要试一下，不直接 continue
-                    if num_labels > 2:
-                        continue
-
-                # 强制最小目标距离，防止导航认为已到达
-                if dist_safe < self.MIN_GOAL_DISTANCE:
-                    self.get_logger().info(f"目标太近 ( {dist_safe:.2f}m )，尝试选更远的块")
-                    # 不立即丢弃，但优先级降低
-                    adjusted_score = score - (self.MIN_GOAL_DISTANCE - dist_safe) * 5.0
-                else:
-                    adjusted_score = score
-
-                # 4. 代价地图安全性校验
-                # 使用稍微严格的阈值，防止蹭墙
-                if not self._is_costmap_safe(wx_safe, wy_safe, safe_threshold=120):
-                    self.get_logger().warn(f"点 ({wx_safe:.2f}, {wy_safe:.2f}) 代价过高，放弃")
-                    continue
-
-                max_score = adjusted_score
-                best_goal = (wx_safe, wy_safe, angle)
-
-        if best_goal:
-            self.get_logger().info(f"🎯 选定目标: {best_goal[0]:.2f}, {best_goal[1]:.2f} (得分: {max_score:.2f})")
-        else:
-            self.get_logger().warn("⚠️ 本轮未找到符合安全条件的有效边界")
+                max_score = score
+                best_goal = (wx_goal, wy_goal, angle)
 
         return best_goal
 
@@ -312,6 +347,14 @@ class FinalExploreNode(Node):
 
     def recovery_behavior(self):
         """当检测到卡住或局部规划失败时调用：后退 + 原地旋转，尝试重新建立可行路径"""
+        with self.nav_lock:
+            if self.nav_status != 'IDLE':
+                # 确保导航空闲后再发 cmd_vel
+                self.get_logger().info("等待导航空闲以执行本地恢复动作...")
+                start = time.time()
+                while self.nav_status != 'IDLE' and time.time() - start < 1.0:
+                    time.sleep(0.05)
+
         self.get_logger().warn("🆘 触发恢复动作：后退 + 旋转扫描")
         backoff_time = self.get_parameter('recovery_backoff_time').value
         backoff_speed = -abs(self.get_parameter('recovery_backoff_speed').value)
@@ -322,9 +365,9 @@ class FinalExploreNode(Node):
         self._publish_twist_for(linear_x=backoff_speed, duration=backoff_time)
         time.sleep(0.2)
         # 2) 随机方向原地旋转（扩大感知）
-        # direction = random.choice([-1.0, 1.0])
-        # self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
-        # time.sleep(0.1)
+        direction = random.choice([-1.0, 1.0])
+        self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
+        time.sleep(0.1)
 
     # ---------------- 任务执行逻辑 ----------------
     def save_current_map(self):
@@ -444,11 +487,16 @@ class FinalExploreNode(Node):
                 if time_since_moved > stuck_timeout:
                     self.get_logger().warning(f"⛔ 检测到机器人可能卡住 (未移动 {time_since_moved:.1f}s)，触发恢复")
                     # 取消当前导航目标
-                    if self.goal_handle:
+                    if self.goal_handle is not None:
                         try:
-                            self.goal_handle.cancel_goal_async()
-                        except Exception:
-                            pass
+                            cancel_future = self.goal_handle.cancel_goal_async()
+                            # 等待短时间让 action 确认取消
+                            timeout = 1.0
+                            start_c = time.time()
+                            while not cancel_future.done() and time.time() - start_c < timeout:
+                                time.sleep(0.05)
+                        except Exception as e:
+                            self.get_logger().warn(f"cancel goal exception: {e}")
 
                     # 执行恢复动作
                     self.recovery_behavior()
@@ -525,8 +573,12 @@ class FinalExploreNode(Node):
         goal = NavigateToPose.Goal()
         goal.pose = pose
         with self.nav_lock:
+            # 避免在导航中再次发送
+            if self.nav_status == 'NAVIGATING':
+                self.get_logger().warn("尝试在正在导航时发送目标，已忽略")
+                return
             self.nav_status = 'NAVIGATING'
-        self.nav_start_time = time.time()
+            self.nav_start_time = time.time()
 
         self.goal_future = self.navigator.send_goal_async(
             goal,
@@ -535,25 +587,45 @@ class FinalExploreNode(Node):
         self.goal_future.add_done_callback(self._goal_response_cb)
 
     def _goal_response_cb(self, future):
-        self.goal_handle = future.result()
+        try:
+            goal_handle = future.result()
+        except Exception as e:
+            self.get_logger().error(f"_goal_response_cb exception: {e}")
+            with self.nav_lock:
+                self.nav_status = 'IDLE'
+            return
 
-        if not self.goal_handle.accepted:
+        with self.nav_lock:
+            self.goal_handle = goal_handle
+
+        if not goal_handle.accepted:
             self.get_logger().warn('导航目标被拒绝')
             with self.nav_lock:
                 self.nav_status = 'IDLE'
             return
+
         self.get_logger().info("✅ 导航目标已接受，开始规划路径")
-        self.result_future = self.goal_handle.get_result_async()
-        self.result_future.add_done_callback(self._result_cb)
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self._result_cb)
+        with self.nav_lock:
+            self.result_future = result_future
 
     def _result_cb(self, future):
-        status = future.result().status
+        try:
+            result = future.result()
+            status = result.status
+        except Exception as e:
+            self.get_logger().error(f"_result_cb exception: {e}")
+            status = None
+
         with self.nav_lock:
             self.nav_status = 'IDLE'
+            self.goal_handle = None
+            self.result_future = None
 
         # STATUS_SUCCEEDED = 4
         if status != 4:
-            self.get_logger().warn('导航失败，加入黑名单')
+            self.get_logger().warn('导航失败或被取消，加入黑名单（若有当前目标）')
             if hasattr(self, 'current_goal'):
                 self.failed_goals.append(self.current_goal)
         else:
