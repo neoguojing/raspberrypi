@@ -31,7 +31,7 @@ class ZenohSegScan:
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = 0.1
-        self.range_max = 4.0
+        self.range_max = 3.0
         # 物理模拟：假设激光光斑有 1.5 倍角分辨率的宽度，产生重叠
         self.beam_overlap_indices = 2
 
