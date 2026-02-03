@@ -354,8 +354,23 @@ class FinalExploreNode(Node):
             if area < min_area_pixels:
                 discard_reasons["area"] += 1
                 continue
+            
+            # --- 用最远点代替 centroid（空旷场地更稳） ---
+            ys, xs = np.where(labels == i)
 
-            cx, cy = centroids[i]
+            # 机器人在地图像素坐标
+            rx_pix = int((rx - ox) / res)
+            ry_pix = int((ry - oy) / res)
+
+            # 选取离机器人最远的 frontier 像素
+            farthest_idx = np.argmax(
+                (xs - rx_pix) ** 2 + (ys - ry_pix) ** 2
+            )
+
+            cx = xs[farthest_idx]
+            cy = ys[farthest_idx]
+
+            # cx, cy = centroids[i]
             wx_raw = ox + (cx + 0.5) * res
             wy_raw = oy + (cy + 0.5) * res
 
@@ -644,6 +659,8 @@ class FinalExploreNode(Node):
         # 将角度转为四元数 Z/W
         # p.pose.orientation.z = math.sin(yaw/2)
         # p.pose.orientation.w = math.cos(yaw/2)
+        p.pose.orientation.w = 1.0
+        p.pose.orientation.z = 0.0
         return p
     
     def send_nav_goal(self, pose: PoseStamped):

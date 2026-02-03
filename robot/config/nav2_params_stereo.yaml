@@ -212,28 +212,11 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.12      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        cost_scaling_factor: 8.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
+        inflation_radius: 0.18      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: true
 
-      obstacle_layer:
-        plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: false
-        observation_sources: scan
-        scan:
-          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          # topic: /seg/scan
-          sensor_frame: camera_link
-          inf_is_valid: true
-          max_obstacle_height: 0.3
-          clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
-          marking: true             # 如果射线上有击中点，则标记障碍物
-          data_type: "LaserScan"
-          raytrace_max_range: 4.5   # 激光清理的最大范围
-          obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
-          expected_update_rate: 1.0
       # --- 体素层：处理 3D 障碍物（即使只有 2D 雷达也推荐，用于管理高度信息） ---
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
@@ -244,20 +227,19 @@ local_costmap:
         z_voxels: 20
         max_obstacle_height: 2.0    # 考虑的最大障碍物高度
         mark_threshold: 8           # 当列中有多少个体素被占用时，标记为障碍物
-        observation_sources: scan
-        scan:
-          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          # topic: /seg/scan
+        
+        observation_sources: rtabmap_obstacles
+        rtabmap_obstacles:
+          topic: /cloud_obstacles
+          data_type: PointCloud2
           sensor_frame: camera_link
-          inf_is_valid: true
-          max_obstacle_height: 0.3
-          clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
-          marking: true             # 如果射线上有击中点，则标记障碍物
-          data_type: "LaserScan"
+          marking: true           # 视觉障碍主力
+          clearing: true
           raytrace_max_range: 4.5   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
-          expected_update_rate: 1.0
+          min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
+          max_obstacle_height: 2.0
 
       always_send_full_costmap: true
       introspection_mode: "metadata"
@@ -283,7 +265,7 @@ global_costmap:
       robot_base_frame: base_footprint
 
       resolution: 0.05
-      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
+      track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
 
       # 插件配置：静态地图层 + 膨胀层
       plugins: ["static_layer", "inflation_layer"]
@@ -305,6 +287,17 @@ global_costmap:
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
 
+      #   rtabmap_obstacles:
+      #     topic: /cloud_obstacles
+      #     data_type: PointCloud2
+      #     sensor_frame: camera_link
+      #     marking: true           # 视觉障碍主力
+      #     clearing: true
+      #     raytrace_max_range: 4.5   # 激光清理的最大范围
+      #     obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
+      #     observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+      #     min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
+      #     max_obstacle_height: 2.0
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -385,7 +378,7 @@ planner_server:
     introspection_mode: "metadata"
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.6
+      tolerance: 0.3
       use_astar: true #开启A* 快且稳定
       allow_unknown: true
 
@@ -425,22 +418,20 @@ behavior_server:
       ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
     spin:
       plugin: "nav2_behaviors::Spin"
-      max_rotational_vel: 1.2
-      min_rotational_vel: 0.6
     backup:
       plugin: "nav2_behaviors::BackUp"
       acceleration_limit: 2.5
       deceleration_limit: -2.5
       minimum_speed: 0.10
-    # drive_on_heading:
-    #   plugin: "nav2_behaviors::DriveOnHeading"
-    #   acceleration_limit: 2.5
-    #   deceleration_limit: -2.5
-    #   minimum_speed: 0.10
-    # wait:
-    #   plugin: "nav2_behaviors::Wait"
-    # assisted_teleop:
-    #   plugin: "nav2_behaviors::AssistedTeleop"
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+      acceleration_limit: 2.5
+      deceleration_limit: -2.5
+      minimum_speed: 0.10
+    wait:
+      plugin: "nav2_behaviors::Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors::AssistedTeleop"
     local_frame: odom
     global_frame: map
     # robot_base_frame: base_link
@@ -532,6 +523,7 @@ collision_monitor:
       visualize: false
       enabled: true
     observation_sources: ["scan"]
+    # observation_sources: ["rtabmap_obstacles"]
     scan:
       type: "scan"
       topic: "/seg/scan" # ← YOLO-Seg 输出
@@ -539,6 +531,12 @@ collision_monitor:
       max_height: 2.0
       enabled: true
 
+    rtabmap_obstacles:
+      type: "pointcloud"
+      topic: "/cloud_obstacles"
+      min_obstacle_height: 0.05  # 关键：忽略掉离地 15cm 以下的所有东西
+      max_obstacle_height: 2.0
+      enabled: true
 # Docking Server (自动对接):
 # 核心功能：控制机器人精准地倒车或前进进入充电座（Dock）。
 # 总结：它是**“自动泊车”**。
