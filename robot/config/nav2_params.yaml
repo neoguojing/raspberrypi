@@ -122,7 +122,7 @@ controller_server:
         enabled: true
         low_cost_distance: 0.2    # 距离障碍物多近开始惩罚
         consider_footprint: false # 设为 false 可以大幅提升计算速度并减少卡死
-        collision_cost: 100.0     # 尝试降低这个值（原值通常很高）
+        collision_cost: 50.0     # 尝试降低这个值（原值通常很高）
 
       ConstraintCritic:
         enabled: true
@@ -151,10 +151,10 @@ controller_server:
         enabled: true
         cost_power: 1
         cost_weight: 1.5                # 避障权重
-        near_collision_cost: 180         # 靠近碰撞时的代价阈值
-        critical_cost: 250.0             # 危险代价阈值
+        near_collision_cost: 100        # 靠近碰撞时的代价阈值
+        critical_cost: 200.0             # 危险代价阈值
         consider_footprint: false         # 避障时计算完整轮廓（重要！）
-        collision_cost: 500.0        # 发生碰撞的惩罚（天文数字）
+        collision_cost: 300.0      # 发生碰撞的惩罚（天文数字）
         near_goal_distance: 1.0          # 靠近目标 1m 时降低避障敏感度
 
       PathAlignCritic:
@@ -206,7 +206,8 @@ local_costmap:
       resolution: 0.05         # 栅格分辨率（5厘米/格）
 
       # 插件配置：决定了地图由哪些层叠加而成
-      plugins: ["voxel_layer", "inflation_layer"]
+      # plugins: ["voxel_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
 
       # --- 膨胀层：为障碍物边缘增加缓冲区，防止机器人“擦边” ---
       inflation_layer:
@@ -215,11 +216,11 @@ local_costmap:
         cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
         inflation_radius: 0.12      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
-        inflate_around_unknown: true
+        inflate_around_unknown: false
 
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: false
+        enabled: true
         observation_sources: scan
         scan:
           topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
@@ -246,8 +247,8 @@ local_costmap:
         mark_threshold: 8           # 当列中有多少个体素被占用时，标记为障碍物
         observation_sources: scan
         scan:
-          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          # topic: /seg/scan
+          # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
+          topic: /seg/scan
           sensor_frame: camera_link
           inf_is_valid: true
           max_obstacle_height: 0.3
@@ -283,7 +284,7 @@ global_costmap:
       robot_base_frame: base_footprint
 
       resolution: 0.05
-      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
+      track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
 
       # 插件配置：静态地图层 + 膨胀层
       plugins: ["static_layer", "inflation_layer"]
@@ -317,10 +318,10 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 8.0
-        inflation_radius: 0.18
+        cost_scaling_factor: 12.0
+        inflation_radius: 0.12
         inflate_unknown: false
-        inflate_around_unknown: true
+        inflate_around_unknown: false
 
       always_send_full_costmap: true # 每次都发送完整地图而非增量，虽然耗带宽但更稳定
 
@@ -422,7 +423,8 @@ behavior_server:
     global_footprint_topic: global_costmap/published_footprint
     cycle_frequency: 10.0
     behavior_plugins:
-      ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+      # ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+      ["spin", "backup", "wait"]
     spin:
       plugin: "nav2_behaviors::Spin"
       max_rotational_vel: 1.2
@@ -437,8 +439,8 @@ behavior_server:
     #   acceleration_limit: 2.5
     #   deceleration_limit: -2.5
     #   minimum_speed: 0.10
-    # wait:
-    #   plugin: "nav2_behaviors::Wait"
+    wait:
+      plugin: "nav2_behaviors::Wait"
     # assisted_teleop:
     #   plugin: "nav2_behaviors::AssistedTeleop"
     local_frame: odom

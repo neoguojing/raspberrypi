@@ -321,6 +321,7 @@ class FinalExploreNode(Node):
         img = np.full((h, w), 127, dtype=np.uint8)
         img[data_np == 0] = 255  # 自由空间
         img[data_np > 0] = 0    # 障碍物
+        # img[data_np == 100] = 0 
 
         # 障碍物膨胀 (30cm) 保证选点不会太贴墙
         kernel = np.ones((int(0.3/res), int(0.3/res)), np.uint8)
@@ -329,7 +330,10 @@ class FinalExploreNode(Node):
         
         # 安全自由区域
         safe_free_mask = cv2.bitwise_and(cv2.inRange(img, 250, 255), cv2.bitwise_not(dilated_obs))
-
+        # non_obs_mask = cv2.inRange(img, 120, 255)  # unknown + free
+        # safe_region = cv2.bitwise_not(dilated_obs)
+        # safe_free_mask = cv2.bitwise_and(non_obs_mask, safe_region)
+        
         # 提取边界 (Frontier): 在安全自由区边缘且邻接未知区域
         unknown_mask = cv2.inRange(img, 120, 135)
         dilated_safe_free = cv2.dilate(safe_free_mask, np.ones((3,3), np.uint8), iterations=1)
