@@ -156,7 +156,11 @@ def generate_launch_description():
             ("map", LaunchConfiguration('map_topic')),
             ("scan", LaunchConfiguration('scan_topic'))
         ],
-        arguments=['--delete_db_on_start']
+        arguments=[
+            '--delete_db_on_start',
+            '--ros-args',
+            '--log-level', 'warn'
+        ],
     )
 
     rtabmap_stereo_compressed = Node(
@@ -177,7 +181,11 @@ def generate_launch_description():
             ("map", LaunchConfiguration('map_topic')),
             ("scan", LaunchConfiguration('scan_topic'))
         ],
-        arguments=['--delete_db_on_start']
+        arguments=[
+            '--delete_db_on_start',
+            '--ros-args',
+            '--log-level', 'warn'
+        ],
     )
 
 

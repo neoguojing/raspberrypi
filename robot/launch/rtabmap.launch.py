@@ -49,7 +49,7 @@ def generate_launch_description():
         "map_frame_id": LaunchConfiguration('map_frame_id'),
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,
-        "sync_queue_size": 30,
+        "sync_queue_size": 5,
         "topic_queue_size": 30,
 
         # 传感器订阅
@@ -81,7 +81,7 @@ def generate_launch_description():
         "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/FromDepth": "false",
         "Grid/RayTracing": "true",    # 开启射线追踪以清理地图
-        "Grid/RangeMax": "4.0",      # 激光有效最远距离
+        "Grid/RangeMax": "3.0",      # 激光有效最远距离
         "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
         "Grid/3D": "false",  
         
@@ -105,7 +105,7 @@ def generate_launch_description():
         arguments=[
             '--delete_db_on_start',
             '--ros-args',
-            '--log-level', 'rtabmap:=warn'
+            '--log-level', 'warn'
         ],
         parameters=[slam_parameters],
         remappings=[
@@ -127,7 +127,7 @@ def generate_launch_description():
         arguments=[
             '--delete_db_on_start',
             '--ros-args',
-            '--log-level', 'rtabmap:=warn'
+            '--log-level', 'warn'
         ],
         parameters=[slam_parameters],
         remappings=[
@@ -166,7 +166,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
 
         republish_rgb,
         rtabmap_slam,

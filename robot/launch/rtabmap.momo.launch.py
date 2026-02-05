@@ -115,7 +115,7 @@ def generate_launch_description():
         arguments=[
             '--delete_db_on_start',
             '--ros-args',
-            '--log-level', 'rtabmap:=warn'
+            '--log-level', 'warn'
         ],
         parameters=[slam_parameters],
         remappings=[
@@ -137,7 +137,7 @@ def generate_launch_description():
         arguments=[
             '--delete_db_on_start',
             '--ros-args',
-            '--log-level', 'rtabmap:=warn'
+            '--log-level', 'warn'
         ],
         parameters=[slam_parameters],
         remappings=[
