@@ -80,16 +80,16 @@ def generate_launch_description():
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
         # 地图参数
-        # "Grid/Sensor": "0", 
+        "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/RayTracing": "true",  
-        "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
+        "Grid/FromDepth": "false", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
         "Grid/MinDepth": "0.5",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
         "Grid/MaxDepth": "3.0",  # 远距离太虚的数据也不要
         "Grid/RangeMin": "0.3",
-        "Grid/RangeMax": "4.0",  # 不要看太远，减少点云密度
-        "Grid/CellSize": "0.1",
-        "Grid/MinGroundHeight": "-0.1",
-        "Grid/MaxGroundHeight": "0.3", # 调整地面高度阈值，适应不同机器人底盘高度
+        "Grid/RangeMax": "3.0",  # 不要看太远，减少点云密度
+        "Grid/CellSize": "0.05",
+        "Grid/MinGroundHeight": "-0.3",
+        "Grid/MaxGroundHeight": "0.2", # 调整地面高度阈值，适应不同机器人底盘高度
         "Grid/MaxObstacleSlope": "60",
         "Grid/NormalK": "20",
         "Grid/NormalRadius": "0.15",
@@ -104,13 +104,23 @@ def generate_launch_description():
         "Grid/NoiseFilteringMinNeighbors": "5",
 
         
-
+        # ICP 参数微调
+        "Icp/CorrespondenceRatio": "0.05",
+        "Icp/VoxelSize": "0.0",
+        "Icp/MaxCorrespondenceDistance": "0.15",
+        "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
+        "Icp/Iterations": "50",
+        "Icp/PointToPlane": "false",
 
         # 视觉特征与闭环
         "Vis/EstimationType": "1",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # ORB
+        "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
         "Kp/DetectorStrategy": "2",
-        "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Both
+        "Reg/Strategy": "2",          # 0=Visual, 1=ICP, 2=Visual+ICP
+        "Reg/Force3DoF": "true",
+        "Optimizer/Slam2D": "true",
+        
         
         # 双目匹配参数
         "Stereo/MinDisparity": "3",
@@ -119,8 +129,6 @@ def generate_launch_description():
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
-
-        "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
         
         # 地图稳定性
         "Mem/IncrementalMemory": "true",
@@ -131,9 +139,12 @@ def generate_launch_description():
         "RGBD/OptimizeFromGraphEnd": "true",
         "RGBD/LinearUpdate": "0.0",
         "RGBD/AngularUpdate": "0.0",
+        "RGBD/NeighborLinkRefining": "true",
+        "RGBD/ProximityBySpace": "true",
+        "RGBD/ProximityMaxGraphDepth": "50",
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "1",
+        "Rtabmap/DetectionRate": "3",
         "Rtabmap/TimeThr": "0",
     }
 
@@ -193,7 +204,7 @@ def generate_launch_description():
         # 基础参数
         DeclareLaunchArgument('namespace', default_value=''),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('subscribe_scan', default_value='false'),
+        DeclareLaunchArgument('subscribe_scan', default_value='true'),
         DeclareLaunchArgument('subscribe_imu', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
 
@@ -204,14 +215,14 @@ def generate_launch_description():
         DeclareLaunchArgument('publish_tf_map', default_value='true'),
 
         # 双目 Topic 设置 (根据你的相机驱动修改)
-        DeclareLaunchArgument('left_image_topic', default_value='/camera/left/image_raw'),
+        DeclareLaunchArgument('left_image_topic', default_value='/camera/image_raw'),
         DeclareLaunchArgument('right_image_topic', default_value='/camera/right/image_raw'),
-        DeclareLaunchArgument('left_camera_info_topic', default_value='/camera/left/camera_info'),
+        DeclareLaunchArgument('left_camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('right_camera_info_topic', default_value='/camera/right/camera_info'),
         
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/scan'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
 
         # -------------------
         # 解压

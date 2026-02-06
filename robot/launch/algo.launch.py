@@ -75,11 +75,11 @@ def generate_launch_description():
             os.path.join(pkg_path, 'launch', 'seg.launch.py')
         ),
         launch_arguments=common_args,
-        condition=IfCondition(
-            PythonExpression([
-                "'", sensor_mode, "' == 'laser'"
-            ])
-        )
+        # condition=IfCondition(
+        #     PythonExpression([
+        #         "'", sensor_mode, "' == 'laser'"
+        #     ])
+        # )
     )
 
 

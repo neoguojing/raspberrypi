@@ -49,8 +49,8 @@ def generate_launch_description():
         "map_frame_id": LaunchConfiguration('map_frame_id'),
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,
-        "sync_queue_size": 30,
-        "topic_queue_size": 30,
+        "sync_queue_size": 60,
+        "topic_queue_size": 60,
 
         # 传感器订阅
         "subscribe_rgb": True,
@@ -61,17 +61,17 @@ def generate_launch_description():
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
         # 地图参数
-        "Grid/Sensor": "0",  # 0=激光
+        "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/FromDepth": "false",
-        "Grid/3D": "false",
-        "Grid/RangeMax": "4.0",
-        "Grid/RayTracing": "true",
-        "Grid/CellSize": "0.05",
+        "Grid/RayTracing": "true",    # 开启射线追踪以清理地图
+        "Grid/RangeMax": "3.0",      # 激光有效最远距离
+        "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
+        "Grid/3D": "false",  
         "Grid/OctoMap": "false",
 
         # 视觉特征参数
         "Kp/DetectorStrategy": "2",
-        "Kp/MaxFeatures": "1000",
+        "Kp/MaxFeatures": "800",
         "Vis/EstimationType": "2",
         "Vis/FeatureType": "2",
         "Vis/EpipolarGeometryVar": "0.5",
@@ -80,35 +80,45 @@ def generate_launch_description():
         "Vis/InlierDistance": "0.1",
 
         # 闭环策略
-        "Reg/Strategy": "0",  # 1=ICP (激光), 0=Visual
+        "Reg/Strategy": "2",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
-        "RGBD/OptimizeMaxError": "5.0",
-        "RGBD/NeighborLinkRefining": "true",
+        "Optimizer/Slam2D": "true",
 
-        # 单目尺度恢复
-        "Mem/StereoFromMotion": "true",
-        "Mem/UseOdomFeatures": "true",
+        # ICP 参数微调
+        "Icp/CorrespondenceRatio": "0.05",
+        "Icp/VoxelSize": "0.0",
+        "Icp/MaxCorrespondenceDistance": "0.15",
+        "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
+        "Icp/Iterations": "50",
+        "Icp/PointToPlane": "false",
+       
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
 
-        # 地图稳定性
+        # 单目尺度恢复
+        "Mem/StereoFromMotion": "true",
+        "Mem/UseOdomFeatures": "true",
         "Mem/IncrementalMemory": "true",
         "Mem/InitWMWithAllNodes": "false",
         "Mem/STMSize": "30",
+        "Mem/GenerateCloud": "false",      # 不生成点云以节省资源
 
         # 回环后不整体平移地图
         "RGBD/OptimizeFromGraphEnd": "true",
-        "RGBD/LinearUpdate": "0.1",
-        "RGBD/AngularUpdate": "0.1",
+        "RGBD/LinearUpdate": "0.0",
+        "RGBD/AngularUpdate": "0.0",
+        "RGBD/OptimizeMaxError": "5.0",
+        "RGBD/NeighborLinkRefining": "true",
+        "RGBD/ProximityBySpace": "false", # 允许在靠近先前位置时通过 ICP 闭环
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "1",  # 1Hz 就够
+        "Rtabmap/DetectionRate": "3",  # 1Hz 就够
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
-        executable='rtabmap_momo',
-        name='rtabmap',
+        executable='rtabmap',
+        name='rtabmap_momo',
         namespace=namespace,
         condition=UnlessCondition(compressed),
         output='screen',
@@ -176,7 +186,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
 
         republish_rgb,
         rtabmap_slam,

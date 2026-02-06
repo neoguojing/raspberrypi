@@ -77,8 +77,8 @@ def generate_launch_description():
             # Gazebo 会自动在 Topic 后面追加 /left/image_raw 和 /right/image_raw
             
             # --- 左目 ---
-            '/camera/left/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/camera/left/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+            '/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
 
             # --- 右目 ---
             '/camera/right/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
