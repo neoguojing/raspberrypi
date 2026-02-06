@@ -213,8 +213,8 @@ ros2_ctl:
 	ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.1 -p turn:=0.5
 
 sim:
-# 	export GZ_PARTITION=sim && gz sim -r world/bed_room.sdf
-	export GZ_PARTITION=sim && gz sim -r world/tugbot_depot.sdf
+	export GZ_PARTITION=sim && gz sim -r world/bed_room.sdf
+# 	export GZ_PARTITION=sim && gz sim -r world/tugbot_depot.sdf
 
 yolo_run:
 	python3 -m yolo.zen_seg --config robot/config/imx219.json
