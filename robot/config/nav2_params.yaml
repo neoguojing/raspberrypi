@@ -50,6 +50,7 @@ controller_server:
     controller_plugins: ["FollowPath"]                 # 主控制器插件
     use_realtime_priority: false                       # 是否使用实时优先级（需系统支持）
     speed_limit_topic: "speed_limit"                   # 订阅限速通知的话题
+    path_handler_plguins: ["PathHandler"]
 
     # --- 进度检查器：判断机器人是否在动 ---
     progress_checker:
@@ -65,6 +66,16 @@ controller_server:
       yaw_goal_tolerance:  0.25          # 角度误差小于 0.3rad (约 17.2°) 认为到达坐标朝向
       path_length_tolerance: 1.0
 
+    PathHandler:
+      plugin: "nav2_controller::FeasiblePathHandler"
+      prune_distance: 2.0
+      enforce_path_inversion: True
+      enforce_path_rotation: False
+      inversion_xy_tolerance: 0.2
+      inversion_yaw_tolerance: 0.4
+      minimum_rotation_angle: 0.785
+      reject_unit_path: False
+
     # --- MPPI 控制器核心配置 ---
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
@@ -75,14 +86,14 @@ controller_server:
       ax_min: -1.0                       # 最大 X 向减速度
       ay_max: 3.0                        # 最大 Y 向加速度（差速轮通常忽略，除非滑移）
       ay_min: -3.0
-      az_max: 0.5                        # 最大角加速度
+      az_max: 0.2                        # 最大角加速度
       vx_std: 0.4                        # X 速度采样标准差（控制探索范围）
       vy_std: 0.0                        # Y 速度采样标准差
-      wz_std: 0.2                        # 角速度采样标准差
-      vx_max: 0.6                        # 最大平移速度 (m/s)
+      wz_std: 0.1                        # 角速度采样标准差
+      vx_max: 0.4                        # 最大平移速度 (m/s)
       vx_min: -0.2                        # 最小平移速度（0表示不允许倒车）
       vy_max: 0.0                        # 最大横移速度（差速轮应设为 0）
-      wz_max: 1.9                        # 最大旋转速度 (rad/s)
+      wz_max: 0.8                        # 最大旋转速度 (rad/s)
       iteration_count: 1                 # 优化迭代次数
       prune_distance: 2.5                # 从路径中裁剪多远以外的点
       transform_tolerance: 1.0           # 坐标变换容忍度
@@ -92,6 +103,7 @@ controller_server:
       visualize: false                   # 是否在 RViz 中显示所有采样轨迹
       publish_optimal_trajectory: true   # 是否发布选中的最优轨迹（推荐开启用于调试）
       regenerate_noises: true            # 每步是否重新生成噪声
+      allow_unknown: true  
 
       TrajectoryVisualizer:
         trajectory_step: 5               # 轨迹可视化步长
@@ -204,6 +216,8 @@ local_costmap:
       width: 5                # 局部窗口宽度（米）
       height: 5               # 局部窗口高度（米）
       resolution: 0.05         # 栅格分辨率（5厘米/格）
+      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
+      unknown_cost_value: 0 
 
       # 插件配置：决定了地图由哪些层叠加而成
       # plugins: ["voxel_layer", "inflation_layer"]
@@ -284,7 +298,8 @@ global_costmap:
       robot_base_frame: base_footprint
 
       resolution: 0.05
-      track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
+      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
+      unknown_cost_value: 0 
 
       # 插件配置：静态地图层 + 膨胀层
       plugins: ["static_layer", "inflation_layer"]
@@ -317,7 +332,7 @@ global_costmap:
       # --- 膨胀层：全局规划需要更大的余量，确保生成的路径远离墙壁 ---
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        enabled: true
+        enabled: false
         cost_scaling_factor: 12.0
         inflation_radius: 0.12
         inflate_unknown: false

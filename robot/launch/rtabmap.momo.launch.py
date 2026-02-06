@@ -51,6 +51,7 @@ def generate_launch_description():
         "approx_sync": True,
         "sync_queue_size": 60,
         "topic_queue_size": 60,
+        "approx_sync_max_interval": "1.0",
 
         # 传感器订阅
         "subscribe_rgb": True,
@@ -68,16 +69,20 @@ def generate_launch_description():
         "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
         "Grid/3D": "false",  
         "Grid/OctoMap": "false",
+        "Grid/ScanEmptyRayTracing": "true",  # 射线追踪到 range_max 以清理空白区域
 
         # 视觉特征参数
         "Kp/DetectorStrategy": "2",
         "Kp/MaxFeatures": "800",
+        
         "Vis/EstimationType": "2",
         "Vis/FeatureType": "2",
-        "Vis/EpipolarGeometryVar": "0.5",
+        "Vis/EpipolarGeometryVar": "0.1",
         "Vis/Iterations": "300",
-        "Vis/MinInliers": "8",
+        "Vis/MinInliers": "15",
         "Vis/InlierDistance": "0.1",
+        "Vis/MinDepth": "0.5",       # 忽略太近的不稳定点
+        "Vis/MaxDepth": "4.0",       # 略大于激光 range_max
 
         # 闭环策略
         "Reg/Strategy": "2",          # 0=Visual, 1=ICP, 2=Visual+ICP
@@ -85,11 +90,11 @@ def generate_launch_description():
         "Optimizer/Slam2D": "true",
 
         # ICP 参数微调
-        "Icp/CorrespondenceRatio": "0.05",
+        "Icp/CorrespondenceRatio": "0.25",  # 增加对应点比例以适应稀疏点云
         "Icp/VoxelSize": "0.0",
-        "Icp/MaxCorrespondenceDistance": "0.15",
+        "Icp/MaxCorrespondenceDistance": "0.3",
         "Icp/Strategy": "0",          # 0=Point-to-Point, 1=Point-to-Plane
-        "Icp/Iterations": "50",
+        "Icp/Iterations": "100",
         "Icp/PointToPlane": "false",
        
 
@@ -103,6 +108,7 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
         "Mem/STMSize": "30",
         "Mem/GenerateCloud": "false",      # 不生成点云以节省资源
+        "Mem/NotLinkedNodesKept": "false", # 不保留未连接节点
 
         # 回环后不整体平移地图
         "RGBD/OptimizeFromGraphEnd": "true",
@@ -110,10 +116,17 @@ def generate_launch_description():
         "RGBD/AngularUpdate": "0.0",
         "RGBD/OptimizeMaxError": "5.0",
         "RGBD/NeighborLinkRefining": "true",
-        "RGBD/ProximityBySpace": "false", # 允许在靠近先前位置时通过 ICP 闭环
+        "RGBD/ProximityBySpace": "true", # 允许在靠近先前位置时通过 ICP 闭环
+        "RGBD/DefaultMaxDepth": "3.0",
+        "RGBD/LocalRadius": "3.0",       # 局部闭环半径（米）
 
         # 限制 map 更新频率
         "Rtabmap/DetectionRate": "3",  # 1Hz 就够
+        "Rtabmap/DelayOptimization": "0.5",
+        
+        "Optimizer/Robust": "true",
+        "Optimizer/Epsilon": "0.1",  # 对异常值更鲁棒
+        "Optimizer/Strategy": "1",  # 0=TORO, 1=g2o, 2=GTSAM
     }
     rtabmap_slam = Node(
         package='rtabmap_slam',
@@ -186,7 +199,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
 
         republish_rgb,
         rtabmap_slam,

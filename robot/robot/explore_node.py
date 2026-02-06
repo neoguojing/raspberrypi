@@ -280,7 +280,8 @@ class FinalExploreNode(Node):
                 # 判定不安全的情况
                 reason = ""
                 if cost == -1 or cost == 255:
-                    reason = f"未知区域 (cost={cost})"
+                    # reason = f"未知区域 (cost={cost})"
+                    pass
                 elif cost >= 253:
                     reason = f"致命障碍 (cost={cost})"
                 elif cost > safe_threshold:
@@ -381,7 +382,7 @@ class FinalExploreNode(Node):
             dist_to_robot = math.hypot(wx_raw - rx, wy_raw - ry)
             
             # 过滤距离过近的点
-            if dist_to_robot < 0.4:
+            if dist_to_robot < 0.1:
                 discard_reasons["dist"] += 1
                 continue
 
@@ -444,19 +445,18 @@ class FinalExploreNode(Node):
 
     # ---------------- 恢复动作 ----------------
     def _publish_twist_for(self, linear_x=0.0, angular_z=0.0, duration=0.5):
-        # t_end = time.time() + duration
-        # twist = Twist()
-        # twist.linear.x = linear_x
-        # twist.angular.z = angular_z
-        # rate_hz = 10
-        # period = 1.0 / rate_hz
-        # while time.time() < t_end and rclpy.ok():
-        #     self.cmd_vel_pub.publish(twist)
-        #     time.sleep(period)
-        # # 停止
-        # stop = Twist()
-        # self.cmd_vel_pub.publish(stop)
-        pass
+        t_end = time.time() + duration
+        twist = Twist()
+        twist.linear.x = linear_x
+        twist.angular.z = angular_z
+        rate_hz = 10
+        period = 1.0 / rate_hz
+        while time.time() < t_end and rclpy.ok():
+            self.cmd_vel_pub.publish(twist)
+            time.sleep(period)
+        # 停止
+        stop = Twist()
+        self.cmd_vel_pub.publish(stop)
 
     def recovery_behavior(self):
         """当检测到卡住或局部规划失败时调用：后退 + 原地旋转，尝试重新建立可行路径"""
@@ -478,9 +478,9 @@ class FinalExploreNode(Node):
         self._publish_twist_for(linear_x=backoff_speed, duration=backoff_time)
         time.sleep(0.2)
         # 2) 随机方向原地旋转（扩大感知）
-        # direction = random.choice([-1.0, 1.0])
-        # self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
-        # time.sleep(0.1)
+        direction = random.choice([-1.0, 1.0])
+        self._publish_twist_for(angular_z=direction * rotate_speed, duration=rotate_time)
+        time.sleep(0.1)
 
     # ---------------- 任务执行逻辑 ----------------
     def save_current_map(self):
@@ -661,10 +661,10 @@ class FinalExploreNode(Node):
         p.pose.position.x = x
         p.pose.position.y = y
         # 将角度转为四元数 Z/W
-        # p.pose.orientation.z = math.sin(yaw/2)
-        # p.pose.orientation.w = math.cos(yaw/2)
-        p.pose.orientation.w = 1.0
-        p.pose.orientation.z = 0.0
+        p.pose.orientation.z = math.sin(yaw/2)
+        p.pose.orientation.w = math.cos(yaw/2)
+        # p.pose.orientation.w = 1.0
+        # p.pose.orientation.z = 0.0
         return p
     
     def send_nav_goal(self, pose: PoseStamped):
