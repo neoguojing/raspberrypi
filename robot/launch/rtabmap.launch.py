@@ -49,8 +49,8 @@ def generate_launch_description():
         "map_frame_id": LaunchConfiguration('map_frame_id'),
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,
-        "sync_queue_size": 5,
-        "topic_queue_size": 30,
+        "sync_queue_size": 60,
+        "topic_queue_size": 60,
 
         # 传感器订阅
         "subscribe_rgb": False,
