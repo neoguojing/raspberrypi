@@ -38,7 +38,7 @@ def generate_launch_description():
         package='ros_gz_sim',
         executable='create',
         arguments=[
-            '-name', 'n20_sg90_robot',
+            '-name', 'n20_sg90_robot_stereo',
             '-string', robot_desc,
             '-world', 'default',      # 明确指定要在名为 warehouse 的世界中生成
             '-x', '2.0',                # X 坐标偏移

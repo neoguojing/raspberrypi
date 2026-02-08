@@ -261,8 +261,8 @@ class FinalExploreNode(Node):
 
         # 1. 检查是否在地图数组范围内
         if mx < 0 or mx >= w or my < 0 or my >= h:
-            self.get_logger().warn(f"🚫 目标点 ({wx:.2f}, {wy:.2f}) 超出地图边界 [mx:{mx}, my:{my}]")
-            return False
+            self.get_logger().warn(f"🚫 目标越界: ({wx:.2f}, {wy:.2f}) 在地图数组外", throttle_duration_sec=2.0)
+            # return True
 
         # 2. 检查中心点及周边小范围区域（半径约 15cm）
         check_radius = max(1, int(0.15 / res)) 
@@ -276,7 +276,7 @@ class FinalExploreNode(Node):
                     
                 index = curr_my * w + curr_mx
                 cost = self.global_costmap.data[index]
-
+                cost = cost if cost >= 0 else 255 # 将 -1 转为 255
                 # 判定不安全的情况
                 reason = ""
                 if cost == -1 or cost == 255:
@@ -318,7 +318,8 @@ class FinalExploreNode(Node):
             return None
 
         # --- 2. 图像预处理与边界提取 ---
-        data_np = np.array(msg.data).reshape((h, w))
+        # data_np = np.array(msg.data).reshape((h, w))
+        data_np = np.array(msg.data, dtype=np.int8).reshape((h, w))
         img = np.full((h, w), 127, dtype=np.uint8)
         img[data_np == 0] = 255  # 自由空间
         img[data_np > 0] = 0    # 障碍物
@@ -345,7 +346,7 @@ class FinalExploreNode(Node):
         
         if num_labels <= 1:
             self.get_logger().info("ℹ️ 地图扫描完毕或无可用边界")
-            return None
+            return self._get_forward_fallback_goal(rx, ry, current_yaw)
 
         best_goal = None
         max_score = -float('inf')
@@ -434,15 +435,35 @@ class FinalExploreNode(Node):
                 f"🎯 选定最佳目标: ({best_goal[0]:.2f}, {best_goal[1]:.2f}), "
                 f"目标朝向: {math.degrees(best_goal[2]):.1f}°, 候选点: {valid_frontier_count}"
             )
+            return best_goal
         else:
-            self.get_logger().warn(
-                f"⚠️ 未选出目标。统计: 面积({discard_reasons['area']}), "
-                f"过近({discard_reasons['dist']}), 黑名单({discard_reasons['blacklist']}), "
-                f"不安全({discard_reasons['safety']})"
-            )
+            return self._get_forward_fallback_goal(rx, ry, current_yaw)
+        
+    def _get_forward_fallback_goal(self, rx, ry, current_yaw):
+        """
+        针对空旷地带的直线前冲策略
+        """
+        # 探索步长：建议设为激光量程的 1/3 到 1/2，例如 2.0 米
+        forward_dist = 2.0 
+        
+        # 尝试的角度列表：正前方 -> 左 30° -> 右 30° -> 左 60° -> 右 60°
+        attempt_angles = [0, math.radians(30), -math.radians(30), math.radians(60), -math.radians(60)]
+        
+        for delta in attempt_angles:
+            target_yaw = current_yaw + delta
+            wx_fallback = rx + forward_dist * math.cos(target_yaw)
+            wy_fallback = ry + forward_dist * math.sin(target_yaw)
+            
+            # 安全性检查：使用稍微宽松的阈值，因为空旷地带 costmap 通常比较干净
+            if self._is_costmap_safe(wx_fallback, wy_fallback, safe_threshold=150):
+                self.get_logger().info(
+                    f"🚀 探测破局：向偏转 {math.degrees(delta):.1f}° 方向前进 {forward_dist}m"
+                )
+                # 返回 (x, y, yaw)
+                return (wx_fallback, wy_fallback, target_yaw)
 
-        return best_goal
-
+        self.get_logger().error("🛑 直线探测失败：前方 180° 范围内均不安全，请检查环境或传感器")
+        return None
     # ---------------- 恢复动作 ----------------
     def _publish_twist_for(self, linear_x=0.0, angular_z=0.0, duration=0.5):
         t_end = time.time() + duration
