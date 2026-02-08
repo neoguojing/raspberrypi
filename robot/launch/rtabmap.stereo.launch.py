@@ -80,9 +80,9 @@ def generate_launch_description():
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
         # 地图参数
-        "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
+        "Grid/Sensor": "2",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/RayTracing": "true",  
-        "Grid/FromDepth": "false", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
+        "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
         "Grid/MinDepth": "0.5",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
         "Grid/MaxDepth": "3.0",  # 远距离太虚的数据也不要
         "Grid/RangeMin": "0.3",
@@ -124,7 +124,7 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "3",
-        "Stereo/MaxDisparity": "128",
+        "Stereo/MaxDisparity": "256",
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
@@ -144,7 +144,7 @@ def generate_launch_description():
         "RGBD/ProximityMaxGraphDepth": "50",
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "3",
+        "Rtabmap/DetectionRate": "1",
         "Rtabmap/TimeThr": "0",
     }
 
@@ -222,7 +222,7 @@ def generate_launch_description():
         
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
 
         # -------------------
         # 解压
