@@ -25,8 +25,8 @@ def generate_launch_description():
 
     explore_node = Node(
         package=package_name,
-        executable='explore_node', # 确保在 setup.py 中定义了此入口点
-        name='explore_node',
+        executable='continuous_explorer', # 确保在 setup.py 中定义了此入口点
+        name='continuous_explorer',
         output='screen',
         parameters=[
 

@@ -101,7 +101,7 @@ class FinalExploreNode(Node):
             now = rclpy.time.Time()
             t = self.tf_buffer.lookup_transform(
                 'map', 
-                'base_link', 
+                'base_footprint', 
                 now, 
                 timeout=rclpy.duration.Duration(seconds=0.1)
             )
