@@ -1,228 +1,374 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from rclpy.action import ActionClient
-
-from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import PoseStamped
-from action_msgs.msg import GoalStatus
-
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import PoseStamped, Pose
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose
+from tf2_ros import Buffer, TransformListener
 import numpy as np
-import cv2
-import random
 import math
-import threading
+import time
 
-import tf2_ros
+# ================= 工具函数 =================
 
+def yaw_from_quat(q):
+    return math.atan2(
+        2.0 * (q.w * q.z + q.x * q.y),
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    )
 
-class ContinuousExplorer(Node):
+def angle_diff(a, b):
+    d = a - b
+    while d > math.pi:
+        d -= 2 * math.pi
+    while d < -math.pi:
+        d += 2 * math.pi
+    return d
 
+# ================= Explorer Node =================
+
+class Explorer(Node):
     def __init__(self):
-        super().__init__('continuous_explorer')
+        super().__init__('explorer_node')
 
-        # ---- ROS interfaces ----
+        # ---- ROS IO ----
         self.map_sub = self.create_subscription(
-            OccupancyGrid, '/map', self.map_callback, 10
+            OccupancyGrid, '/map', self.map_cb, 1
         )
-        self.nav_client = ActionClient(
-            self, NavigateToPose, 'navigate_to_pose'
+        self.scan_sub = self.create_subscription(
+            LaserScan, '/scan', self.scan_cb, 10
         )
 
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # ---- state ----
-        self.map_data = None
-        self.map_lock = threading.Lock()
-        self.is_moving = False
-        self.last_goal_failed = False
+        self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
-        # ---- parameters ----
-        self.declare_parameter('frontier_kernel', 5)
-        self.declare_parameter('min_frontier_area', 20.0)
-        self.declare_parameter('wander_distance', 6.0)
+        # ---- 状态 ----
+        self.map = None
+        self.scan = None
+        self.goal_handle = None
+        self.current_goal = None
 
-        # ---- timer ----
-        self.timer = self.create_timer(3.0, self.exploration_loop)
+        # ---- 参数（工程可调）----
+        self.frontier_min_size = 8
+        self.safe_dist = 0.6
+        self.unknown_soft_limit = 0.5     # unknown 允许的最大前进距离
+        self.laser_blind_frac = 0.6
+        self.bad_frame_req = 3
 
-        self.get_logger().info("🚀 Continuous Explorer v2 启动")
+        self.recompute_interval = 1.0
+        self.last_compute = 0.0
+        self.bad_frames = 0
 
-        # 等一次 action server（不在发送时阻塞）
-        if not self.nav_client.wait_for_server(timeout_sec=5.0):
-            self.get_logger().warn("navigate_to_pose action server 尚不可用")
+        self.failed_goals = {}  # (x,y) -> time
 
-    # ------------------------------------------------------------------
+        # ---- 主循环 ----
+        self.timer = self.create_timer(0.5, self.loop)
+        self.get_logger().info("🚀 Explorer node started")
 
-    def map_callback(self, msg):
-        with self.map_lock:
-            self.map_data = msg
+    # ================= ROS Callbacks =================
 
-    # ------------------------------------------------------------------
+    def map_cb(self, msg):
+        self.map = msg
+        self.get_logger().debug(
+            f"[MAP] received {msg.info.width}x{msg.info.height}, res={msg.info.resolution}"
+        )
 
-    def exploration_loop(self):
-        if self.is_moving:
+    def scan_cb(self, msg):
+        self.scan = msg
+
+    # ================= 主循环 =================
+
+    def loop(self):
+        if self.map is None:
+            self.get_logger().debug("[WAIT] no map yet")
             return
 
-        with self.map_lock:
-            msg = self.map_data
-        if msg is None: return
+        pose = self.get_robot_pose()
+        if pose is None:
+            self.get_logger().warn("[TF] cannot get robot pose")
+            return
 
-        # 尝试寻找边界
-        pose = self.find_frontier(msg)
+        # 正在导航 → 监控安全
+        if self.goal_handle:
+            if self.check_emergency(pose):
+                self.get_logger().warn("[EMERGENCY] cancel goal")
+                self.cancel_goal()
+                self.simple_recover()
+            return
 
-        if pose is not None:
-            self.get_logger().info("🎯 发现有效边界，正在前往...")
-            self.send_goal(pose)
-        else:
-            # 只有找不到边界时才进入漫游模式
-            self.get_logger().warn("❓ 未发现边界，开始向未知区域漫游...")
-            pose = self.sample_wander_goal(msg)
-            if pose:
-                self.send_goal(pose)
+        # 节流 frontier 计算
+        now = time.time()
+        if now - self.last_compute < self.recompute_interval:
+            return
+        self.last_compute = now
 
-    def find_frontier(self, msg):
-        w, h = msg.info.width, msg.info.height
-        # 注意：ROS OccupancyGrid 是 row-major，data[0] 是 (0,0)
-        data = np.array(msg.data, dtype=np.int8).reshape(h, w)
+        frontiers = self.find_frontiers()
+        self.get_logger().info(f"[FRONTIER] clusters={len(frontiers)}")
 
-        free = (data == 0).astype(np.uint8) * 255
-        unknown = (data == -1).astype(np.uint8) * 255
+        if not frontiers:
+            self.get_logger().warn("[FRONTIER] none found")
+            return
 
-        k = self.get_parameter('frontier_kernel').value
-        kernel = np.ones((k, k), np.uint8)
+        scored = self.score_frontiers(frontiers, pose)
 
-        # 膨胀自由空间，寻找与未知空间的交集
-        dilated = cv2.dilate(free, kernel, iterations=1)
-        frontier_mask = cv2.bitwise_and(dilated, unknown)
+        for score, cent, size in scored:
+            key = (round(cent[0], 2), round(cent[1], 2))
+            if key in self.failed_goals and time.time() - self.failed_goals[key] < 30:
+                self.get_logger().debug(f"[SKIP] failed frontier {cent}")
+                continue
 
-        contours, _ = cv2.findContours(frontier_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        min_area = self.get_parameter('min_frontier_area').value
-        
-        robot_pose = self.get_robot_pose()
-        best_pose = None
-        min_dist = float('inf')
+            self.send_goal(cent)
+            return
 
-        for c in contours:
-            if cv2.contourArea(c) < min_area: continue
-            
-            M = cv2.moments(c)
-            if M['m00'] == 0: continue
-            cx, cy = M['m10'] / M['m00'], M['m01'] / M['m00']
-            
-            # 使用修复后的坐标转换
-            mx, my = self.grid_to_map(cx, cy, msg.info)
-
-            if robot_pose:
-                dist = math.hypot(mx - robot_pose[0], my - robot_pose[1])
-                # 过滤掉距离机器人太近的边界（避免原地打转）
-                if dist < 1.0: continue 
-                
-                if dist < min_dist:
-                    min_dist = dist
-                    best_pose = (mx, my)
-        
-        return self.make_pose(best_pose[0], best_pose[1], msg.header.frame_id) if best_pose else None
-
-    def sample_wander_goal(self, msg):
-        """
-        优化后的漫游：基于机器人当前位置和朝向，向前方投射点。
-        """
-        robot_pose = self.get_robot_pose()
-        if not robot_pose: return None
-        
-        rx, ry, r_yaw = robot_pose
-        d = self.get_parameter('wander_distance').value
-        
-        # 在当前朝向的 ±90 度范围内随机选一个角度
-        target_yaw = r_yaw + random.uniform(-math.pi/2, math.pi/2)
-        
-        tx = rx + d * math.cos(target_yaw)
-        ty = ry + d * math.sin(target_yaw)
-        
-        self.get_logger().info(f"🎲 漫游目标点: ({tx:.2f}, {ty:.2f})")
-        return self.make_pose(tx, ty, msg.header.frame_id)
-
-    def grid_to_map(self, col, row, info):
-        # 修复后的坐标逻辑
-        x = col * info.resolution + info.origin.position.x
-        # y = row * info.resolution + info.origin.position.y
-        y = (info.height - 1 - row) * info.resolution + info.origin.position.y
-
-        return x, y
+    # ================= Pose =================
 
     def get_robot_pose(self):
         try:
-            # 获取 map 到 base_link 的变换
-            t = self.tf_buffer.lookup_transform('map', 'base_footprint', timeout=rclpy.duration.Duration(seconds=0.3))
+            t = self.tf_buffer.lookup_transform(
+                self.map.header.frame_id,
+                'base_link',
+                rclpy.time.Time()
+            )
             x = t.transform.translation.x
             y = t.transform.translation.y
-            # 获取朝向角 (Yaw)
-            q = t.transform.rotation
-            siny_cosp = 2 * (q.w * q.z + q.x * q.y)
-            cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
-            yaw = math.atan2(siny_cosp, cosy_cosp)
+            yaw = yaw_from_quat(t.transform.rotation)
             return x, y, yaw
         except Exception:
             return None
-        
-    # ------------------------------------------------------------------
 
-    def make_pose(self, x, y, frame_id):
-        p = PoseStamped()
-        p.header.frame_id = frame_id or 'map'
-        p.header.stamp = self.get_clock().now().to_msg()
-        p.pose.position.x = float(x)
-        p.pose.position.y = float(y)
-        p.pose.orientation.w = 1.0
-        return p
+    # ================= Frontier =================
 
-    # ------------------------------------------------------------------
+    def find_frontiers(self):
+        data = np.array(self.map.data).reshape(
+            self.map.info.height, self.map.info.width
+        )
+        h, w = data.shape
+        res = self.map.info.resolution
+        ox = self.map.info.origin.position.x
+        oy = self.map.info.origin.position.y
 
-    def send_goal(self, pose):
-        self.is_moving = True
+        frontier = np.zeros_like(data, dtype=bool)
+
+        for r in range(1, h - 1):
+            for c in range(1, w - 1):
+                if data[r, c] != -1:
+                    continue
+                if (data[r+1, c] == 0 or data[r-1, c] == 0 or
+                    data[r, c+1] == 0 or data[r, c-1] == 0):
+                    frontier[r, c] = True
+
+        visited = np.zeros_like(frontier, dtype=bool)
+        clusters = []
+
+        for r in range(h):
+            for c in range(w):
+                if frontier[r, c] and not visited[r, c]:
+                    stack = [(r, c)]
+                    visited[r, c] = True
+                    cells = []
+
+                    while stack:
+                        rr, cc = stack.pop()
+                        cells.append((rr, cc))
+                        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+                            nr, nc = rr+dr, cc+dc
+                            if (0 <= nr < h and 0 <= nc < w and
+                                frontier[nr, nc] and not visited[nr, nc]):
+                                visited[nr, nc] = True
+                                stack.append((nr, nc))
+
+                    if len(cells) >= self.frontier_min_size:
+                        ar = sum(p[0] for p in cells) / len(cells)
+                        ac = sum(p[1] for p in cells) / len(cells)
+                        mx = ox + (ac + 0.5) * res
+                        my = oy + (h - ar - 0.5) * res
+                        clusters.append({
+                            "centroid": (mx, my),
+                            "size": len(cells)
+                        })
+        return clusters
+
+    def score_frontiers(self, frontiers, pose):
+        rx, ry, ryaw = pose
+        scored = []
+
+        for f in frontiers:
+            cx, cy = f["centroid"]
+            size = f["size"]
+            dist = math.hypot(cx - rx, cy - ry)
+            heading = math.atan2(cy - ry, cx - rx)
+            heading_cost = abs(angle_diff(heading, ryaw))
+            risk = self.estimate_risk(cx, cy)
+
+            score = (
+                1.0 * dist +
+                1.5 * heading_cost -
+                2.0 * size +
+                4.0 * risk
+            )
+
+            self.get_logger().debug(
+                f"[FRONTIER-CAND] {cx:.2f},{cy:.2f} "
+                f"dist={dist:.2f} size={size} risk={risk:.2f} score={score:.2f}"
+            )
+
+            scored.append((score, (cx, cy), size))
+
+        scored.sort(key=lambda x: x[0])
+        return scored
+
+    # ================= Risk / Collision =================
+
+    def estimate_risk(self, cx, cy, window=1.0):
+        res = self.map.info.resolution
+        h = self.map.info.height
+        w = self.map.info.width
+        ox = self.map.info.origin.position.x
+        oy = self.map.info.origin.position.y
+
+        c = int((cx - ox) / res)
+        r = int(h - (cy - oy) / res)
+
+        half = int(window / res / 2)
+        occ = unk = valid = 0
+
+        data = np.array(self.map.data).reshape(h, w)
+
+        for rr in range(max(0, r-half), min(h, r+half)):
+            for cc in range(max(0, c-half), min(w, c+half)):
+                v = data[rr, cc]
+                if v == -1:
+                    unk += 1
+                else:
+                    valid += 1
+                    if v > 50:
+                        occ += 1
+
+        if valid == 0:
+            return 0.3
+        return (occ + 0.3 * unk) / (valid + unk)
+
+    def check_emergency(self, pose):
+        if self.scan is None:
+            return False
+
+        ranges = np.array(self.scan.ranges)
+        maxr = self.scan.range_max
+        invalid = np.logical_or(np.isinf(ranges), ranges >= maxr - 1e-3)
+        frac = np.count_nonzero(invalid) / len(ranges)
+
+        self.get_logger().debug(
+            f"[LASER] blind_frac={frac:.2f} bad_frames={self.bad_frames}"
+        )
+
+        if frac > self.laser_blind_frac:
+            self.bad_frames += 1
+            if self.bad_frames >= self.bad_frame_req:
+                self.get_logger().warn("[LASER] blind → map fallback")
+                return self.map_forward_collision(pose)
+            return False
+
+        self.bad_frames = 0
+
+        front = ranges[len(ranges)//2 - 10 : len(ranges)//2 + 10]
+        if np.any(front < self.safe_dist):
+            self.get_logger().warn("[LASER] obstacle detected")
+            return True
+
+        return False
+
+    def map_forward_collision(self, pose):
+        x, y, yaw = pose
+        res = self.map.info.resolution
+        steps = int(self.safe_dist / res)
+
+        for i in range(steps):
+            d = i * res
+            px = x + d * math.cos(yaw)
+            py = y + d * math.sin(yaw)
+            if self.map_cell_blocked(px, py, d):
+                self.get_logger().warn(
+                    f"[MAP-COLLISION] blocked at {px:.2f},{py:.2f}"
+                )
+                return True
+        return False
+
+    def map_cell_blocked(self, x, y, dist):
+        res = self.map.info.resolution
+        h = self.map.info.height
+        w = self.map.info.width
+        ox = self.map.info.origin.position.x
+        oy = self.map.info.origin.position.y
+
+        c = int((x - ox) / res)
+        r = int(h - (y - oy) / res)
+
+        if r < 0 or r >= h or c < 0 or c >= w:
+            return False
+
+        v = self.map.data[r * w + c]
+
+        if v > 50:
+            return True
+        if v == -1 and dist > self.unknown_soft_limit:
+            return True
+        return False
+
+    # ================= Navigation =================
+
+    def send_goal(self, pos):
+        self.get_logger().info(f"[NAV] send goal {pos}")
         goal = NavigateToPose.Goal()
-        goal.pose = pose
+        ps = PoseStamped()
+        ps.header.frame_id = self.map.header.frame_id
+        ps.header.stamp = self.get_clock().now().to_msg()
+        ps.pose.position.x = pos[0]
+        ps.pose.position.y = pos[1]
+        ps.pose.orientation.w = 1.0
+        goal.pose = ps
 
+        self.nav_client.wait_for_server()
         future = self.nav_client.send_goal_async(goal)
-        future.add_done_callback(self.goal_response_callback)
+        future.add_done_callback(self.goal_response)
 
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().warn("❌ 目标被拒绝")
-            self.is_moving = False
-            self.last_goal_failed = True
+    def goal_response(self, future):
+        self.goal_handle = future.result()
+        if not self.goal_handle.accepted:
+            self.get_logger().warn("[NAV] rejected")
+            self.goal_handle = None
             return
+        self.get_logger().info("[NAV] accepted")
+        self.goal_handle.get_result_async().add_done_callback(self.goal_done)
 
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.get_result_callback)
-
-    def get_result_callback(self, future):
+    def goal_done(self, future):
         status = future.result().status
-        if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info("✅ 导航成功")
-            self.last_goal_failed = False
-        else:
-            self.get_logger().warn(f"⚠️ 导航失败 status={status}")
-            self.last_goal_failed = True
+        self.get_logger().info(f"[NAV] finished status={status}")
+        if status != 4:
+            self.failed_goals[self.current_goal] = time.time()
+        self.goal_handle = None
 
-        self.is_moving = False
+    def cancel_goal(self):
+        if self.goal_handle:
+            self.goal_handle.cancel_goal_async()
+            self.goal_handle = None
 
+    def simple_recover(self):
+        self.get_logger().info("[RECOVER] simple pause & retry")
 
-# ----------------------------------------------------------------------
+# ================= main =================
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = ContinuousExplorer()
+def main():
+    rclpy.init()
+    node = Explorer()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-    
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
