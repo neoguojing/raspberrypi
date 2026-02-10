@@ -10,7 +10,7 @@ bt_navigator:
 
     odom_topic: /ekf/odom
 
-    bt_loop_duration: 2
+    bt_loop_duration: 10
     filter_duration: 0.5
     default_server_timeout: 20
     wait_for_service_timeout: 1000
@@ -18,57 +18,13 @@ bt_navigator:
     default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
     # default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_w_replanning_only_if_goal_is_updated.xml"
 
-    navigators: ['navigate_to_pose', 'navigate_through_poses']
-    bt_search_directories:
-      - $(find-pkg-share nav2_bt_navigator)/behavior_trees
+    navigators: ["navigate_to_pose", "navigate_through_poses"]
+
     navigate_to_pose:
-      plugin: "nav2_bt_navigator::NavigateToPoseNavigator" # In Iron and older versions, "/" was used instead of "::"
-      enable_groot_monitoring: false
-      groot_server_port: 1667
-      search_window: 2.0
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+
     navigate_through_poses:
-      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator" # In Iron and older versions, "/" was used instead of "::"
-      enable_groot_monitoring: false
-      groot_server_port: 1669
-      search_window: 2.0
-    plugin_lib_names:
-      - nav2_compute_path_to_pose_action_bt_node
-      - nav2_follow_path_action_bt_node
-      - nav2_back_up_action_bt_node
-      - nav2_spin_action_bt_node
-      - nav2_wait_action_bt_node
-      - nav2_clear_costmap_service_bt_node
-      - nav2_is_stuck_condition_bt_node
-      - nav2_is_stopped_condition_bt_node
-      - nav2_goal_reached_condition_bt_node
-      - nav2_initial_pose_received_condition_bt_node
-      - nav2_goal_updated_condition_bt_node
-      - nav2_reinitialize_global_localization_service_bt_node
-      - nav2_rate_controller_bt_node
-      - nav2_distance_controller_bt_node
-      - nav2_speed_controller_bt_node
-      - nav2_recovery_node_bt_node
-      - nav2_pipeline_sequence_bt_node
-      - nav2_persistent_sequence_bt_node
-      - nav2_pause_resume_controller_bt_node
-      - nav2_round_robin_node_bt_node
-      - nav2_transform_available_condition_bt_node
-      - nav2_time_expired_condition_bt_node
-      - nav2_distance_traveled_condition_bt_node
-      - nav2_single_trigger_bt_node
-    error_code_name_prefixes:
-      - assisted_teleop
-      - backup
-      - compute_path
-      - dock_robot
-      - drive_on_heading
-      - follow_path
-      - nav_thru_poses
-      - nav_to_pose
-      - spin
-      - route
-      - undock_robot
-      - wait
+      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
       
 
 
@@ -111,11 +67,11 @@ controller_server:
       az_max: 3.5
       vx_std: 0.2
       vy_std: 0.2
-      wz_std: 0.4
+      wz_std: 0.2
       vx_max: 0.5
       vx_min: -0.35
       vy_max: 0.0
-      wz_max: 1.9
+      wz_max: 0.8
       iteration_count: 1
       prune_distance: 1.7
       transform_tolerance: 0.5  # 增加变换容错性
@@ -126,7 +82,7 @@ controller_server:
       regenerate_noises: true
       
       AckermannConstraints:
-        min_turning_r: 0.2
+        min_turning_r: 0.4
         
       TrajectoryVisualizer:
         trajectory_step: 5
@@ -210,7 +166,7 @@ local_costmap:
       # 机器人物理轮廓：[x, y] 坐标点序列，用于精确碰撞检测
       footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       
-      update_frequency: 20.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
+      update_frequency: 25.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
       publish_frequency: 2.0   # 向 RViz 等工具发布可视化地图的频率
       global_frame: odom       # 局部地图参考系：必须用 odom 以保证局部运动的平滑性
       # robot_base_frame: base_link
@@ -225,14 +181,14 @@ local_costmap:
 
       # 插件配置：决定了地图由哪些层叠加而成
       # plugins: ["voxel_layer", "inflation_layer"]
-      plugins: ["obstacle_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
 
       # --- 膨胀层：为障碍物边缘增加缓冲区，防止机器人“擦边” ---
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: false
         cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.12      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        inflation_radius: 0.15      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 

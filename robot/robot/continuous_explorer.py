@@ -38,7 +38,7 @@ class Explorer(Node):
             OccupancyGrid, '/map', self.map_cb, 1
         )
         self.scan_sub = self.create_subscription(
-            LaserScan, '/scan', self.scan_cb, 10
+            LaserScan, '/seg/scan', self.scan_cb, 10
         )
 
         self.tf_buffer = Buffer()
@@ -53,10 +53,10 @@ class Explorer(Node):
         self.current_goal = None
 
         # ---- 参数（工程可调）----
-        self.frontier_min_size = 8
+        self.frontier_min_size = 3
         self.safe_dist = 0.6
         self.unknown_soft_limit = 0.5     # unknown 允许的最大前进距离
-        self.laser_blind_frac = 0.6
+        self.laser_blind_frac = 0.9
         self.bad_frame_req = 3
 
         self.recompute_interval = 1.0
@@ -66,16 +66,16 @@ class Explorer(Node):
         self.failed_goals = {}  # (x,y) -> time
 
         # ---- 主循环 ----
-        self.timer = self.create_timer(0.5, self.loop)
+        self.timer = self.create_timer(3, self.loop)
         self.get_logger().info("🚀 Explorer node started")
 
     # ================= ROS Callbacks =================
 
     def map_cb(self, msg):
         self.map = msg
-        self.get_logger().debug(
-            f"[MAP] received {msg.info.width}x{msg.info.height}, res={msg.info.resolution}"
-        )
+        # self.get_logger().info(
+        #     f"[MAP] received {msg.info.width}x{msg.info.height}, res={msg.info.resolution}"
+        # )
 
     def scan_cb(self, msg):
         self.scan = msg
@@ -92,6 +92,14 @@ class Explorer(Node):
             self.get_logger().warn("[TF] cannot get robot pose")
             return
 
+        if np.all(np.array(self.map.data) == -1):
+            self.get_logger().info("[INIT] Map all unknown → move forward")
+            x, y, yaw = pose
+            goal_x = x + 1.0 * math.cos(yaw)
+            goal_y = y + 1.0 * math.sin(yaw)
+            self.send_goal((goal_x, goal_y))
+            return
+    
         # 正在导航 → 监控安全
         if self.goal_handle:
             if self.check_emergency(pose):
@@ -130,7 +138,7 @@ class Explorer(Node):
         try:
             t = self.tf_buffer.lookup_transform(
                 self.map.header.frame_id,
-                'base_link',
+                'base_footprint',
                 rclpy.time.Time()
             )
             x = t.transform.translation.x
@@ -186,6 +194,7 @@ class Explorer(Node):
                         ac = sum(p[1] for p in cells) / len(cells)
                         mx = ox + (ac + 0.5) * res
                         my = oy + (h - ar - 0.5) * res
+                        # my = oy + ar * res
                         clusters.append({
                             "centroid": (mx, my),
                             "size": len(cells)
@@ -306,6 +315,7 @@ class Explorer(Node):
 
         c = int((x - ox) / res)
         r = int(h - (y - oy) / res)
+        # r = int((y - oy) / res)
 
         if r < 0 or r >= h or c < 0 or c >= w:
             return False
