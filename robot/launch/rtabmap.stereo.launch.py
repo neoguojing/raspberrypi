@@ -90,13 +90,13 @@ def generate_launch_description():
         "Grid/CellSize": "0.05",
         "Grid/MinGroundHeight": "-0.3",
         "Grid/MaxGroundHeight": "0.2", # 调整地面高度阈值，适应不同机器人底盘高度
-        "Grid/MaxObstacleSlope": "60",
+        "Grid/MaxObstacleSlope": "45",
         "Grid/NormalK": "20",
         "Grid/NormalRadius": "0.15",
-        "Grid/MaxGroundAngle": "45.0",
+        "Grid/MaxGroundAngle": "30.0",
         "Grid/NormalsSegmentation": "false", # 关闭法线分割，节省计算
-        "Grid/ClusterRadius": "0.15",   # 较小的聚类半径
-        "Grid/MinClusterSize": "100",    # 忽略掉孤立的小簇点（降噪的同时提速）
+        "Grid/ClusterRadius": "0.1",   # 较小的聚类半径
+        "Grid/MinClusterSize": "200",    # 忽略掉孤立的小簇点（降噪的同时提速）
         "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
         "Grid/GroundIsObstacle": "false",
         # 4. 清理无效障碍（超重要）
