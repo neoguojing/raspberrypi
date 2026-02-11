@@ -91,10 +91,25 @@ class RpiCamera:
             # 获取对应的索引数字
             controls["AwbMode"] = AWB_MAP.get(self.awb_mode, 0)
 
+        full_mode = None
+        print(self.picam2.sensor_modes)
+        for mode in self.picam2.sensor_modes:
+            # 找分辨率最大的 mode 即 full FOV
+            if mode["size"] == (3280, 2464):
+                full_mode = mode
+                break
+
+        # 2. 配置 sensor
+        self.sensor_conf = {
+            "output_size": full_mode["size"],
+            "bit_depth": full_mode["bit_depth"]
+        }
+
         # 配置视频流（用于实时队列）
         video_config = self.picam2.create_video_configuration(
             # main={"size": (self.width, self.height), "format": "BGR888"},
             main={"size": (self.width, self.height), "format": "RGB888"},
+            sensor=self.sensor_conf,
             controls=controls
         )
         print("Camera Controls:", video_config)
@@ -218,6 +233,7 @@ class RpiCamera:
             # 创建视频配置（与当前流一致）
             video_config = self.picam2.create_video_configuration(
                 main={"size": (self.width, self.height)},
+                # sensor=self.sensor_conf,
                 controls={"FrameRate": float(self.fps),"AeEnable": True,'FrameDurationLimits':(33333, 100000)}
             )
             self.picam2.stop()
