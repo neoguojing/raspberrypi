@@ -233,7 +233,7 @@ class SegFormerDetector:
     # ----------------------------------------------------
     # 外部统一接口
     # ----------------------------------------------------
-    def get_ground_contact_points(self, frame, render=True):
+    def get_ground_contact_points(self, frame, render=False):
         """
         输入 BGR 图像，返回边界点列表及（可选的）可视化结果。
         """

@@ -200,7 +200,7 @@ class Explorer(Node):
                             "size": len(cells)
                         })
         return clusters
-
+    
     def score_frontiers(self, frontiers, pose):
         rx, ry, ryaw = pose
         scored = []
