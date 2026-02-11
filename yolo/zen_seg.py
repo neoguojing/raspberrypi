@@ -127,7 +127,7 @@ class ZenohSegScan:
                 scan_ranges = np.full(self.num_readings, float('inf'))
                 # 2. 推理检测
                 # if self.frame_count % self.skip_n == 0:
-                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
                 if len(uv_points) > 0:
                     valid_points = 0
                     # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
