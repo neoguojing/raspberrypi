@@ -14,7 +14,7 @@ bt_navigator:
     filter_duration: 0.5
     default_server_timeout: 20
     wait_for_service_timeout: 1000
-    introspection_mode: "disabled"
+    introspection_mode: "contents"
     default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
     # default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_w_replanning_only_if_goal_is_updated.xml"
 
@@ -277,7 +277,7 @@ planner_server:
     expected_planner_frequency: 2.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 2.0
-    introspection_mode: "disabled"
+    introspection_mode: "contents"
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.6
