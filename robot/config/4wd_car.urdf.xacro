@@ -272,10 +272,10 @@
           <height>720</height>
           <format>R8G8B8</format>
         </image>
-        <clip>
+        <!-- <clip>
           <near>0.02</near>
           <far>300</far>
-        </clip>
+        </clip> -->
         <lens>
           <intrinsics>
             <fx>372.1</fx>
@@ -286,14 +286,14 @@
           </intrinsics>
         </lens>
 
-        <distortion>
+        <!-- <distortion>
           <k1>-0.23732660</k1>
           <k2>-0.27874955</k2>
           <p1>-0.00997783</p1>
           <p2>0.00048385</p2>
           <k3>0.48486160</k3>
           <center>0.4857 0.4997</center>
-        </distortion>
+        </distortion> -->
       </camera>
     </sensor>
   </gazebo>
