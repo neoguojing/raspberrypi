@@ -102,6 +102,8 @@ def generate_launch_description():
         # 4. 清理无效障碍（超重要）
         "Grid/NoiseFilteringRadius": "0.3",
         "Grid/NoiseFilteringMinNeighbors": "5",
+        "Grid/Scan2dUnknownSpaceFilled": "true", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
+
 
         
         # ICP 参数微调
