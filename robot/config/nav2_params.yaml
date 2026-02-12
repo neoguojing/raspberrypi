@@ -14,7 +14,7 @@ bt_navigator:
     filter_duration: 0.5
     default_server_timeout: 20
     wait_for_service_timeout: 1000
-    introspection_mode: "metadata"
+    introspection_mode: "disabled"
     default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
     # default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_w_replanning_only_if_goal_is_updated.xml"
 
@@ -66,7 +66,7 @@ controller_server:
       ay_max: 3.0
       az_max: 3.5
       vx_std: 0.2
-      vy_std: 0.2
+      vy_std: 0.0
       wz_std: 0.2
       vx_max: 0.5
       vx_min: -0.35
@@ -91,7 +91,7 @@ controller_server:
       critics: [
         "ConstraintCritic", "CostCritic", "GoalCritic",
         "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic",
-        "PathAngleCritic", "PreferForwardCritic", "TwirlingCritic"
+        "PathAngleCritic", "PreferForwardCritic"
       ]
       
       ConstraintCritic:
@@ -116,11 +116,6 @@ controller_server:
         cost_power: 1
         cost_weight: 1.0
         threshold_to_consider: 0.8
-        
-      TwirlingCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 10.0
         
       CostCritic:
         enabled: true
@@ -159,7 +154,6 @@ controller_server:
         max_angle_to_furthest: 1.0
         mode: 0
 
-
 local_costmap:
   local_costmap:
     ros__parameters:
@@ -169,7 +163,6 @@ local_costmap:
       update_frequency: 25.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
       publish_frequency: 2.0   # 向 RViz 等工具发布可视化地图的频率
       global_frame: odom       # 局部地图参考系：必须用 odom 以保证局部运动的平滑性
-      # robot_base_frame: base_link
       robot_base_frame: base_footprint
       transform_tolerance: 1.5
       rolling_window: true     # 窗口随机器人移动：地图永远以机器人为中心
@@ -180,13 +173,12 @@ local_costmap:
       unknown_cost_value: 255 
 
       # 插件配置：决定了地图由哪些层叠加而成
-      # plugins: ["voxel_layer", "inflation_layer"]
       plugins: ["obstacle_layer", "inflation_layer"]
 
       # --- 膨胀层：为障碍物边缘增加缓冲区，防止机器人“擦边” ---
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        enabled: false
+        enabled: true
         cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
         inflation_radius: 0.15      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
@@ -197,8 +189,8 @@ local_costmap:
         enabled: true
         observation_sources: scan
         scan:
-          topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
-          # topic: /seg/scan
+          # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
+          topic: /seg/scan
           sensor_frame: base_footprint
           inf_is_valid: true
           max_obstacle_height: 0.3
@@ -211,7 +203,7 @@ local_costmap:
           expected_update_rate: 1.0
 
       always_send_full_costmap: true
-      introspection_mode: "metadata"
+      introspection_mode: "disabled"
 
 # global_costmap 是机器人的全局上帝视角。 它以静态地图为底色，叠加实时雷达数据（obstacle_layer）和人工规则（keepout/speed filter），
 # 最终通过膨胀算法生成一张让规划器“看清全局风险”的代价网格。
@@ -238,8 +230,8 @@ global_costmap:
       unknown_cost_value: 255 
 
       # 插件配置：静态地图层 + 膨胀层
-      plugins: ["static_layer"]
-      # plugins: ["static_layer", "inflation_layer","obstacle_layer"]
+      # plugins: ["static_layer"]
+      plugins: ["static_layer", "inflation_layer","obstacle_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -276,55 +268,6 @@ global_costmap:
 
       always_send_full_costmap: true # 每次都发送完整地图而非增量，虽然耗带宽但更稳定
 
-# The yaml_filename does not need to be specified since it going to be set by defaults in launch.
-# If you'd rather set it in the yaml, remove the default "map" value in the launch file(s).
-# file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
-# map_server 是一个只读的“电子地图分发员”。 它不具备建图能力，也不处理传感器数据。它唯一的任务就是把保存在硬盘里的图片变回 ROS 能够理解的坐标矩阵（栅格地图），
-# 告诉导航系统：“世界原本长什么样”。
-map_server:
-  ros__parameters:
-    # yaml_filename: ""
-    introspection_mode: "metadata"
-
-# Keepout & Speed Filter (禁区与限速滤镜):
-# 核心功能：
-# Keepout: 强制机器人避开特定区域（虚拟墙）。
-# Speed: 强制机器人在特定区域（如人流密集区）降速。
-
-# 总结：它是**“交通规则”**，通过图像遮罩（Mask）来定义机器人不能去或必须慢行的地方。
-keepout_filter_mask_server:
-  ros__parameters:
-    topic_name: "keepout_filter_mask"
-    # yaml_filename: ""
-
-keepout_costmap_filter_info_server:
-  ros__parameters:
-    type: 0
-    filter_info_topic: "keepout_costmap_filter_info"
-    mask_topic: "keepout_filter_mask"
-    base: 0.0
-    multiplier: 1.0
-
-speed_filter_mask_server:
-  ros__parameters:
-    topic_name: "speed_filter_mask"
-    # yaml_filename: ""
-
-speed_costmap_filter_info_server:
-  ros__parameters:
-    type: 1
-    filter_info_topic: "speed_costmap_filter_info"
-    mask_topic: "speed_filter_mask"
-    base: 100.0
-    multiplier: -1.0
-
-map_saver:
-  ros__parameters:
-    save_map_timeout: 5.0
-    free_thresh_default: 0.25
-    occupied_thresh_default: 0.65
-    map_subscribe_transient_local: true
-    introspection_mode: "metadata"
 # Planner Server (全局规划器):
 # 核心功能：使用 NavfnPlanner 算法（Dijkstra），在全局地图上搜索一条从起点到终点的连通路径。
 # 总结：它是**“寻路者”**，负责算出宏观上哪条路能通。
@@ -334,35 +277,49 @@ planner_server:
     expected_planner_frequency: 2.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 2.0
-    introspection_mode: "metadata"
+    introspection_mode: "disabled"
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.6
       use_astar: true #开启A* 快且稳定
       allow_unknown: true
 
-# Smoother Server (路径平滑器):
-# 核心功能：对规划器生成的折线路径进行平滑处理，使其更符合机器人的物理运动规律。
-#总结：它是**“修路工”**，把生硬的折线弯道修圆，减少机器人转弯时的顿挫。
-smoother_server:
+# Collision Monitor (碰撞监测器):
+# 核心功能：直接监听雷达数据，如果检测到障碍物即将进入机器人足迹（Footprint），立即跳过导航逻辑强制刹车。
+# 总结：它是**“主动刹车”**。作为最后的防撞屏障，它比代价地图响应更快、权限更高。
+collision_monitor:
   ros__parameters:
-    smoother_plugins: ["simple_smoother", "route_smoother"]
-    simple_smoother:
-      plugin: "nav2_smoother::SimpleSmoother"
-      tolerance: 1.0e-10
-      max_its: 1000
-      refinement_num: 2
-      # true for Hybrid A* or State Lattice to not smooth over directional changes
-      enforce_path_inversion: true
-      do_refinement: true
-    route_smoother:
-      plugin: "nav2_smoother::SimpleSmoother"
-      tolerance: 1.0e-10
-      max_its: 1000
-      refinement_num: 5
-      # 法律色 for Route Server or others where smoothing out sharp corners is OK
-      enforce_path_inversion: false
-      do_refinement: true
+    enabled: true
+    base_frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 1.5
+    source_timeout: 5.0
+    base_shift_correction: false
+    stop_pub_timeout: 2.0
+    # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
+    # and robot footprint for "approach" action type.
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: "local_costmap/published_footprint"
+      time_before_collision: 0.5
+      simulation_time_step: 0.1
+      min_points: 12
+      visualize: false
+      enabled: true
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/seg/scan" # ← YOLO-Seg 输出
+      min_height: 0.0
+      max_height: 2.0
+      source_timeout: 1.0
+      enabled: true
+
 # Behavior Server (行为服务器):
 # 核心功能：提供一系列**“自救动作”**（如原地旋转 spin、后退 backup、原地等待 wait）。
 # 总结：它是**“应急预案”**。当机器人卡住或迷路时，由它执行预设的补救动作。
@@ -404,6 +361,81 @@ behavior_server:
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4
     rotational_acc_lim: 3.2
+
+#############################################################################################################################    
+# The yaml_filename does not need to be specified since it going to be set by defaults in launch.
+# If you'd rather set it in the yaml, remove the default "map" value in the launch file(s).
+# file & provide full path to map below. If CLI map configuration or launch default is provided, that will be used.
+# map_server 是一个只读的“电子地图分发员”。 它不具备建图能力，也不处理传感器数据。它唯一的任务就是把保存在硬盘里的图片变回 ROS 能够理解的坐标矩阵（栅格地图），
+# 告诉导航系统：“世界原本长什么样”。
+map_server:
+  ros__parameters:
+    # yaml_filename: ""
+    introspection_mode: "disabled"
+
+# Keepout & Speed Filter (禁区与限速滤镜):
+# 核心功能：
+# Keepout: 强制机器人避开特定区域（虚拟墙）。
+# Speed: 强制机器人在特定区域（如人流密集区）降速。
+
+# 总结：它是**“交通规则”**，通过图像遮罩（Mask）来定义机器人不能去或必须慢行的地方。
+keepout_filter_mask_server:
+  ros__parameters:
+    topic_name: "keepout_filter_mask"
+    # yaml_filename: ""
+
+keepout_costmap_filter_info_server:
+  ros__parameters:
+    type: 0
+    filter_info_topic: "keepout_costmap_filter_info"
+    mask_topic: "keepout_filter_mask"
+    base: 0.0
+    multiplier: 1.0
+
+speed_filter_mask_server:
+  ros__parameters:
+    topic_name: "speed_filter_mask"
+    # yaml_filename: ""
+
+speed_costmap_filter_info_server:
+  ros__parameters:
+    type: 1
+    filter_info_topic: "speed_costmap_filter_info"
+    mask_topic: "speed_filter_mask"
+    base: 100.0
+    multiplier: -1.0
+
+map_saver:
+  ros__parameters:
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+    map_subscribe_transient_local: true
+    introspection_mode: "disabled"
+
+# Smoother Server (路径平滑器):
+# 核心功能：对规划器生成的折线路径进行平滑处理，使其更符合机器人的物理运动规律。
+#总结：它是**“修路工”**，把生硬的折线弯道修圆，减少机器人转弯时的顿挫。
+smoother_server:
+  ros__parameters:
+    smoother_plugins: ["simple_smoother", "route_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      refinement_num: 2
+      # true for Hybrid A* or State Lattice to not smooth over directional changes
+      enforce_path_inversion: true
+      do_refinement: true
+    route_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      refinement_num: 5
+      # 法律色 for Route Server or others where smoothing out sharp corners is OK
+      enforce_path_inversion: false
+      do_refinement: true
+
 # Waypoint Follower (航点跟随器):
 # 核心功能：依次访问一系列点，并在点位执行任务（如停顿 200ms）。
 # 总结：它是**“巡检调度”**。
@@ -411,7 +443,7 @@ waypoint_follower:
   ros__parameters:
     loop_rate: 20
     stop_on_failure: false
-    introspection_mode: "metadata"
+    introspection_mode: "disabled"
     waypoint_task_executor_plugin: "wait_at_waypoint"
     wait_at_waypoint:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
@@ -457,40 +489,6 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
-# Collision Monitor (碰撞监测器):
-# 核心功能：直接监听雷达数据，如果检测到障碍物即将进入机器人足迹（Footprint），立即跳过导航逻辑强制刹车。
-# 总结：它是**“主动刹车”**。作为最后的防撞屏障，它比代价地图响应更快、权限更高。
-collision_monitor:
-  ros__parameters:
-    enabled: true
-    base_frame_id: "base_footprint"
-    odom_frame_id: "odom"
-    cmd_vel_in_topic: "cmd_vel_smoothed"
-    cmd_vel_out_topic: "cmd_vel"
-    state_topic: "collision_monitor_state"
-    transform_tolerance: 1.5
-    source_timeout: 5.0
-    base_shift_correction: false
-    stop_pub_timeout: 2.0
-    # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
-    # and robot footprint for "approach" action type.
-    polygons: ["FootprintApproach"]
-    FootprintApproach:
-      type: "polygon"
-      action_type: "approach"
-      footprint_topic: "local_costmap/published_footprint"
-      time_before_collision: 0.5
-      simulation_time_step: 0.1
-      min_points: 12
-      visualize: false
-      enabled: true
-    observation_sources: ["scan"]
-    scan:
-      type: "scan"
-      topic: "/seg/scan" # ← YOLO-Seg 输出
-      min_height: 0.0
-      max_height: 2.0
-      enabled: true
 
 # Docking Server (自动对接):
 # 核心功能：控制机器人精准地倒车或前进进入充电座（Dock）。
@@ -510,7 +508,7 @@ docking_server:
 
     fixed_frame: "odom"
     dock_prestaging_tolerance: 0.5
-    introspection_mode: "metadata"
+    introspection_mode: "disabled"
 
     # Types of docks
     dock_plugins: ["simple_charging_dock"]
