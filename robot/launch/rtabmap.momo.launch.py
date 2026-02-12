@@ -70,6 +70,7 @@ def generate_launch_description():
         "Grid/3D": "false",  
         "Grid/OctoMap": "false",
         "Grid/ScanEmptyRayTracing": "true",  # 射线追踪到 range_max 以清理空白区域
+        "Grid/Scan2dUnknownSpaceFilled": "true", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
 
         # 视觉特征参数
         "Kp/DetectorStrategy": "2",

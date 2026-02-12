@@ -84,6 +84,8 @@ def generate_launch_description():
         "Grid/RangeMax": "3.0",      # 激光有效最远距离
         "Grid/CellSize": "0.05",      # 地图分辨率 (5cm)
         "Grid/3D": "false",  
+        "Grid/Scan2dUnknownSpaceFilled": "true", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
+
         
         # 内存与回环检测 (基于激光的扫描匹配回环)
         "RGBD/ProximityBySpace": "false", # 允许在靠近先前位置时通过 ICP 闭环
