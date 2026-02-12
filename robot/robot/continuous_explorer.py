@@ -55,7 +55,7 @@ class Explorer(Node):
         # ---- 参数（工程可调）----
         self.frontier_min_size = 3
         self.safe_dist = 0.6
-        self.unknown_soft_limit = 0.5     # unknown 允许的最大前进距离
+        self.unknown_soft_limit = 10.0     # unknown 允许的最大前进距离
         self.laser_blind_frac = 0.9
         self.bad_frame_req = 3
 
@@ -92,6 +92,7 @@ class Explorer(Node):
             self.get_logger().warn("[TF] cannot get robot pose")
             return
 
+        # 初始时全-1，主动触发前进1m
         if np.all(np.array(self.map.data) == -1):
             self.get_logger().info("[INIT] Map all unknown → move forward")
             x, y, yaw = pose
@@ -121,6 +122,7 @@ class Explorer(Node):
             self.get_logger().warn("[FRONTIER] none found")
             return
 
+        # 前沿点打分，分数越低优先级约高
         scored = self.score_frontiers(frontiers, pose)
 
         for score, cent, size in scored:
@@ -149,18 +151,28 @@ class Explorer(Node):
             return None
 
     # ================= Frontier =================
-
+    # frontier 是 未知区域的边缘，是机器人探索的目标点，而不是障碍点
     def find_frontiers(self):
+        # ----------------------------
+        # 将地图数据转换为 2D numpy 数组
+        # occupancy grid 数据是一维数组，需要 reshape 成 (height, width)
+        # ----------------------------
         data = np.array(self.map.data).reshape(
             self.map.info.height, self.map.info.width
         )
         h, w = data.shape
         res = self.map.info.resolution
-        ox = self.map.info.origin.position.x
-        oy = self.map.info.origin.position.y
+        ox = self.map.info.origin.position.x # 地图原点 x
+        oy = self.map.info.origin.position.y # 地图原点 y
 
+        # 创建一个np和data一样，初始都为false
         frontier = np.zeros_like(data, dtype=bool)
-
+        # ----------------------------
+        # 遍历地图格子，找到 frontier 点
+        # frontier 条件：
+        #   1. 当前格子未知 (data[r,c] == -1)
+        #   2. 相邻的上下左右至少有一个空地 (0)
+        # ----------------------------
         for r in range(1, h - 1):
             for c in range(1, w - 1):
                 if data[r, c] != -1:
@@ -169,6 +181,10 @@ class Explorer(Node):
                     data[r, c+1] == 0 or data[r, c-1] == 0):
                     frontier[r, c] = True
 
+        # ----------------------------
+        # 聚类 frontier 点
+        # 用 DFS 遍历相连的 frontier 点，将它们分为 cluster
+        # ----------------------------
         visited = np.zeros_like(frontier, dtype=bool)
         clusters = []
 
@@ -195,6 +211,10 @@ class Explorer(Node):
                         mx = ox + (ac + 0.5) * res
                         my = oy + (h - ar - 0.5) * res
                         # my = oy + ar * res
+
+                        # cells → 这个 cluster 的所有 frontier 点
+                        # mx, my → cluster 的质心，作为探索目标
+                        # len(cells) → cluster 的大小，可以用于评分（越大越值得去）
                         clusters.append({
                             "centroid": (mx, my),
                             "size": len(cells)
@@ -202,64 +222,113 @@ class Explorer(Node):
         return clusters
     
     def score_frontiers(self, frontiers, pose):
+        """
+        对 frontier 点集进行打分
+        1. 距离：越近越优先
+        2. 方向：和机器人当前朝向差越小越优先
+        3. 尺寸：越大越优先（面积越大说明空间更大）
+        4. 风险：障碍风险越小越优先
+        5. 未知奖励：未知栅格越多越优先
+
+        返回按 score 排序的列表 [(score, (cx, cy), size), ...]
+        """
         rx, ry, ryaw = pose
         scored = []
 
         for f in frontiers:
             cx, cy = f["centroid"]
             size = f["size"]
+
+            # 1️⃣ 距离
             dist = math.hypot(cx - rx, cy - ry)
+
+            # 2️⃣ 方向差
             heading = math.atan2(cy - ry, cx - rx)
             heading_cost = abs(angle_diff(heading, ryaw))
+
+            # 3️⃣ 风险（只考虑障碍，未知区域不惩罚）
             risk = self.estimate_risk(cx, cy)
 
+            # 4️⃣ 未知奖励：计算 frontier 附近未知栅格数量
+            res = self.map.info.resolution
+            data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
+            h = self.map.info.height
+            w = self.map.info.width
+            ox = self.map.info.origin.position.x
+            oy = self.map.info.origin.position.y
+            c_idx = int((cx - ox) / res)
+            r_idx = int(h - (cy - oy) / res)
+            window = int(1.0 / res / 2)  # 1m 窗口
+            unk_count = 0
+            for rr in range(max(0, r_idx-window), min(h, r_idx+window)):
+                for cc in range(max(0, c_idx-window), min(w, c_idx+window)):
+                    if data[rr, cc] == -1:
+                        unk_count += 1
+
+            # 组合打分公式
             score = (
-                1.0 * dist +
-                1.5 * heading_cost -
-                2.0 * size +
-                4.0 * risk
+                1.0 * dist +          # 距离权重
+                1.5 * heading_cost -  # 方向权重
+                2.0 * size -           # 面积权重
+                4.0 * (1-risk) -       # 越安全越优先，risk 越大扣分越多
+                0.0                     # 可加其他惩罚项
             )
+            # 加上未知奖励（未知越多分越低，前沿越优先）
+            score -= 2.0 * unk_count * res**2  # 未知面积权重，可调
 
             self.get_logger().debug(
                 f"[FRONTIER-CAND] {cx:.2f},{cy:.2f} "
-                f"dist={dist:.2f} size={size} risk={risk:.2f} score={score:.2f}"
+                f"dist={dist:.2f} size={size} risk={risk:.2f} unk={unk_count} score={score:.2f}"
             )
 
             scored.append((score, (cx, cy), size))
 
+        # 按 score 从小到大排序（分数越低越优先）
         scored.sort(key=lambda x: x[0])
         return scored
 
-    # ================= Risk / Collision =================
 
+    # ================= Risk / Collision =================
+    # estimate_risk 就是计算一个点附近 1m 范围内有多少障碍和未知，越多 → 越危险。
     def estimate_risk(self, cx, cy, window=1.0):
+        """
+        计算给定点的风险值（只考虑障碍），使用障碍距离衰减。
+        未知区域不被当作风险，探索奖励在 score_frontiers 中处理。
+        
+        参数:
+            cx, cy: 世界坐标下的点
+            window: 检查区域的边长（米）
+        
+        返回:
+            risk: 0~1，越大表示越危险
+        """
         res = self.map.info.resolution
         h = self.map.info.height
         w = self.map.info.width
         ox = self.map.info.origin.position.x
         oy = self.map.info.origin.position.y
 
+        # 转换为栅格索引
         c = int((cx - ox) / res)
         r = int(h - (cy - oy) / res)
 
         half = int(window / res / 2)
-        occ = unk = valid = 0
+        risk = 0.0
 
+        # 取窗口内数据
         data = np.array(self.map.data).reshape(h, w)
 
         for rr in range(max(0, r-half), min(h, r+half)):
             for cc in range(max(0, c-half), min(w, c+half)):
                 v = data[rr, cc]
-                if v == -1:
-                    unk += 1
-                else:
-                    valid += 1
-                    if v > 50:
-                        occ += 1
+                if v > 50:  # 占用栅格才算风险
+                    # 距离衰减：离目标越远，风险贡献越小
+                    dist = math.hypot(rr - r, cc - c) * res
+                    risk += math.exp(-dist / 0.5)  # 0.5m 是衰减长度，可调
 
-        if valid == 0:
-            return 0.3
-        return (occ + 0.3 * unk) / (valid + unk)
+        # 窗口内最大可能栅格数，用于归一化
+        max_cells = (2*half)**2
+        return min(risk / max_cells, 1.0)  # 归一化到 0~1
 
     def check_emergency(self, pose):
         if self.scan is None:
@@ -273,7 +342,7 @@ class Explorer(Node):
         self.get_logger().debug(
             f"[LASER] blind_frac={frac:.2f} bad_frames={self.bad_frames}"
         )
-
+        # 激光90%为无效障碍的情况下
         if frac > self.laser_blind_frac:
             self.bad_frames += 1
             if self.bad_frames >= self.bad_frame_req:
@@ -283,6 +352,7 @@ class Explorer(Node):
 
         self.bad_frames = 0
 
+        # 视野内激光障碍小于安全距离0.6m
         front = ranges[len(ranges)//2 - 10 : len(ranges)//2 + 10]
         if np.any(front < self.safe_dist):
             self.get_logger().warn("[LASER] obstacle detected")
@@ -294,11 +364,12 @@ class Explorer(Node):
         x, y, yaw = pose
         res = self.map.info.resolution
         steps = int(self.safe_dist / res)
-
+        # 循环沿机器人前方每格
         for i in range(steps):
             d = i * res
             px = x + d * math.cos(yaw)
             py = y + d * math.sin(yaw)
+            # 判断是否阻塞
             if self.map_cell_blocked(px, py, d):
                 self.get_logger().warn(
                     f"[MAP-COLLISION] blocked at {px:.2f},{py:.2f}"
@@ -321,9 +392,11 @@ class Explorer(Node):
             return False
 
         v = self.map.data[r * w + c]
-
+        # 如果该格被标记为障碍 → 阻塞 → 返回 True
         if v > 50:
             return True
+        # 如果该格未知 (-1)
+        # 且距离超过 unknown_soft_limit → 阻塞 → 返回 True
         if v == -1 and dist > self.unknown_soft_limit:
             return True
         return False
