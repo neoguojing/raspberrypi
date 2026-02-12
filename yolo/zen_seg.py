@@ -225,7 +225,7 @@ class ZenohSegScan:
             # 尝试从偏移量 4 开始读取 (跳过 4 字节的 CDR Header)
             sec, nsec = struct.unpack_from('<II', payload, 4)
             stamp = sec + nsec * 1e-9
-            print(f"🕒 提取准确时间戳: {stamp:.6f}")
+            # print(f"🕒 提取准确时间戳: {stamp:.6f}")
             return stamp
         except Exception:
             return time.time()
@@ -413,6 +413,9 @@ class ZenohSegScan:
         # --- 1. 批量消除畸变与归一化 ---
         # uv_points shape: [N, 2] -> reshape 为 cv2 要求的 [N, 1, 2]
         pts = np.array(uv_points, dtype=np.float32).reshape(-1, 1, 2)
+        if self.dist_coeffs is None or self.dist_coeffs.size == 0:
+            self.dist_coeffs = np.zeros(5, dtype=np.float64)
+            
         undist_pts = cv2.undistortPoints(pts, self.K, self.dist_coeffs)
         # 得到归一化坐标 xn, yn (shape: [N, 2])
         n_coords = undist_pts.reshape(-1, 2)
