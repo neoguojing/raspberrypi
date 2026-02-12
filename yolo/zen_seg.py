@@ -12,9 +12,10 @@ import glob
 import threading
 # from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
 from robot.robot.vision.segformer import SegFormerDetector 
+import queue
 
 class ZenohSegScan:
-    def __init__(self, config_path='config.json'):
+    def __init__(self, config_path='config.json',max_queue_size=5):
         
         self.frame_count = 0
         self.skip_n = 3 # 每 3 帧处理 1 帧
@@ -23,14 +24,14 @@ class ZenohSegScan:
         self.camera_x_offset = 0.1
         self.camera_y_offset = 0.0
         self.camera_height = 0.071
-        self.camera_pitch = 0.1484
+        self.camera_pitch = math.radians(8.5)
         
         # 激光雷达模拟参数
-        self.angle_min = -1.0
-        self.angle_max = 1.0
+        self.angle_min = -math.radians(60)  # -60°
+        self.angle_max = math.radians(60)   # 60°
         self.angle_increment = 0.017
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
-        self.range_min = 0.1
+        self.range_min = self.camera_height / math.tan(self.camera_pitch)
         self.range_max = 3.0
         # 物理模拟：假设激光光斑有 1.5 倍角分辨率的宽度，产生重叠
         self.beam_overlap_indices = 2
@@ -67,11 +68,22 @@ class ZenohSegScan:
         self.pointcloud_pub = self.session.declare_publisher(self.point_cloud_topic)
         
         self.latest_sample = None
-        self.sample_lock = threading.Lock()
         self.last_valid_scan = np.full(self.num_readings, self.range_max)
         self.scan_alpha = 0.2
         
-        # 启动一个独立的处理线程
+
+        self.sample_queue = queue.Queue(maxsize=max_queue_size)
+        self.decoded_queue = queue.Queue(maxsize=max_queue_size)
+        self.inference_queue = queue.Queue(maxsize=max_queue_size)
+
+        # 1. Decoder Thread
+        decoder_thread = threading.Thread(target=self.decoder_loop, daemon=True)
+        decoder_thread.start()
+
+        # 2. Inference Thread
+        inference_thread = threading.Thread(target=self.inference_loop, daemon=True)
+        inference_thread.start()
+
         self.process_thread = threading.Thread(target=self.processing_loop, daemon=True)
         self.process_thread.start()
 
@@ -89,62 +101,76 @@ class ZenohSegScan:
 
     def on_image_data(self, sample):
         """回调函数现在极快：只负责存下最新的数据包"""
-        with self.sample_lock:
-            self.latest_sample = sample  # 覆盖旧的样本，直接丢弃积压帧
-            
+        try:
+            if self.sample_queue.full():
+                try:
+                    self.sample_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            self.sample_queue.put_nowait(sample)
+        except Exception as e:
+            print(f"⚠ 入队失败: {e}")
+    
+    # ---------------- Decoder Thread ----------------
+    def decoder_loop(self):
+        while True:
+            try:
+                sample = self.sample_queue.get(timeout=0.1)
+                payload_bytes = sample.payload.to_bytes()
+                frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
+                if frame is None:
+                    continue
+                # 入队解码结果
+                if self.decoded_queue.full():
+                    try:
+                        self.decoded_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+                self.decoded_queue.put_nowait((frame, stamp))
+            except queue.Empty:
+                time.sleep(0.001)
+            except Exception as e:
+                print(f"Decoder 错误: {e}")
+                time.sleep(0.1)
+
+    # ---------------- Inference Thread ----------------
+    def inference_loop(self):
+        while True:
+            try:
+                frame, stamp = self.decoded_queue.get(timeout=0.1)
+                # 推理
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
+                # 入队推理结果
+                if self.inference_queue.full():
+                    try:
+                        self.inference_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+                self.inference_queue.put_nowait((uv_points, stamp))
+            except queue.Empty:
+                time.sleep(0.001)
+            except Exception as e:
+                print(f"Inference 错误: {e}")
+                time.sleep(0.1)
+
     def processing_loop(self):
         """Zenoh 订阅回调"""
         while True:
             try:
-                sample = None
-                with self.sample_lock:
-                    if self.latest_sample is not None:
-                        sample = self.latest_sample
-                        self.latest_sample = None # 处理完后清空
-                if sample is None:
-                    time.sleep(0.005) # 没数据时微休眠
-                    continue
-                
+                uv_points, stamp = self.inference_queue.get(timeout=0.1)
                 self.frame_count += 1
-                # 1. 解码图像 (假设是 CompressedImage 字节流) 或者 Image字节流
-                # ROS 2 Bridge 传输的 CompressedImage 负载通常就是 JPEG 数据
-                # 但注意：某些 Bridge 可能会包含 ROS 消息头，这里直接尝试 imdecode
-                # 如果解码失败，可能需要跳过前几个字节的 ROS Header
-                payload_bytes = sample.payload.to_bytes()           
-                # 1. 解码图像并获取时间戳
-                frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
-                if frame is None:
-                    print("⚠ 无法解码图像")
-                    continue
                 
-                if self.frame_count % self.skip_n != 0:
-                    # 关键：即使不推理，也要发布 scan，保持 RTAB-MAP 心跳
-                    if self.last_valid_scan is not None:
-                        self.publish_as_json(self.last_valid_scan, stamp)
-                    continue
-                
-                # print(f"🖼 图像解码成功: shape={frame.shape}, timestamp={stamp:.6f}")
                 scan_ranges = np.full(self.num_readings, float('inf'))
-                # 2. 推理检测
-                # if self.frame_count % self.skip_n == 0:
-                uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
+
                 if len(uv_points) > 0:
                     valid_points = 0
-                    # print(f"🔍 推理完成，检测到 {len(uv_points)} 个接触点")
-                    # 4. 投影逻辑 (逻辑与原代码一致)
-                    # for u, v in uv_points:
-                    #     res = self.pixel_to_base(u, v)
-                        # if res:
-                        #         x, y = res
+
                     xyz_points = self.pixel_to_base_batch(uv_points)
                     # 过滤掉无法投影到地面的 NaN 点
                     valid_mask = ~np.isnan(xyz_points[:, 0])
                     valid_xyz = xyz_points[valid_mask]
                     if len(valid_xyz) > 0:
-                        # valid_xyz = self.check_and_refine_by_angle(valid_xyz)                   
                         for x, y in valid_xyz:
-                            # 计算从坐标原点 $(0, 0)$ 到点 $(x, y)$ 的欧几里得距离
-                            # dist = math.hypot(x, y)
                             dist = round(math.hypot(x, y) / 0.02) * 0.02
                             if dist < self.range_min or dist > self.range_max:
                                 continue
@@ -157,7 +183,6 @@ class ZenohSegScan:
                             idx = int(round((angle - self.angle_min) / self.angle_increment))
                             idx = max(0, min(idx, self.num_readings - 1))
                             
-                            # scan_ranges[idx] = min(scan_ranges[idx], dist)
                             # 扩散导致障碍太大
                             for di in (-1, 0, 1):
                                 j = idx + di
@@ -184,7 +209,9 @@ class ZenohSegScan:
                 # 5. 条件发布
                 self.last_valid_scan = scan_ranges.copy()
                 self.publish_as_json(scan_ranges, stamp)
-                
+
+            except queue.Empty:
+                time.sleep(0.001)
             except Exception as e:
                 print(f"处理错误: {e}")
                 time.sleep(0.1)

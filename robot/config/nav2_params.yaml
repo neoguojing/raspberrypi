@@ -199,7 +199,7 @@ local_costmap:
         scan:
           topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           # topic: /seg/scan
-          sensor_frame: camera_link
+          sensor_frame: base_footprint
           inf_is_valid: true
           max_obstacle_height: 0.3
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
@@ -247,7 +247,7 @@ global_costmap:
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           topic: /seg/scan
-          sensor_frame: camera_link
+          sensor_frame: base_footprint
           inf_is_valid: true
           max_obstacle_height: 1.2
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
