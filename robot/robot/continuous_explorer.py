@@ -6,6 +6,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import PoseStamped, Pose
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
+from nav2_msgs.srv import SaveMap
 from tf2_ros import Buffer, TransformListener
 import numpy as np
 import math
@@ -65,6 +66,13 @@ class Explorer(Node):
 
         self.failed_goals = {}  # (x,y) -> time
 
+        # --- 服务客户端：调用 map_server 保存地图 ---
+        self.save_map_cli = self.create_client(
+            SaveMap,
+            '/map_saver/save_map'
+        )
+        self.map_url = "file:////home/ros_user/ros2_ws/map.yaml"
+        self.map_save_timer = self.create_timer(30, self.save_current_map)
         # ---- 主循环 ----
         self.timer = self.create_timer(3, self.loop)
         self.get_logger().info("🚀 Explorer node started")
@@ -81,6 +89,24 @@ class Explorer(Node):
         self.scan = msg
 
     # ================= 主循环 =================
+
+    def save_current_map(self):
+        self.get_logger().info(f"正在保存地图...")
+        if not self.save_map_cli.wait_for_service(timeout_sec=2.0):
+            self.get_logger().warn("保存地图服务不可用")
+            return
+
+        req = SaveMap.Request()
+        req.map_topic = self.map_url
+        req.map_url = self.map_url
+        req.image_format = "png"
+        req.map_mode = "trinary"
+        req.free_thresh = 0.0
+        req.occupied_thresh = 0.0
+        
+        # 使用异步调用
+        future = self.save_map_cli.call_async(req)
+        return future
 
     def loop(self):
         if self.map is None:
