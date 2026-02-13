@@ -15,7 +15,7 @@ from robot.robot.vision.segformer import SegFormerDetector
 import queue
 
 class ZenohSegScan:
-    def __init__(self, config_path='config.json',max_queue_size=2):
+    def __init__(self, config_path='config.json'):
         
         self.frame_count = 0
         self.skip_n = 3 # 每 3 帧处理 1 帧
@@ -72,9 +72,9 @@ class ZenohSegScan:
         self.scan_alpha = 0.2
         
 
-        self.sample_queue = queue.Queue(maxsize=max_queue_size)
-        self.decoded_queue = queue.Queue(maxsize=max_queue_size)
-        self.inference_queue = queue.Queue(maxsize=max_queue_size)
+        self.sample_queue = queue.Queue(maxsize=3)
+        self.decoded_queue = queue.Queue(maxsize=2)
+        self.inference_queue = queue.Queue(maxsize=1)
 
         # 1. Decoder Thread
         decoder_thread = threading.Thread(target=self.decoder_loop, daemon=True)
@@ -159,54 +159,49 @@ class ZenohSegScan:
             try:
                 uv_points, stamp = self.inference_queue.get(timeout=0.1)
                 self.frame_count += 1
-                
                 scan_ranges = np.full(self.num_readings, float('inf'))
 
                 if len(uv_points) > 0:
-                    valid_points = 0
-
                     xyz_points = self.pixel_to_base_batch(uv_points)
-                    # 过滤掉无法投影到地面的 NaN 点
                     valid_mask = ~np.isnan(xyz_points[:, 0])
                     valid_xyz = xyz_points[valid_mask]
-                    if len(valid_xyz) > 0:
-                        for x, y in valid_xyz:
-                            dist = round(math.hypot(x, y) / 0.02) * 0.02
-                            if dist < self.range_min or dist > self.range_max:
-                                continue
-                            
-                            angle = math.atan2(y, x)
-                            if not (self.angle_min <= angle <= self.angle_max):
-                                print(f"on_image_data：角度偏离，{angle}")
-                                continue
-                                
-                            idx = int(round((angle - self.angle_min) / self.angle_increment))
-                            idx = max(0, min(idx, self.num_readings - 1))
-                            
-                            # 扩散导致障碍太大
-                            for di in (-1, 0, 1):
-                                j = idx + di
-                                if 0 <= j < self.num_readings:
-                                    scan_ranges[j] = min(scan_ranges[j], dist)
-                                
-                                    
-                            valid_points += 1
 
+                    if len(valid_xyz) > 0:
+                        x = valid_xyz[:, 0]
+                        y = valid_xyz[:, 1]
+
+                        # 1. 计算距离
+                        dist = np.round(np.hypot(x, y) / 0.02) * 0.02
+                        mask_dist = (dist >= self.range_min) & (dist <= self.range_max)
+
+                        # 2. 计算角度
+                        angle = np.arctan2(y, x)
+                        mask_angle = (angle >= self.angle_min) & (angle <= self.angle_max)
+
+                        # 3. 有效点掩码
+                        mask_valid = mask_dist & mask_angle
+                        if np.any(mask_valid):
+                            dist = dist[mask_valid]
+                            angle = angle[mask_valid]
+
+                            # 4. 计算 idx
+                            idx = np.clip(np.round((angle - self.angle_min) / self.angle_increment).astype(int), 0, self.num_readings-1)
+
+                            # 5. 扩散 [-1,0,1] 并更新 scan_ranges
+                            for di in (-1, 0, 1):
+                                idx_shift = idx + di
+                                mask_in = (idx_shift >= 0) & (idx_shift < self.num_readings)
+                                np.minimum.at(scan_ranges, idx_shift[mask_in], dist[mask_in])
+
+                # 6. EMA 平滑
                 if self.last_valid_scan is not None:
-                    # 1. 识别两帧都有效的区域（非 inf 且在量程内）
-                    # 注意：如果你的 scan_ranges 初始化为 float('inf')，判断有效性用 isfinite
                     current_valid = np.isfinite(scan_ranges)
                     previous_valid = np.isfinite(self.last_valid_scan)
-                    
-                    # 只有两帧都有效的点才做平滑，防止把“新出现的障碍物”拉出拖影
                     blend_mask = current_valid & previous_valid
-                    
-                    # 应用指数移动平均 (EMA)
-                    # self.scan_alpha 建议设为 0.2 ~ 0.3
                     scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
-                                              (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
-                    
-                # 5. 条件发布
+                                            (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
+
+                # 7. 发布
                 self.last_valid_scan = scan_ranges.copy()
                 self.publish_as_json(scan_ranges, stamp)
 
