@@ -72,13 +72,13 @@ class ZenohSegScan:
         self.scan_alpha = 0.2
         
 
-        self.sample_queue = queue.Queue(maxsize=3)
-        self.decoded_queue = queue.Queue(maxsize=2)
+        self.sample_queue = queue.Queue(maxsize=1)
+        self.decoded_queue = queue.Queue(maxsize=1)
         self.inference_queue = queue.Queue(maxsize=1)
 
         # 1. Decoder Thread
-        decoder_thread = threading.Thread(target=self.decoder_loop, daemon=True)
-        decoder_thread.start()
+        # decoder_thread = threading.Thread(target=self.decoder_loop, daemon=True)
+        # decoder_thread.start()
 
         # 2. Inference Thread
         inference_thread = threading.Thread(target=self.inference_loop, daemon=True)
@@ -102,12 +102,27 @@ class ZenohSegScan:
     def on_image_data(self, sample):
         """回调函数现在极快：只负责存下最新的数据包"""
         try:
-            if self.sample_queue.full():
+            self.frame_count += 1
+            if self.frame_count % self.skip_n != 0:  # 每5帧打印一次
+                return 
+            # if self.sample_queue.full():
+            #     try:
+            #         self.sample_queue.get_nowait()
+            #     except queue.Empty:
+            #         pass
+            # self.sample_queue.put_nowait(sample)
+            
+            payload_bytes = sample.payload.to_bytes()
+            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
+            if frame is None:
+                return
+            # 入队解码结果
+            if self.decoded_queue.full():
                 try:
-                    self.sample_queue.get_nowait()
+                    self.decoded_queue.get_nowait()
                 except queue.Empty:
                     pass
-            self.sample_queue.put_nowait(sample)
+            self.decoded_queue.put_nowait((frame, stamp))
         except Exception as e:
             print(f"⚠ 入队失败: {e}")
     
@@ -158,7 +173,6 @@ class ZenohSegScan:
         while True:
             try:
                 uv_points, stamp = self.inference_queue.get(timeout=0.1)
-                self.frame_count += 1
                 scan_ranges = np.full(self.num_readings, float('inf'))
 
                 if len(uv_points) > 0:
@@ -194,12 +208,12 @@ class ZenohSegScan:
                                 np.minimum.at(scan_ranges, idx_shift[mask_in], dist[mask_in])
 
                 # 6. EMA 平滑
-                if self.last_valid_scan is not None:
-                    current_valid = np.isfinite(scan_ranges)
-                    previous_valid = np.isfinite(self.last_valid_scan)
-                    blend_mask = current_valid & previous_valid
-                    scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
-                                            (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
+                # if self.last_valid_scan is not None:
+                #     current_valid = np.isfinite(scan_ranges)
+                #     previous_valid = np.isfinite(self.last_valid_scan)
+                #     blend_mask = current_valid & previous_valid
+                #     scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
+                #                             (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
 
                 # 7. 发布
                 self.last_valid_scan = scan_ranges.copy()

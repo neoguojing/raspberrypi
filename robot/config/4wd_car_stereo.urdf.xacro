@@ -316,7 +316,7 @@
         <format>R8G8B8</format>
       </image>
         <clip>
-          <near>0.1</near>
+          <near>0.01</near>
           <far>50</far>
         </clip>
        <lens>
@@ -356,7 +356,7 @@
         <format>R8G8B8</format>
       </image>
         <clip>
-          <near>0.1</near>
+          <near>0.01</near>
           <far>50</far>
         </clip>
       <lens>

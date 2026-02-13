@@ -69,9 +69,9 @@ class Explorer(Node):
         # --- 服务客户端：调用 map_server 保存地图 ---
         self.save_map_cli = self.create_client(
             SaveMap,
-            '/map_saver/save_map'
+            '/map_saver_server/save_map'
         )
-        self.map_url = "file:////home/ros_user/ros2_ws/map.yaml"
+        self.map_url = "file:///home/ros_user/ros2_ws/map.yaml"
         self.map_save_timer = self.create_timer(30, self.save_current_map)
         # ---- 主循环 ----
         self.timer = self.create_timer(3, self.loop)
@@ -97,7 +97,7 @@ class Explorer(Node):
             return
 
         req = SaveMap.Request()
-        req.map_topic = self.map_url
+        req.map_topic = "map"
         req.map_url = self.map_url
         req.image_format = "png"
         req.map_mode = "trinary"
