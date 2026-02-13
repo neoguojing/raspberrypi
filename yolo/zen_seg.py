@@ -15,7 +15,7 @@ from robot.robot.vision.segformer import SegFormerDetector
 import queue
 
 class ZenohSegScan:
-    def __init__(self, config_path='config.json',max_queue_size=5):
+    def __init__(self, config_path='config.json',max_queue_size=2):
         
         self.frame_count = 0
         self.skip_n = 3 # 每 3 帧处理 1 帧

@@ -309,10 +309,10 @@
     <topic>/camera/image_raw</topic>
     <gz_frame_id>stereo_left_camera_optical</gz_frame_id>
     <camera>
-      <horizontal_fov>2.035</horizontal_fov>
+      <horizontal_fov>1.787</horizontal_fov>
       <image>
         <width>1280</width>
-        <height>720</height>
+        <height>960</height>
         <format>R8G8B8</format>
       </image>
         <clip>
@@ -321,10 +321,10 @@
         </clip>
        <lens>
         <intrinsics>
-          <fx>395</fx>
-          <fy>395</fy>
+          <fx>519</fx>
+          <fy>519</fy>
           <cx>640</cx>
-          <cy>360</cy>
+          <cy>480</cy>
           <s>0</s>
         </intrinsics>
       </lens>
@@ -349,22 +349,22 @@
     <topic>/camera/right/image_raw</topic>
     <gz_frame_id>stereo_right_camera_optical</gz_frame_id>
     <camera>
-      <horizontal_fov>2.035</horizontal_fov>
+      <horizontal_fov>1.787</horizontal_fov>
       <image>
         <width>1280</width>
-        <height>720</height>
+        <height>960</height>
         <format>R8G8B8</format>
       </image>
-      <clip>
+        <clip>
           <near>0.1</near>
           <far>50</far>
         </clip>
       <lens>
         <intrinsics>
-          <fx>395</fx>
-          <fy>395</fy>
+          <fx>519</fx>
+          <fy>519</fy>
           <cx>640</cx>
-          <cy>360</cy>
+          <cy>480</cy>
           <s>0</s>
         </intrinsics>
       </lens>

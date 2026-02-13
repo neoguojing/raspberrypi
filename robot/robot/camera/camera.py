@@ -36,7 +36,7 @@ from picamera2.outputs import FfmpegOutput
 class RpiCamera:
     def __init__(self,
                  width=1280,
-                 height=720,
+                 height=960,
                  fps=30,
                  exposure=8000,
                  auto_exposure=True,
