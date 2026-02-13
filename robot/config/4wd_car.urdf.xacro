@@ -266,23 +266,23 @@
       <topic>/camera/image_raw</topic>
       <gz_frame_id>camera_link_optical</gz_frame_id>
       <camera>
-        <horizontal_fov>2.07</horizontal_fov>
+        <horizontal_fov>1.787</horizontal_fov>
         <image>
           <width>1280</width>
-          <height>720</height>
+          <height>960</height>
           <format>R8G8B8</format>
         </image>
-        <!-- <clip>
-          <near>0.02</near>
-          <far>300</far>
-        </clip> -->
+        <clip>
+          <near>0.01</near>
+          <far>50</far>
+        </clip>
         <lens>
           <intrinsics>
-            <fx>372.1</fx>
-            <fy>278.7</fy>
-            <cx>640.0</cx>
-            <cy>360.0</cy>
-            <s>0.0</s>
+            <fx>519</fx>
+            <fy>519</fy>
+            <cx>640</cx>
+            <cy>480</cy>
+            <s>0</s>
           </intrinsics>
         </lens>
 

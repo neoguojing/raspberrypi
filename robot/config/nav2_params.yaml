@@ -317,7 +317,7 @@ collision_monitor:
       topic: "/seg/scan" # ← YOLO-Seg 输出
       min_height: 0.0
       max_height: 2.0
-      source_timeout: 1.0
+      source_timeout: 4.0
       enabled: true
 
 # Behavior Server (行为服务器):

@@ -107,7 +107,8 @@ class SegFormerDetector:
     # ----------------------------------------------------
     def _inference(self, frame):
         # 1. 增强图像并准备模型输入
-        img = self._preprocess_lighting(frame)
+        # img = self._preprocess_lighting(frame)
+        img = frame
         inputs = self.processor(images=img, return_tensors="pt")
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 

@@ -97,12 +97,12 @@ class ZenohToLaserScan(Node):
             # 转换 ranges 列表 (处理 JSON 序列化后的数值)
             # scan_msg.ranges = [float(r) for r in data['ranges']]
             scan_msg.ranges = [float(r) if scan_msg.range_max > r else float('inf') for r in data['ranges']]
-            scan_local.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max for r in data['ranges']]
+            # scan_local.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max for r in data['ranges']]
             
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)
             self.latest_scan = scan_msg
-            self.latest_scan_local = scan_local
+            # self.latest_scan_local = scan_local
 
             now = node_clock.now()
             diff = now - t
