@@ -370,7 +370,7 @@ behavior_server:
 # 告诉导航系统：“世界原本长什么样”。
 map_server:
   ros__parameters:
-    # yaml_filename: ""
+    yaml_filename: "/home/ros_user/ros2_ws/my_map.yaml"
     introspection_mode: "disabled"
 
 # Keepout & Speed Filter (禁区与限速滤镜):

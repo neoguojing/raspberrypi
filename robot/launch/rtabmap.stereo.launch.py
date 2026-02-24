@@ -128,6 +128,7 @@ def generate_launch_description():
         "Stereo/MinDisparity": "3",
         "Stereo/MaxDisparity": "256",
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
+        "StereoBM/UniquenessRatio": "25",
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset

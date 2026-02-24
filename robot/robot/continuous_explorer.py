@@ -71,7 +71,7 @@ class Explorer(Node):
             SaveMap,
             '/map_saver_server/save_map'
         )
-        self.map_url = "file:///home/ros_user/ros2_ws/map.yaml"
+        self.map_url = "/home/ros_user/ros2_ws/my_map"
         self.map_save_timer = self.create_timer(30, self.save_current_map)
         # ---- 主循环 ----
         self.timer = self.create_timer(3, self.loop)
