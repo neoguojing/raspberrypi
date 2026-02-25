@@ -49,13 +49,13 @@ controller_server:
 
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
+      required_movement_radius: 0.2
       movement_time_allowance: 10.0
       
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.1
       yaw_goal_tolerance: 0.25
       
     FollowPath:
@@ -203,12 +203,12 @@ local_costmap:
         rtabmap_obstacles:
           topic: /cloud_obstacles
           data_type: PointCloud2
-          sensor_frame: camera_link
+          sensor_frame: base_footprint
           marking: true           # 视觉障碍主力
           clearing: true
           raytrace_max_range: 4.5   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
           max_obstacle_height: 2.0
 
@@ -249,12 +249,12 @@ global_costmap:
         rtabmap_obstacles:
           topic: /cloud_obstacles
           data_type: PointCloud2
-          sensor_frame: camera_link
+          sensor_frame: base_footprint
           marking: true           # 视觉障碍主力
           clearing: true
           raytrace_max_range: 4.5   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           min_obstacle_height: 0.05  # 忽略掉贴近地面的噪点（防止把地毯当墙）
           max_obstacle_height: 2.0
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---

@@ -206,6 +206,24 @@ class Explorer(Node):
                 if (data[r+1, c] == 0 or data[r-1, c] == 0 or
                     data[r, c+1] == 0 or data[r, c-1] == 0):
                     frontier[r, c] = True
+                    
+        # === 核心修改：放宽 frontier 判定条件 ===
+        # for r in range(1, h - 1):
+        #     for c in range(1, w - 1):
+        #         if data[r, c] != -1:  # 必须是 unknown
+        #             continue
+
+        #         # 检查四个邻居：只要**没有 occupied（>50）**，就视为潜在 frontier
+        #         neighbors = [
+        #             data[r+1, c],
+        #             data[r-1, c],
+        #             data[r, c+1],
+        #             data[r, c-1]
+        #         ]
+
+        #         # 如果所有邻居都不是 occupied（即 <=50 或 ==-1），则接受为 frontier
+        #         if all(v <= 50 or v == -1 for v in neighbors):
+        #             frontier[r, c] = True
 
         # ----------------------------
         # 聚类 frontier 点

@@ -115,9 +115,10 @@ def generate_launch_description():
         "Icp/PointToPlane": "false",
 
         # 视觉特征与闭环
-        "Vis/EstimationType": "1",    # 1=Stereo (双目特征估计)
+        "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # ORB
         "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
+        "Vis/MinInliers": "15",     # 增加闭环检测的鲁棒性
         "Kp/DetectorStrategy": "2",
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
@@ -126,7 +127,7 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "3",
-        "Stereo/MaxDisparity": "256",
+        "Stereo/MaxDisparity": "500", # 根据相机基线和场景深度调整
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
         "StereoBM/UniquenessRatio": "25",
 

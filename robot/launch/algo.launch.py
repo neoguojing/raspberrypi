@@ -151,18 +151,18 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
         launch_arguments=common_args,
         condition=UnlessCondition(
-            PythonExpression([sensor_mode, " == 'stereo'"])
+            PythonExpression(["'", sensor_mode, "' == 'stereo'"])
         )
     )
 
     nv2_stereo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
         launch_arguments={
-            **common_args,
+            'use_sim_time': use_sim_time,
             'params_file': stereo_params_file
-        },
+        }.items(),
         condition=IfCondition(
-            PythonExpression([sensor_mode, " == 'stereo'"])
+            PythonExpression(["'", sensor_mode, "' == 'stereo'"])
         )
     )
 
