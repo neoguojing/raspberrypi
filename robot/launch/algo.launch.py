@@ -4,11 +4,12 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription,DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration,PythonExpression
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition,UnlessCondition
 
 def generate_launch_description():
     pkg_path = get_package_share_directory('robot')
-
+    config_dir = os.path.join(pkg_path, 'config')
+    stereo_params_file = os.path.join(config_dir, 'nav2_params_stereo.yaml')
     # ===============================
     # 参数
     # ===============================
@@ -75,11 +76,11 @@ def generate_launch_description():
             os.path.join(pkg_path, 'launch', 'seg.launch.py')
         ),
         launch_arguments=common_args,
-        # condition=IfCondition(
-        #     PythonExpression([
-        #         "'", sensor_mode, "' == 'laser'"
-        #     ])
-        # )
+        condition=IfCondition(
+            PythonExpression([
+                "'", sensor_mode, "' != 'stereo'"
+            ])
+        )
     )
 
 
@@ -148,7 +149,21 @@ def generate_launch_description():
     # 包含 nv2 节点
     nv2_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
-        launch_arguments=common_args
+        launch_arguments=common_args,
+        condition=UnlessCondition(
+            PythonExpression([sensor_mode, " == 'stereo'"])
+        )
+    )
+
+    nv2_stereo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'nv2.launch.py')),
+        launch_arguments={
+            **common_args,
+            'params_file': stereo_params_file
+        },
+        condition=IfCondition(
+            PythonExpression([sensor_mode, " == 'stereo'"])
+        )
     )
 
     explore_launch = IncludeLaunchDescription(
@@ -167,5 +182,6 @@ def generate_launch_description():
         rtabmap_stereo,
         slam_toolbox,
         nv2_launch,
+        nv2_stereo_launch,
         explore_launch,
     ])

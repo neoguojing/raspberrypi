@@ -44,6 +44,8 @@ controller_server:
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
     use_realtime_priority: false
+    odom_topic: "/ekf/odom"
+    odom_duration: 0.3
 
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
@@ -154,6 +156,8 @@ controller_server:
         max_angle_to_furthest: 1.0
         mode: 0
 
+# local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
+# 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
 local_costmap:
   local_costmap:
     ros__parameters:

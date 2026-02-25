@@ -80,7 +80,7 @@ def generate_launch_description():
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
 
         # 地图参数
-        "Grid/Sensor": "2",           # 0=Laser Scan, 1=Depth, 2=Both
+        "Grid/Sensor": "1",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/RayTracing": "true",  
         "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
         "Grid/MinDepth": "0.5",  # 过滤掉 0.3 米以内的所有数据，直接无视盲区噪点
@@ -100,8 +100,8 @@ def generate_launch_description():
         "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
         "Grid/GroundIsObstacle": "false",
         # 4. 清理无效障碍（超重要）
-        "Grid/NoiseFilteringRadius": "0.3",
-        "Grid/NoiseFilteringMinNeighbors": "5",
+        "Grid/NoiseFilteringRadius": "0.4",
+        "Grid/NoiseFilteringMinNeighbors": "8",
         "Grid/Scan2dUnknownSpaceFilled": "true", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
 
 
@@ -119,7 +119,7 @@ def generate_launch_description():
         "Vis/FeatureType": "2",       # ORB
         "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
         "Kp/DetectorStrategy": "2",
-        "Reg/Strategy": "2",          # 0=Visual, 1=ICP, 2=Visual+ICP
+        "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
         "Optimizer/Slam2D": "true",
         
@@ -207,7 +207,7 @@ def generate_launch_description():
         # 基础参数
         DeclareLaunchArgument('namespace', default_value=''),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('subscribe_scan', default_value='true'),
+        DeclareLaunchArgument('subscribe_scan', default_value='false'),
         DeclareLaunchArgument('subscribe_imu', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
 
