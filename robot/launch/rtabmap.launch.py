@@ -168,7 +168,7 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
-        DeclareLaunchArgument('scan_topic', default_value='/seg/scan/local'),
+        DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
 
         republish_rgb,
         rtabmap_slam,
