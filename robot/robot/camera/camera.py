@@ -37,7 +37,7 @@ class RpiCamera:
     def __init__(self,
                  width=1280,
                  height=960,
-                 fps=25,
+                 fps=20,
                  exposure=8000,
                  auto_exposure=True,
                  awb_mode=0,
