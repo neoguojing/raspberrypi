@@ -114,6 +114,7 @@ class RpiCamera:
             controls=controls
         )
         print("Camera Controls:", video_config)
+        print(self.picam2.camera_config)
         self.picam2.configure(video_config)
         self.picam2.pre_callback = self._event_loop_callback        
 
