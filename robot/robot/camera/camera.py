@@ -185,7 +185,8 @@ class RpiCamera:
 
             # 切换到高分辨率拍照配置
             photo_config = self.picam2.create_still_configuration(
-                main={"size": (1920, 1080)}
+                main={"size": (1920, 1080)},
+                raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
             )
             self.picam2.stop()          # 停止当前流
             self.picam2.configure(photo_config)
@@ -236,6 +237,7 @@ class RpiCamera:
             video_config = self.picam2.create_video_configuration(
                 main={"size": (self.width, self.height)},
                 # sensor=self.sensor_conf,
+                raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
                 controls={"FrameRate": float(self.fps),"AeEnable": True,'FrameDurationLimits':(33333, 100000)}
             )
             self.picam2.stop()
