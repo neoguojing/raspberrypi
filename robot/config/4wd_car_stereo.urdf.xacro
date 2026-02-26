@@ -317,7 +317,7 @@
       </image>
         <clip>
           <near>0.01</near>
-          <far>50</far>
+          <far>8</far>
         </clip>
        <lens>
         <intrinsics>
@@ -357,7 +357,7 @@
       </image>
         <clip>
           <near>0.01</near>
-          <far>50</far>
+          <far>8</far>
         </clip>
       <lens>
         <intrinsics>
