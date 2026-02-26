@@ -50,7 +50,7 @@ controller_server:
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.2
-      movement_time_allowance: 10.0
+      movement_time_allowance: 15.0
       
     general_goal_checker:
       stateful: True
@@ -71,9 +71,9 @@ controller_server:
       vy_std: 0.0
       wz_std: 0.2
       vx_max: 0.5
-      vx_min: 0.0
+      vx_min: -0.1
       vy_max: 0.0
-      wz_max: 0.3
+      wz_max: 3.0
       iteration_count: 3  #MPPI 每个控制周期的优化迭代次数。
       prune_distance: 4.0
       transform_tolerance: 0.5  # 增加变换容错性
@@ -154,7 +154,7 @@ controller_server:
         offset_from_furthest: 4
         threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
-        mode: 0
+        mode: 1
 
 # local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
 # 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
@@ -289,7 +289,7 @@ planner_server:
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"
       tolerance: 0.6
-      use_astar: true #开启A* 快且稳定
+      use_astar: false #开启A* 快且稳定
       allow_unknown: true
 
 # Collision Monitor (碰撞监测器):
