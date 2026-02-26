@@ -111,7 +111,8 @@ class RpiCamera:
             main={"size": (self.width, self.height), "format": "RGB888"},
             # sensor=self.sensor_conf,
             raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
-            controls=controls
+            controls=controls,
+            use_case='video'
         )
         print("Camera Controls:", video_config)
         print(f"Camera Config: {self.picam2.camera_config}")
