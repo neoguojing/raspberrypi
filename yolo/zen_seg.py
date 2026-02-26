@@ -67,18 +67,15 @@ class ZenohSegScan:
         self.pub = self.session.declare_publisher(self.scan_topic)
         self.pointcloud_pub = self.session.declare_publisher(self.point_cloud_topic)
         
+        self.latest_sample_lock = threading.Lock()
         self.latest_sample = None
+
         self.last_valid_scan = np.full(self.num_readings, self.range_max)
         self.scan_alpha = 0.2
         
 
-        self.sample_queue = queue.Queue(maxsize=1)
-        self.decoded_queue = queue.Queue(maxsize=1)
         self.inference_queue = queue.Queue(maxsize=1)
 
-        # 1. Decoder Thread
-        # decoder_thread = threading.Thread(target=self.decoder_loop, daemon=True)
-        # decoder_thread.start()
 
         # 2. Inference Thread
         inference_thread = threading.Thread(target=self.inference_loop, daemon=True)
@@ -103,57 +100,28 @@ class ZenohSegScan:
         """回调函数现在极快：只负责存下最新的数据包"""
         try:
             self.frame_count += 1
-            if self.frame_count % self.skip_n != 0:  # 每5帧打印一次
+            if self.frame_count % self.skip_n != 0:  # 每3帧打印一次
                 return 
-            # if self.sample_queue.full():
-            #     try:
-            #         self.sample_queue.get_nowait()
-            #     except queue.Empty:
-            #         pass
-            # self.sample_queue.put_nowait(sample)
             
-            payload_bytes = sample.payload.to_bytes()
-            frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
-            if frame is None:
-                return
-            # 入队解码结果
-            if self.decoded_queue.full():
-                try:
-                    self.decoded_queue.get_nowait()
-                except queue.Empty:
-                    pass
-            self.decoded_queue.put_nowait((frame, stamp))
+            with self.latest_sample_lock:
+                self.latest_sample = sample
+
         except Exception as e:
             print(f"⚠ 入队失败: {e}")
     
-    # ---------------- Decoder Thread ----------------
-    def decoder_loop(self):
-        while True:
-            try:
-                sample = self.sample_queue.get(timeout=0.1)
-                payload_bytes = sample.payload.to_bytes()
-                frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
-                if frame is None:
-                    continue
-                # 入队解码结果
-                if self.decoded_queue.full():
-                    try:
-                        self.decoded_queue.get_nowait()
-                    except queue.Empty:
-                        pass
-                self.decoded_queue.put_nowait((frame, stamp))
-            except queue.Empty:
-                time.sleep(0.001)
-            except Exception as e:
-                print(f"Decoder 错误: {e}")
-                time.sleep(0.1)
 
     # ---------------- Inference Thread ----------------
     def inference_loop(self):
         while True:
             try:
-                frame, stamp = self.decoded_queue.get(timeout=0.1)
-                # 推理
+                with self.latest_sample_lock:
+                    sample = self.latest_sample
+                    self.latest_sample = None  # optional, 防止重复处理
+
+                payload_bytes = sample.payload.to_bytes()
+                frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
+                if frame is None:
+                    return                # 推理
                 uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
                 # 入队推理结果
                 if self.inference_queue.full():
@@ -166,7 +134,7 @@ class ZenohSegScan:
                 time.sleep(0.001)
             except Exception as e:
                 print(f"Inference 错误: {e}")
-                time.sleep(0.1)
+                time.sleep(0.001)
 
     def processing_loop(self):
         """Zenoh 订阅回调"""
