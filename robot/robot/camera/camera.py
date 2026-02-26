@@ -58,7 +58,7 @@ class RpiCamera:
         self.picam2 = Picamera2()
 
         # 构建 controls
-        controls = {"FrameRate": float(self.fps),'FrameDurationLimits':(33333, 100000)}
+        controls = {"FrameRate": float(self.fps),'FrameDurationLimits':(47000, 100000)}
         
         # 2. 曝光控制
         if not self.auto_exposure:
