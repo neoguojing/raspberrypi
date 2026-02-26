@@ -4,7 +4,7 @@ import numpy as np
 import os
 import json
 from pathlib import Path
-from camera.camera import RpiCamera
+from robot.camera import RpiCamera
 
 
 # ============================================================
