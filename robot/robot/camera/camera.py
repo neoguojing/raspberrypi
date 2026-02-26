@@ -37,7 +37,7 @@ class RpiCamera:
     def __init__(self,
                  width=1640,
                  height=1232,
-                 fps=20,
+                 fps=30,
                  exposure=8000,
                  auto_exposure=True,
                  awb_mode=0,
@@ -58,7 +58,7 @@ class RpiCamera:
         self.picam2 = Picamera2()
 
         # 构建 controls
-        controls = {"FrameRate": float(self.fps),'FrameDurationLimits':(47000, 100000)}
+        controls = {"FrameRate": float(self.fps),'FrameDurationLimits':(33333, 100000)}
         
         # 2. 曝光控制
         if not self.auto_exposure:
@@ -186,8 +186,8 @@ class RpiCamera:
 
             # 切换到高分辨率拍照配置
             photo_config = self.picam2.create_still_configuration(
-                main={"size": (1920, 1080)},
-                raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
+                main={"size": (1640, 1232)},
+                raw={"size": (1640, 1232), "format": "SRGGB10_CSI2P"},
             )
             self.picam2.stop()          # 停止当前流
             self.picam2.configure(photo_config)
@@ -238,7 +238,7 @@ class RpiCamera:
             video_config = self.picam2.create_video_configuration(
                 main={"size": (self.width, self.height)},
                 # sensor=self.sensor_conf,
-                raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
+                raw={"size": (1640, 1232), "format": "SRGGB10_CSI2P"},
                 controls={"FrameRate": float(self.fps),"AeEnable": True,'FrameDurationLimits':(33333, 100000)}
             )
             self.picam2.stop()
