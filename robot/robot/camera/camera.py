@@ -35,8 +35,8 @@ from picamera2.outputs import FfmpegOutput
 
 class RpiCamera:
     def __init__(self,
-                 width=1280,
-                 height=960,
+                 width=1640,
+                 height=1232,
                  fps=20,
                  exposure=8000,
                  auto_exposure=True,
@@ -110,7 +110,7 @@ class RpiCamera:
             # main={"size": (self.width, self.height), "format": "BGR888"},
             main={"size": (self.width, self.height), "format": "RGB888"},
             # sensor=self.sensor_conf,
-            raw={"size": (3280, 2464), "format": "SRGGB10_CSI2P"},
+            raw={"size": (1640, 1232), "format": "SRGGB10_CSI2P"},
             controls=controls,
             use_case='video'
         )
