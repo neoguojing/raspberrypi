@@ -66,25 +66,25 @@ controller_server:
       ax_max: 3.0
       ax_min: -3.0
       ay_max: 3.0
-      az_max: 3.5
+      az_max: 0.0
       vx_std: 0.2
       vy_std: 0.0
       wz_std: 0.2
       vx_max: 0.5
-      vx_min: -0.35
+      vx_min: 0.0
       vy_max: 0.0
-      wz_max: 0.8
-      iteration_count: 1
-      prune_distance: 1.7
+      wz_max: 0.3
+      iteration_count: 3  #MPPI 每个控制周期的优化迭代次数。
+      prune_distance: 4.0
       transform_tolerance: 0.5  # 增加变换容错性
-      temperature: 0.3
+      temperature: 0.6 #轨迹选择的“贪心程度”
       gamma: 0.015
       motion_model: "Ackermann"
       visualize: true
       regenerate_noises: true
       
       AckermannConstraints:
-        min_turning_r: 0.4
+        min_turning_r: 0.25
         
       TrajectoryVisualizer:
         trajectory_step: 5
@@ -133,7 +133,7 @@ controller_server:
       PathAlignCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 14.0
+        cost_weight: 8.0
         max_path_occupancy_ratio: 0.05
         trajectory_point_step: 4
         threshold_to_consider: 0.5
@@ -184,7 +184,7 @@ local_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
         cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.15      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        inflation_radius: 0.25      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -270,7 +270,7 @@ global_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
         cost_scaling_factor: 12.0
-        inflation_radius: 0.12
+        inflation_radius: 0.25
         inflate_unknown: false
         inflate_around_unknown: false
 
