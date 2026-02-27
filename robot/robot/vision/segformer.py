@@ -158,7 +158,7 @@ class SegFormerDetector:
 
         # 6. 形态学闭运算 (Closing)
         # 作用：填充地面掩码中细小的黑色空洞（如地砖缝隙、细小阴影），同时保持边缘位置准确
-        kernel = np.ones((3, 3), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, kernel)
 
         return ground_mask
