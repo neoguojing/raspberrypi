@@ -1,0 +1,20 @@
+# SegFormer TensorRT runtime image
+FROM nvcr.io/nvidia/tensorrt:24.02-py3
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    python3-opencv \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Runtime dependencies for robot.vision.segformer TensorRT inference
+RUN python3 -m pip install --no-cache-dir \
+    numpy \
+    pycuda
+
+CMD ["python3", "-c", "from robot.robot.vision.segformer import SegFormerDetector; print('SegFormer TRT runtime ready')"]
