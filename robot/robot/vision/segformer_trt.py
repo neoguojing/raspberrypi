@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 import time
+from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
     def __init__(self, engine_path, alpha=0.7, conf_threshold=0.25):
@@ -11,7 +12,7 @@ class SegFormerTRTDetector:
         self.conf_threshold = conf_threshold
         self.ema_ground_prob = None
         self.clahe = cv2.createCLAHE(2.0, (8, 8))
-        self.trt_engine = _TRTEngine(engine_path)
+        self.trt_engine = TRTEngine(engine_path)
 
     def _resize_probs_to_frame(self, probs, frame_hw):
         h, w = frame_hw
