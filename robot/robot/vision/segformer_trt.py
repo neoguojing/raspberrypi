@@ -11,20 +11,7 @@ class SegFormerTRTDetector:
         self.alpha = alpha
         self.conf_threshold = conf_threshold
         self.ema_ground_prob = None
-        self.clahe = cv2.createCLAHE(2.0, (8, 8))
         self.trt_engine = TRTEngine(engine_path)
-
-    def _resize_probs_to_frame(self, probs, frame_hw):
-        h, w = frame_hw
-        resized = np.zeros((probs.shape[0], h, w), dtype=np.float32)
-        for i in range(probs.shape[0]):
-            resized[i] = cv2.resize(probs[i], (w, h), interpolation=cv2.INTER_LINEAR)
-        return resized
-
-    def _softmax_np(self, x, axis=0):
-        x = x - np.max(x, axis=axis, keepdims=True)
-        e = np.exp(x)
-        return e / np.sum(e, axis=axis, keepdims=True)
 
     def print_detected_categories(self, pred_map):
         unique_ids = np.unique(pred_map)
@@ -39,51 +26,78 @@ class SegFormerTRTDetector:
 
     def _predict_probs(self, frame):
         n, c, h, w = self.trt_engine.input_shape
+        # --- 前处理 (保持不变) ---
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         resized = cv2.resize(rgb, (w, h), interpolation=cv2.INTER_LINEAR)
-        x = resized.astype(np.float32) / 255.0
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        x = (x - mean) / std
-        x = np.transpose(x, (2, 0, 1))[None, ...]
-        if x.shape != (n, c, h, w):
-            raise ValueError(f"TensorRT input shape mismatch: expect {(n, c, h, w)}, got {x.shape}")
+        
+        # 优化：合并归一化步骤提升速度
+        x = (resized.astype(np.float32) - [123.675, 116.28, 103.53]) / [58.395, 57.12, 57.375]
+        x = np.ascontiguousarray(x.transpose(2, 0, 1)[None, ...])
 
-        logits = self.trt_engine.infer(x.astype(np.float32))
-        probs = self._softmax_np(logits[0], axis=0)
-        return self._resize_probs_to_frame(probs, frame.shape[:2])
+        # --- 推理 ---
+        logits = self.trt_engine.infer(x)[0] # (C, h_small, w_small)
+        
+        # --- 核心优化：直接在 Logits 上操作，省去 Softmax 计算 ---
+        # 提取地面类别中的最大 Logit
+        ground_logits_small = np.max(logits[self.ground_classes], axis=0)
+        # 提取所有类别的 Argmax
+        pred_map_small = np.argmax(logits, axis=0)
+        
+        # 只有在需要平滑概率图时，才对地面通道做简单的 Sigmoid 模拟或保持原始 Logit
+        return ground_logits_small, pred_map_small
+
+    def _extract_boundary_points(self, ground_mask, step_x=10):
+        h, w = ground_mask.shape
+        sampled = ground_mask[:, ::step_x]
+        sampled_w = sampled.shape[1]
+        
+        # 初始化为底部
+        res_y = np.full(sampled_w, h - 1, dtype=np.float32)
+        
+        # 情况 A: 寻找跳变点 (0 -> 1)
+        diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
+        ys, xs = np.where(diff == -1)
+        for y, x in zip(ys, xs):
+            if y + 1 < res_y[x]:
+                res_y[x] = y + 1
+        
+        # 情况 B: 纠正“全列皆地面”的情况
+        # 如果第一行(y=0)就是地面，且该列还没找到跳变点，说明地面一直延伸到地平线
+        top_row = sampled[0, :]
+        for x in range(sampled_w):
+            if top_row[x] == 1 and res_y[x] == h - 1:
+                res_y[x] = 0  # 或者设为一个合理的地平线高度，如 h*0.3
+        
+        return [(float(x * step_x), float(res_y[x])) for x in range(sampled_w)]
 
     def _inference(self, frame):
-        probs = self._predict_probs(frame)
-        pred_map = probs.argmax(axis=0)
-        self.print_detected_categories(pred_map)
-        ground_prob = probs[self.ground_classes].max(axis=0)
+        h_orig, w_orig = frame.shape[:2]
+        ground_logits_small, pred_map_small = self._predict_probs(frame)
 
+        # 1. 处理分类图
+        pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+        self.print_detected_categories(pred_map) # 调试时开启
+
+        # 2. 处理地面概率 (Logits)
+        ground_prob = cv2.resize(ground_logits_small, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+
+        # 3. EMA 
         if self.ema_ground_prob is None:
             self.ema_ground_prob = ground_prob
         else:
             self.ema_ground_prob = self.alpha * self.ema_ground_prob + (1 - self.alpha) * ground_prob
 
-        blurred_ground_prob = cv2.GaussianBlur(self.ema_ground_prob.astype(np.float32), (5, 5), 1.0)
-        ground_mask = (blurred_ground_prob > self.conf_threshold).astype(np.uint8)
-        kernel = np.ones((3, 3), np.uint8)
-        return cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, kernel)
-
-    def _extract_boundary_points(self, ground_mask, step_x=10):
-        h, _ = ground_mask.shape
-        sampled = ground_mask[:, ::step_x]
-        sampled_w = sampled.shape[1]
-        diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
-        ys, xs = np.where(diff == -1)
-        res_y = np.full(sampled_w, 0)
-        for y, x in zip(ys, xs):
-            res_y[x] = y + 1
-        bottom_row = sampled[-1, :]
-        for x in range(sampled_w):
-            if bottom_row[x] == 0:
-                res_y[x] = h - 1
-        return [(float(x * step_x), float(res_y[x])) for x in range(sampled_w)]
-
+        # 4. 生成 Mask (根据 Logit 阈值，通常 SegFormer Logit 阈值需根据实验调整)
+        # 如果模型输出了 Softmax，阈值用 0.25；如果是原始 Logit，阈值可能是 0 左右
+        _, ground_mask = cv2.threshold(self.ema_ground_prob, self.conf_threshold, 255, cv2.THRESH_BINARY)
+        
+        # 形态学操作
+        kernel = np.ones((5, 5), np.uint8)
+        ground_mask = cv2.morphologyEx(ground_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+        
+        # 转回 0/1 格式供后续提取点位使用
+        return (ground_mask > 0).astype(np.uint8)
+    
     def render(self, frame, mask, points):
         vis = frame.copy()
         vis[mask == 1] = [0, 255, 0]
@@ -115,3 +129,42 @@ class SegFormerTRTDetector:
             print(f"📸 [采样成功] 已保存至: {file_path} (累计保存: {self.saved_images_count} 张)")
             return visual_frame
         return None
+
+if __name__ == "__main__":
+    # --- 1. 配置参数 ---
+    ENGINE_PATH = "models/segformer_b2.engine"  # 你的引擎文件路径
+    IMAGE_PATH = "asset/test.png"              # 你要验证的测试图路径
+    
+    # 填充部分 ADE20K 标签，用于验证打印结果
+    ADE_LABELS = {
+        3: "floor", 6: "road", 11: "sidewalk", 13: "earth", 21: "mountain",
+        26: "house", 46: "sand", 52: "path", 54: "field", 94: "case"
+    }
+
+    # --- 2. 初始化检测器 ---
+    if not os.path.exists(ENGINE_PATH):
+        print(f"❌ 找不到引擎文件: {ENGINE_PATH}")
+    elif not os.path.exists(IMAGE_PATH):
+        print(f"❌ 找不到测试图片: {IMAGE_PATH}")
+    else:
+        # 初始化（单图验证时 alpha 设为 0，因为不需要时间平滑）
+        detector = SegFormerTRTDetector(ENGINE_PATH, alpha=0.0, conf_threshold=0.5)
+        detector.id2label = ADE_LABELS
+
+        # --- 3. 执行验证 ---
+        frame = cv2.imread(IMAGE_PATH)
+        print(f"📷 正在处理图片: {IMAGE_PATH} ({frame.shape[1]}x{frame.shape[0]})")
+        
+        start_time = time.time()
+        # 获取点位和可视化结果
+        points, vis = detector.get_ground_contact_points(frame, render=True)
+        end_time = time.time()
+
+        print(f"⏱️ 推理耗时: {(end_time - start_time)*1000:.2f} ms")
+        
+        # --- 4. 显示与保存 ---
+        if vis is not None:      
+            # 同时保存一份到本地
+            save_path = "debug_result.jpg"
+            cv2.imwrite(save_path, vis)
+            print(f"💾 结果已保存至: {save_path}")

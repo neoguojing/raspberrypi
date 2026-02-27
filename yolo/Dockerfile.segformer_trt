@@ -1,20 +1,48 @@
-# SegFormer TensorRT runtime image
-FROM nvcr.io/nvidia/tensorrt:24.02-py3
+# =========================================================
+# Base: 使用 NVIDIA 官方 TensorRT 运行时镜像 (轻量化)
+# 注意：版本号需与你生成 engine 时的 TensorRT 版本严格一致
+# =========================================================
+FROM nvcr.io/nvidia/tensorrt:23.10-py3
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip \
-    python3-opencv \
+# =========================================================
+# 系统依赖：OpenCV 运行必须的库
+# =========================================================
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspace
+# =========================================================
+# Python 依赖：仅保留运行时必须的库
+# =========================================================
+# 注意：该镜像已自带 tensorrt, numpy, cuda-python
+RUN pip install --no-cache-dir \
+    eclipse-zenoh \
+    opencv-python-headless
 
-# Runtime dependencies for robot.vision.segformer TensorRT inference
-RUN python3 -m pip install --no-cache-dir \
-    numpy \
-    pycuda
+# =========================================================
+# 工作目录与代码部署
+# =========================================================
+WORKDIR /home/zenoh
 
-CMD ["python3", "-c", "from robot.robot.vision.segformer import SegFormerDetector; print('SegFormer TRT runtime ready')"]
+# 拷贝当前目录下的所有推理代码 (包含 yolo/ 文件夹)
+COPY . .
+
+# 如果你的 engine 文件在本地，确保它被拷贝进去
+# 或者你也可以通过 docker-compose 的 volumes 挂载进来
+# COPY ./models/segformer_b2.engine ./models/segformer_b2.engine
+
+# =========================================================
+# 运行配置
+# =========================================================
+# 设置 Python 路径，确保可以找到 yolo 模块
+ENV PYTHONPATH=$PYTHONPATH:/home/zenoh
+
+# 默认 Engine 路径环境变量，供你的 SegFormerTRTDetector 类读取
+ENV ENGINE_PATH="/home/zenoh/models/segformer_b2.engine"
+
+# 启动程序
+CMD ["python3", "-m", "yolo.zen_seg"]
