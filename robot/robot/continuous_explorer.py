@@ -57,7 +57,7 @@ class Explorer(Node):
         self.is_navigating = False
 
         # ---- 参数（工程可调）----
-        self.frontier_min_size = 20
+        self.frontier_min_size = 5
 
         self.recompute_interval = 3.0
         self.last_compute = 0.0
@@ -112,6 +112,7 @@ class Explorer(Node):
             self.get_logger().debug("[WAIT] no map yet")
             return
 
+        self.validate_map_orientation()
         pose = self.get_robot_pose()
         if pose is None:
             self.get_logger().warn("[TF] cannot get robot pose")
@@ -370,18 +371,18 @@ class Explorer(Node):
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
         self.is_navigating = True # 新增标志位
-
-        # 1. 获取当前位姿，用于计算“指向目标”的角度
-        current_pose = self.get_robot_pose()
+        self.goal_start_time = time.time() # 记录开始时间
+        # # 1. 获取当前位姿，用于计算“指向目标”的角度
+        # current_pose = self.get_robot_pose()
         
-        # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
-        target_yaw = 0.0
-        if current_pose is not None:
-            curr_x, curr_y, curr_yaw = current_pose
-            # 计算从当前点到目标点的向量夹角
-            target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
+        # # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
+        # target_yaw = 0.0
+        # if current_pose is not None:
+        #     curr_x, curr_y, curr_yaw = current_pose
+        #     # 计算从当前点到目标点的向量夹角
+        #     target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
         
-        self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
+        # self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
 
         ps = PoseStamped()
         ps.header.frame_id = 'map'
@@ -392,9 +393,9 @@ class Explorer(Node):
 
         ps.pose.orientation.x = 0.0
         ps.pose.orientation.y = 0.0
-        ps.pose.orientation.z = math.sin(target_yaw / 2.0)
-        ps.pose.orientation.w = math.cos(target_yaw / 2.0)
-        # ps.pose.orientation.w = 1.0
+        # ps.pose.orientation.z = math.sin(target_yaw / 2.0)
+        # ps.pose.orientation.w = math.cos(target_yaw / 2.0)
+        ps.pose.orientation.w = 1.0
 
         self.current_goal = (pos[0], pos[1])
 
@@ -456,10 +457,10 @@ class Explorer(Node):
     def world_to_index(self, x, y):
         res, w, h, ox, oy = self._map_info()
         # 使用 floor 确保在负值区间也能正确映射到栅格
-        # c = math.floor((x - ox) / res)
-        # r = math.floor((y - oy) / res)
-        c = int((x - ox) / res)
-        r = h - 1 - int((y - oy) / res)
+        c = math.floor((x - ox) / res)
+        r = math.floor((y - oy) / res)
+        # c = int((x - ox) / res)
+        # r = h - 1 - int((y - oy) / res)
         
         # 使用 numpy.clip 或原生 min/max 限制在数组范围内
         r = max(0, min(r, h - 1))
@@ -470,11 +471,11 @@ class Explorer(Node):
         # r: row index (0..h-1), c: col index (0..w-1)
         res, w, h, ox, oy = self._map_info()
         # 假定 data 按 row-major 从 origin.y 向上增加（常见情况）
-        # x = ox + (c + 0.5) * res
-        # y = oy + (r + 0.5) * res
-
         x = ox + (c + 0.5) * res
-        y = oy + (h - r - 0.5) * res
+        y = oy + (r + 0.5) * res
+
+        # x = ox + (c + 0.5) * res
+        # y = oy + (h - r - 0.5) * res
 
         return x, y
     
@@ -501,20 +502,20 @@ class Explorer(Node):
 
         # 1. 检查机器人脚下 (应该是 Free 或 Unknown，绝不应该是 Occupied)
         r_self, c_self = self.world_to_index(x, y)
-        val_self = self._get_map_value(r_self, c_self, w)
+        val_self = self._get_map_value(r_self, c_self)
         
         # 2. 检查机器人正前方 1.0 米处
         check_dist = 1.0
         front_x = x + check_dist * math.cos(yaw)
         front_y = y + check_dist * math.sin(yaw)
         r_front, c_front = self.world_to_index(front_x, front_y)
-        val_front = self._get_map_value(r_front, c_front, w)
+        val_front = self._get_map_value(r_front, c_front)
 
         # 3. 检查机器人正后方 1.0 米处 (用于对比)
         back_x = x - check_dist * math.cos(yaw)
         back_y = y - check_dist * math.sin(yaw)
         r_back, c_back = self.world_to_index(back_x, back_y)
-        val_back = self._get_map_value(r_back, c_back, w)
+        val_back = self._get_map_value(r_back, c_back)
 
         # 格式化输出
         def status(v):
