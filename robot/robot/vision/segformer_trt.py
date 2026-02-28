@@ -5,13 +5,17 @@ import time
 from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
-    def __init__(self, engine_path, alpha=0.7, conf_threshold=0.25):
+    def __init__(self, engine_path="models/segformer_b2.engine", alpha=0.7, conf_threshold=0.25):
         self.id2label = {}
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
         self.alpha = alpha
         self.conf_threshold = conf_threshold
         self.ema_ground_prob = None
         self.trt_engine = TRTEngine(engine_path)
+
+        # 提前准备好 LUT，避免在推理循环中重复创建
+        self.lut = np.zeros(256, dtype=np.uint8)
+        self.lut[self.ground_classes] = 255  # 地面类设为 255 (白色)
 
     def print_detected_categories(self, pred_map):
         unique_ids = np.unique(pred_map)
@@ -25,26 +29,32 @@ class SegFormerTRTDetector:
             print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
 
     def _predict_probs(self, frame):
-        n, c, h, w = self.trt_engine.input_shape
-        # --- 前处理 (保持不变) ---
+        # 3090 性能强，不再强制 resize 到模型的固定 input_shape
+        # 而是直接将图像处理成 32 的倍数（SegFormer 要求）即可
+        h_orig, w_orig = frame.shape[:2]
+
+        # 1. 对齐到 32 的倍数
+        h_pad = (h_orig + 31) // 32 * 32
+        w_pad = (w_orig + 31) // 32 * 32
+
+        # 2. 前处理
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        resized = cv2.resize(rgb, (w, h), interpolation=cv2.INTER_LINEAR)
-        
-        # 优化：合并归一化步骤提升速度
-        x = (resized.astype(np.float32) - [123.675, 116.28, 103.53]) / [58.395, 57.12, 57.375]
+        if (h_pad != h_orig) or (w_pad != w_orig):
+            rgb = cv2.resize(rgb, (w_pad, h_pad), interpolation=cv2.INTER_LINEAR)
+
+        x = (rgb.astype(np.float32) - [123.675, 116.28, 103.53]) / [58.395, 57.12, 57.375]
         x = np.ascontiguousarray(x.transpose(2, 0, 1)[None, ...])
 
-        # --- 推理 ---
-        logits = self.trt_engine.infer(x)[0] # (C, h_small, w_small)
+        # 推理得到对应尺寸的 logits
+        logits = self.trt_engine.infer(x)[0] 
         
-        # --- 核心优化：直接在 Logits 上操作，省去 Softmax 计算 ---
-        # 提取地面类别中的最大 Logit
-        ground_logits_small = np.max(logits[self.ground_classes], axis=0)
-        # 提取所有类别的 Argmax
-        pred_map_small = np.argmax(logits, axis=0)
-        
-        # 只有在需要平滑概率图时，才对地面通道做简单的 Sigmoid 模拟或保持原始 Logit
-        return ground_logits_small, pred_map_small
+        # 核心 LUT 逻辑 (保持不变，性能极佳)
+        pred_map_small = np.argmax(logits, axis=0).astype(np.uint8)
+        ground_mask_small = self.lut[pred_map_small] 
+
+        # 缩放到原图 (如果逻辑上需要)
+        ground_mask = cv2.resize(ground_mask_small, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+        return ground_mask, pred_map_small
 
     def _extract_boundary_points(self, ground_mask, step_x=10):
         h, w = ground_mask.shape
