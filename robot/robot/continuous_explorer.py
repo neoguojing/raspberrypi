@@ -6,6 +6,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import PoseStamped, Pose
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
+from nav2_msgs.srv import ComputePathToPose
 from nav2_msgs.srv import SaveMap
 from tf2_ros import Buffer, TransformListener
 import numpy as np
@@ -46,6 +47,10 @@ class Explorer(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        self.plan_client = self.create_client(
+            ComputePathToPose,
+            '/compute_path_to_pose'
+        )
 
         # ---- 状态 ----
         self.map = None
@@ -54,13 +59,13 @@ class Explorer(Node):
         self.current_goal = None
 
         # ---- 参数（工程可调）----
-        self.frontier_min_size = 3
+        self.frontier_min_size = 20
         self.safe_dist = 0.6
         self.unknown_soft_limit = 10.0     # unknown 允许的最大前进距离
         self.laser_blind_frac = 0.9
         self.bad_frame_req = 3
 
-        self.recompute_interval = 1.0
+        self.recompute_interval = 10.0
         self.last_compute = 0.0
         self.bad_frames = 0
 
@@ -131,7 +136,7 @@ class Explorer(Node):
         if self.goal_handle:
             if self.check_emergency(pose):
                 self.get_logger().warn("[EMERGENCY] cancel goal")
-                self.cancel_goal()
+                # self.cancel_goal()
                 self.simple_recover()
             return
 
@@ -187,9 +192,6 @@ class Explorer(Node):
             self.map.info.height, self.map.info.width
         )
         h, w = data.shape
-        res = self.map.info.resolution
-        ox = self.map.info.origin.position.x # 地图原点 x
-        oy = self.map.info.origin.position.y # 地图原点 y
 
         # 创建一个np和data一样，初始都为false
         frontier = np.zeros_like(data, dtype=bool)
@@ -252,9 +254,7 @@ class Explorer(Node):
                     if len(cells) >= self.frontier_min_size:
                         ar = sum(p[0] for p in cells) / len(cells)
                         ac = sum(p[1] for p in cells) / len(cells)
-                        mx = ox + (ac + 0.5) * res
-                        my = oy + (h - ar - 0.5) * res
-                        # my = oy + ar * res
+                        mx, my = self.index_to_world(ar, ac)
 
                         # cells → 这个 cluster 的所有 frontier 点
                         # mx, my → cluster 的质心，作为探索目标
@@ -298,10 +298,7 @@ class Explorer(Node):
             data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
             h = self.map.info.height
             w = self.map.info.width
-            ox = self.map.info.origin.position.x
-            oy = self.map.info.origin.position.y
-            c_idx = int((cx - ox) / res)
-            r_idx = int(h - (cy - oy) / res)
+            r_idx, c_idx = self.world_to_index(cx, cy)
             window = int(1.0 / res / 2)  # 1m 窗口
             unk_count = 0
             for rr in range(max(0, r_idx-window), min(h, r_idx+window)):
@@ -349,12 +346,9 @@ class Explorer(Node):
         res = self.map.info.resolution
         h = self.map.info.height
         w = self.map.info.width
-        ox = self.map.info.origin.position.x
-        oy = self.map.info.origin.position.y
 
         # 转换为栅格索引
-        c = int((cx - ox) / res)
-        r = int(h - (cy - oy) / res)
+        r, c = self.world_to_index(cx, cy)
 
         half = int(window / res / 2)
         risk = 0.0
@@ -422,15 +416,10 @@ class Explorer(Node):
         return False
 
     def map_cell_blocked(self, x, y, dist):
-        res = self.map.info.resolution
         h = self.map.info.height
         w = self.map.info.width
-        ox = self.map.info.origin.position.x
-        oy = self.map.info.origin.position.y
 
-        c = int((x - ox) / res)
-        r = int(h - (y - oy) / res)
-        # r = int((y - oy) / res)
+        r, c = self.world_to_index(x, y)
 
         if r < 0 or r >= h or c < 0 or c >= w:
             return False
@@ -446,21 +435,71 @@ class Explorer(Node):
         return False
 
     # ================= Navigation =================
+    def is_goal_reachable(self, goal_pose):
+        if not self.plan_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("Planner not available")
+            return False
+
+        req = ComputePathToPose.Request()
+        req.goal = goal_pose
+        req.use_start = False  # 使用机器人当前位置
+
+        future = self.plan_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
+
+        if future.result() is None:
+            return False
+
+        path = future.result().path
+
+        # ✔ 路径为空 → 不可达
+        if len(path.poses) == 0:
+            return False
+
+        return True
 
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
-        goal = NavigateToPose.Goal()
+
+        # 获取当前机器人位置（用于计算朝向）
+        # 1. 获取当前位姿，用于计算“指向目标”的角度
+        # current_pose = self.get_robot_pose()
+        
+        # # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
+        # target_yaw = 0.0
+        # if current_pose is not None:
+        #     curr_x, curr_y, curr_yaw = current_pose
+        #     # 计算从当前点到目标点的向量夹角
+        #     target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
+        
+        # self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
+
         ps = PoseStamped()
-        ps.header.frame_id = self.map.header.frame_id
+        ps.header.frame_id = 'map'
         ps.header.stamp = self.get_clock().now().to_msg()
         ps.pose.position.x = pos[0]
         ps.pose.position.y = pos[1]
+        ps.pose.position.z = 0.0
+
+        ps.pose.orientation.x = 0.0
+        ps.pose.orientation.y = 0.0
+        # ps.pose.orientation.z = math.sin(target_yaw / 2.0)
+        # ps.pose.orientation.w = math.cos(target_yaw / 2.0)
         ps.pose.orientation.w = 1.0
+        
+        if not self.is_goal_reachable(ps):
+            self.get_logger().warn("Goal unreachable, skipping")
+            return
+
+        self.current_goal = (pos[0], pos[1])
+
+        goal = NavigateToPose.Goal()
         goal.pose = ps
 
         self.nav_client.wait_for_server()
         future = self.nav_client.send_goal_async(goal)
         future.add_done_callback(self.goal_response)
+
 
     def goal_response(self, future):
         self.goal_handle = future.result()
@@ -486,6 +525,43 @@ class Explorer(Node):
     def simple_recover(self):
         self.get_logger().info("[RECOVER] simple pause & retry")
 
+
+    def _map_info(self):
+        if self.map is None:
+            return (0.1, 0, 0, 0.0, 0.0) # 或者抛出异常
+        return (self.map.info.resolution, self.map.info.width, self.map.info.height,
+                self.map.info.origin.position.x, self.map.info.origin.position.y)
+
+    def world_to_index(self, x, y):
+        res, w, h, ox, oy = self._map_info()
+        # 使用 floor 确保在负值区间也能正确映射到栅格
+        # c = math.floor((x - ox) / res)
+        # r = math.floor((y - oy) / res)
+        c = int((x - ox) / res)
+        r = h - 1 - int((y - oy) / res)
+        
+        # 使用 numpy.clip 或原生 min/max 限制在数组范围内
+        r = max(0, min(r, h - 1))
+        c = max(0, min(c, w - 1))
+        return r, c
+    
+    def index_to_world(self, r, c):
+        # r: row index (0..h-1), c: col index (0..w-1)
+        res, w, h, ox, oy = self._map_info()
+        # 假定 data 按 row-major 从 origin.y 向上增加（常见情况）
+        # x = ox + (c + 0.5) * res
+        # y = oy + (r + 0.5) * res
+
+        x = ox + (c + 0.5) * res
+        y = oy + (h - r - 0.5) * res
+
+        return x, y
+    
+    def validate_map_orientation(self):
+        # 调试用：检查 origin 与 known cell 是否匹配（在运行时打印少量样本）
+        res, w, h, ox, oy = self._map_info()
+        # pick a few indices and print world coords
+        self.get_logger().debug(f"[MAP] res={res} w={w} h={h} origin=({ox:.2f},{oy:.2f})")
 # ================= main =================
 
 def main():
