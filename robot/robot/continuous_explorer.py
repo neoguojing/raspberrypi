@@ -5,8 +5,8 @@ from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import PoseStamped, Pose
 from rclpy.action import ActionClient
+from action_msgs.msg import GoalStatus # 需要导入状态常量
 from nav2_msgs.action import NavigateToPose
-from nav2_msgs.srv import ComputePathToPose
 from nav2_msgs.srv import SaveMap
 from tf2_ros import Buffer, TransformListener
 import numpy as np
@@ -47,25 +47,19 @@ class Explorer(Node):
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.plan_client = self.create_client(
-            ComputePathToPose,
-            '/compute_path_to_pose'
-        )
 
         # ---- 状态 ----
         self.map = None
         self.scan = None
         self.goal_handle = None
         self.current_goal = None
+        self.goal_start_time = 0.0
+        self.is_navigating = False
 
         # ---- 参数（工程可调）----
         self.frontier_min_size = 20
-        self.safe_dist = 0.6
-        self.unknown_soft_limit = 10.0     # unknown 允许的最大前进距离
-        self.laser_blind_frac = 0.9
-        self.bad_frame_req = 3
 
-        self.recompute_interval = 10.0
+        self.recompute_interval = 3.0
         self.last_compute = 0.0
         self.bad_frames = 0
 
@@ -133,11 +127,12 @@ class Explorer(Node):
             return
     
         # 正在导航 → 监控安全
-        if self.goal_handle:
-            if self.check_emergency(pose):
-                self.get_logger().warn("[EMERGENCY] cancel goal")
-                # self.cancel_goal()
-                self.simple_recover()
+        if self.goal_handle and self.is_navigating:
+            # 如果一个任务执行了超过 120 秒还没返回，强制认为失败并清除
+            if time.time() - self.goal_start_time > 120.0:
+                self.get_logger().error("[TIMEOUT] Goal hung for too long, clearing...")
+                self.cancel_goal() # 尝试取消
+                self.goal_handle = None # 强制释放锁
             return
 
         # 节流 frontier 计算
@@ -201,31 +196,34 @@ class Explorer(Node):
         #   1. 当前格子未知 (data[r,c] == -1)
         #   2. 相邻的上下左右至少有一个空地 (0)
         # ----------------------------
-        for r in range(1, h - 1):
-            for c in range(1, w - 1):
-                if data[r, c] != -1:
-                    continue
-                if (data[r+1, c] == 0 or data[r-1, c] == 0 or
-                    data[r, c+1] == 0 or data[r, c-1] == 0):
-                    frontier[r, c] = True
-                    
-        # === 核心修改：放宽 frontier 判定条件 ===
         # for r in range(1, h - 1):
         #     for c in range(1, w - 1):
-        #         if data[r, c] != -1:  # 必须是 unknown
+        #         if data[r, c] != -1:
         #             continue
-
-        #         # 检查四个邻居：只要**没有 occupied（>50）**，就视为潜在 frontier
-        #         neighbors = [
-        #             data[r+1, c],
-        #             data[r-1, c],
-        #             data[r, c+1],
-        #             data[r, c-1]
-        #         ]
-
-        #         # 如果所有邻居都不是 occupied（即 <=50 或 ==-1），则接受为 frontier
-        #         if all(v <= 50 or v == -1 for v in neighbors):
+        #         if (data[r+1, c] == 0 or data[r-1, c] == 0 or
+        #             data[r, c+1] == 0 or data[r, c-1] == 0):
         #             frontier[r, c] = True
+                    
+        # === 核心修改：放宽 frontier 判定条件 ===
+        for r in range(1, h - 1):
+            for c in range(1, w - 1):
+                # 1. 当前格子必须是未知区域
+                if data[r, c] != -1:
+                    continue
+                
+                # 2. 检查上下左右邻居
+                neighbors = [data[r+1, c], data[r-1, c], data[r, c+1], data[r, c-1]]
+                
+                # 3. 改进逻辑：只要有一个邻居是“已知且非障碍”的
+                # 这样即使地图上有噪声（如 5, 10, 20），只要没超过 50，都能触发探索
+                is_frontier = False
+                for n in neighbors:
+                    if 0 <= n <= 50:  # 关键点：不再只盯着 0 看
+                        is_frontier = True
+                        break
+                
+                if is_frontier:
+                    frontier[r, c] = True
 
         # ----------------------------
         # 聚类 frontier 点
@@ -368,111 +366,22 @@ class Explorer(Node):
         max_cells = (2*half)**2
         return min(risk / max_cells, 1.0)  # 归一化到 0~1
 
-    def check_emergency(self, pose):
-        if self.scan is None:
-            return False
-
-        ranges = np.array(self.scan.ranges)
-        maxr = self.scan.range_max
-        invalid = np.logical_or(np.isinf(ranges), ranges >= maxr - 1e-3)
-        frac = np.count_nonzero(invalid) / len(ranges)
-
-        self.get_logger().debug(
-            f"[LASER] blind_frac={frac:.2f} bad_frames={self.bad_frames}"
-        )
-        # 激光90%为无效障碍的情况下
-        if frac > self.laser_blind_frac:
-            self.bad_frames += 1
-            if self.bad_frames >= self.bad_frame_req:
-                self.get_logger().warn("[LASER] blind → map fallback")
-                return self.map_forward_collision(pose)
-            return False
-
-        self.bad_frames = 0
-
-        # 视野内激光障碍小于安全距离0.6m
-        front = ranges[len(ranges)//2 - 10 : len(ranges)//2 + 10]
-        if np.any(front < self.safe_dist):
-            self.get_logger().warn("[LASER] obstacle detected")
-            return True
-
-        return False
-
-    def map_forward_collision(self, pose):
-        x, y, yaw = pose
-        res = self.map.info.resolution
-        steps = int(self.safe_dist / res)
-        # 循环沿机器人前方每格
-        for i in range(steps):
-            d = i * res
-            px = x + d * math.cos(yaw)
-            py = y + d * math.sin(yaw)
-            # 判断是否阻塞
-            if self.map_cell_blocked(px, py, d):
-                self.get_logger().warn(
-                    f"[MAP-COLLISION] blocked at {px:.2f},{py:.2f}"
-                )
-                return True
-        return False
-
-    def map_cell_blocked(self, x, y, dist):
-        h = self.map.info.height
-        w = self.map.info.width
-
-        r, c = self.world_to_index(x, y)
-
-        if r < 0 or r >= h or c < 0 or c >= w:
-            return False
-
-        v = self.map.data[r * w + c]
-        # 如果该格被标记为障碍 → 阻塞 → 返回 True
-        if v > 50:
-            return True
-        # 如果该格未知 (-1)
-        # 且距离超过 unknown_soft_limit → 阻塞 → 返回 True
-        if v == -1 and dist > self.unknown_soft_limit:
-            return True
-        return False
-
     # ================= Navigation =================
-    def is_goal_reachable(self, goal_pose):
-        if not self.plan_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn("Planner not available")
-            return False
-
-        req = ComputePathToPose.Request()
-        req.goal = goal_pose
-        req.use_start = False  # 使用机器人当前位置
-
-        future = self.plan_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
-
-        if future.result() is None:
-            return False
-
-        path = future.result().path
-
-        # ✔ 路径为空 → 不可达
-        if len(path.poses) == 0:
-            return False
-
-        return True
-
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
+        self.is_navigating = True # 新增标志位
 
-        # 获取当前机器人位置（用于计算朝向）
         # 1. 获取当前位姿，用于计算“指向目标”的角度
-        # current_pose = self.get_robot_pose()
+        current_pose = self.get_robot_pose()
         
-        # # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
-        # target_yaw = 0.0
-        # if current_pose is not None:
-        #     curr_x, curr_y, curr_yaw = current_pose
-        #     # 计算从当前点到目标点的向量夹角
-        #     target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
+        # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
+        target_yaw = 0.0
+        if current_pose is not None:
+            curr_x, curr_y, curr_yaw = current_pose
+            # 计算从当前点到目标点的向量夹角
+            target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
         
-        # self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
+        self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
 
         ps = PoseStamped()
         ps.header.frame_id = 'map'
@@ -483,13 +392,9 @@ class Explorer(Node):
 
         ps.pose.orientation.x = 0.0
         ps.pose.orientation.y = 0.0
-        # ps.pose.orientation.z = math.sin(target_yaw / 2.0)
-        # ps.pose.orientation.w = math.cos(target_yaw / 2.0)
-        ps.pose.orientation.w = 1.0
-        
-        if not self.is_goal_reachable(ps):
-            self.get_logger().warn("Goal unreachable, skipping")
-            return
+        ps.pose.orientation.z = math.sin(target_yaw / 2.0)
+        ps.pose.orientation.w = math.cos(target_yaw / 2.0)
+        # ps.pose.orientation.w = 1.0
 
         self.current_goal = (pos[0], pos[1])
 
@@ -512,18 +417,25 @@ class Explorer(Node):
 
     def goal_done(self, future):
         status = future.result().status
-        self.get_logger().info(f"[NAV] finished status={status}")
-        if status != 4:
+        # 获取状态描述以便调试
+        status_msg = "UNKNOWN"
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            status_msg = "SUCCEEDED"
+        elif status == GoalStatus.STATUS_ABORTED:
+            status_msg = "ABORTED"
             self.failed_goals[self.current_goal] = time.time()
+        elif status == GoalStatus.STATUS_CANCELED:
+            status_msg = "CANCELED"
+
+        self.get_logger().info(f"[NAV] Goal finished with status: {status_msg} ({status})")
         self.goal_handle = None
+        self.is_navigating = False # 任务彻底结束
+        self.current_goal = None
 
     def cancel_goal(self):
         if self.goal_handle:
             self.goal_handle.cancel_goal_async()
-            self.goal_handle = None
-
-    def simple_recover(self):
-        self.get_logger().info("[RECOVER] simple pause & retry")
+            # self.goal_handle = None
 
 
     def _map_info(self):
@@ -531,6 +443,15 @@ class Explorer(Node):
             return (0.1, 0, 0, 0.0, 0.0) # 或者抛出异常
         return (self.map.info.resolution, self.map.info.width, self.map.info.height,
                 self.map.info.origin.position.x, self.map.info.origin.position.y)
+    
+    def _get_map_value(self, r, c):
+        if self.map is None:
+            return -1
+        data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
+        r = np.clip(r, 0, self.map.info.height-1)
+        c = np.clip(c, 0, self.map.info.width-1)
+        return data[r, c] 
+
 
     def world_to_index(self, x, y):
         res, w, h, ox, oy = self._map_info()
@@ -558,10 +479,67 @@ class Explorer(Node):
         return x, y
     
     def validate_map_orientation(self):
-        # 调试用：检查 origin 与 known cell 是否匹配（在运行时打印少量样本）
+        """
+        【极简调试】无激光雷达版本
+        仅通过检查机器人自身位置和前方1米处的地图值来验证坐标转换。
+        
+        使用方法：
+        1. 在仿真中将机器人移动到已知位置（例如：面对墙壁，距离1米）。
+        2. 观察日志。
+        3. 如果 "Front_1m" 显示 Free(0) 但前面明明是墙 -> h-r 逻辑错误。
+        """
+        if self.map is None:
+            return
+
+        pose = self.get_robot_pose()
+        if pose is None:
+            self.get_logger().warn("[CHECK] 无法获取机器人位姿 (TF 问题?)")
+            return
+
+        x, y, yaw = pose
         res, w, h, ox, oy = self._map_info()
-        # pick a few indices and print world coords
-        self.get_logger().debug(f"[MAP] res={res} w={w} h={h} origin=({ox:.2f},{oy:.2f})")
+
+        # 1. 检查机器人脚下 (应该是 Free 或 Unknown，绝不应该是 Occupied)
+        r_self, c_self = self.world_to_index(x, y)
+        val_self = self._get_map_value(r_self, c_self, w)
+        
+        # 2. 检查机器人正前方 1.0 米处
+        check_dist = 1.0
+        front_x = x + check_dist * math.cos(yaw)
+        front_y = y + check_dist * math.sin(yaw)
+        r_front, c_front = self.world_to_index(front_x, front_y)
+        val_front = self._get_map_value(r_front, c_front, w)
+
+        # 3. 检查机器人正后方 1.0 米处 (用于对比)
+        back_x = x - check_dist * math.cos(yaw)
+        back_y = y - check_dist * math.sin(yaw)
+        r_back, c_back = self.world_to_index(back_x, back_y)
+        val_back = self._get_map_value(r_back, c_back, w)
+
+        # 格式化输出
+        def status(v):
+            if v == -1: return "Unknown(-1)"
+            if v == 0:  return "Free(0)  "
+            if v >= 100: return "WALL(100)"
+            return f"Prob({v}) "
+
+        self.get_logger().info("--- [MAP ORIENTATION CHECK] ---")
+        self.get_logger().info(f"Robot Pose: x={x:.2f}, y={y:.2f}, yaw={math.degrees(yaw):.1f}°")
+        self.get_logger().info(f"Self Grid : r={r_self}, c={c_self} -> {status(val_self)}")
+        self.get_logger().info(f"Front Grid: r={r_front}, c={c_front} -> {status(val_front)}  (距离前方{check_dist}m)")
+        self.get_logger().info(f"Back Grid : r={r_back}, c={c_back} -> {status(val_back)}  (距离后方{check_dist}m)")
+        
+        # 简单逻辑判断
+        if val_self >= 100:
+            self.get_logger().error("❌ 严重错误：机器人脚下显示为墙壁！(定位或地图原点错误)")
+        elif val_front == 0 and val_back >= 100:
+            self.get_logger().error("❌ 疑似错误：前方是空地，后方是墙？如果你正对着墙，说明 h-r 逻辑反了！")
+        elif val_front >= 100 and val_back == 0:
+            self.get_logger().info("✅ 看起来正常：前方检测到墙，后方是空地。")
+        else:
+            self.get_logger().info("ℹ️  周围都是空地或未知，请移动机器人到墙边再试。")
+        self.get_logger().info("-------------------------------")
+
 # ================= main =================
 
 def main():
