@@ -113,15 +113,15 @@ def generate_launch_description():
         DeclareLaunchArgument('odom_frame_id', default_value='odom'),
 
         # stereo
-        DeclareLaunchArgument('left_image', default_value='/camera/left/image_rect'),
-        DeclareLaunchArgument('right_image', default_value='/camera/right/image_rect'),
-        DeclareLaunchArgument('left_info', default_value='/camera/left/camera_info'),
+        DeclareLaunchArgument('left_image', default_value='/camera/image_raw'),
+        DeclareLaunchArgument('right_image', default_value='/camera/right/image_raw'),
+        DeclareLaunchArgument('left_info', default_value='/camera/camera_info'),
         DeclareLaunchArgument('right_info', default_value='/camera/right/camera_info'),
 
         # rgbd
-        DeclareLaunchArgument('rgb_image', default_value='/camera/color/image_raw'),
-        DeclareLaunchArgument('depth_image', default_value='/camera/depth/image_raw'),
-        DeclareLaunchArgument('camera_info', default_value='/camera/color/camera_info'),
+        DeclareLaunchArgument('rgb_image', default_value='/camera/image_raw'),
+        DeclareLaunchArgument('depth_image', default_value='/camera/image_raw'),
+        DeclareLaunchArgument('camera_info', default_value='/camera/camera_info'),
 
         # icp
         DeclareLaunchArgument('scan', default_value='/seg/scan'),
