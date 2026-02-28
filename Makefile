@@ -244,3 +244,15 @@ status:
 tf:
 	ros2 run tf2_tools view_frames
 	@echo "TF frames generated as frames.pdf"
+
+.PHONY: onnx trt
+onnx:
+	python -m root.robot.vision.segformer_onnx_export
+
+trt:
+	trtexec \
+		--onnx=segformer_b2.onnx \
+		--saveEngine=segformer_b2.engine \
+		--fp16 \
+		--workspace=4096
+
