@@ -457,10 +457,10 @@ class Explorer(Node):
     def world_to_index(self, x, y):
         res, w, h, ox, oy = self._map_info()
         # 使用 floor 确保在负值区间也能正确映射到栅格
-        c = math.floor((x - ox) / res)
-        r = math.floor((y - oy) / res)
-        # c = int((x - ox) / res)
-        # r = h - 1 - int((y - oy) / res)
+        # c = math.floor((x - ox) / res)
+        # r = math.floor((y - oy) / res)
+        c = int((x - ox) / res)
+        r = h - 1 - int((y - oy) / res)
         
         # 使用 numpy.clip 或原生 min/max 限制在数组范围内
         r = max(0, min(r, h - 1))
@@ -471,11 +471,11 @@ class Explorer(Node):
         # r: row index (0..h-1), c: col index (0..w-1)
         res, w, h, ox, oy = self._map_info()
         # 假定 data 按 row-major 从 origin.y 向上增加（常见情况）
-        x = ox + (c + 0.5) * res
-        y = oy + (r + 0.5) * res
-
         # x = ox + (c + 0.5) * res
-        # y = oy + (h - r - 0.5) * res
+        # y = oy + (r + 0.5) * res
+
+        x = ox + (c + 0.5) * res
+        y = oy + (h - r - 0.5) * res
 
         return x, y
     
