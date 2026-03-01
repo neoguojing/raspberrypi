@@ -39,7 +39,7 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.3
+    failure_tolerance: 1.0
     current_goal_checker: "general_goal_checker" 
     progress_checker_plugins: ["progress_checker"]
     goal_checker_plugins: ["general_goal_checker"]
@@ -56,7 +56,7 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.15
+      xy_goal_tolerance: 0.20
       yaw_goal_tolerance: 0.5
     
     FollowPath:
@@ -134,7 +134,7 @@ local_costmap:
       width: 5                # 局部窗口宽度（米）
       height: 5               # 局部窗口高度（米）
       resolution: 0.05         # 栅格分辨率（5厘米/格）
-      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
+      track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
       unknown_cost_value: 255 
 
       # 插件配置：决定了地图由哪些层叠加而成
@@ -144,8 +144,8 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 15.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.18     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        cost_scaling_factor: 25.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
+        inflation_radius: 0.15     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -232,8 +232,8 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 15.0
-        inflation_radius: 0.18
+        cost_scaling_factor: 25.0
+        inflation_radius: 0.15
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -366,20 +366,16 @@ behavior_server:
     behavior_plugins:
       # ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
       ["spin", "backup", "wait"]
+      # ["backup", "wait"]
     spin:
       plugin: "nav2_behaviors::Spin"
       max_rotational_vel: 1.2
       min_rotational_vel: 0.6
     backup:
       plugin: "nav2_behaviors::BackUp"
-      acceleration_limit: 2.5
-      deceleration_limit: -2.5
-      minimum_speed: 0.10
-    # drive_on_heading:
-    #   plugin: "nav2_behaviors::DriveOnHeading"
-    #   acceleration_limit: 2.5
-    #   deceleration_limit: -2.5
-    #   minimum_speed: 0.10
+      acceleration_limit: 1.0
+      deceleration_limit: -1.0
+      minimum_speed: 0.02
     wait:
       plugin: "nav2_behaviors::Wait"
     # assisted_teleop:

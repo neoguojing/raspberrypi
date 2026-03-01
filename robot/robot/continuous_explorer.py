@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import PoseStamped, Pose
@@ -112,7 +113,7 @@ class Explorer(Node):
             self.get_logger().debug("[WAIT] no map yet")
             return
 
-        self.validate_map_orientation()
+        # self.validate_map_orientation()
         pose = self.get_robot_pose()
         if pose is None:
             self.get_logger().warn("[TF] cannot get robot pose")
@@ -130,10 +131,24 @@ class Explorer(Node):
         # 正在导航 → 监控安全
         if self.goal_handle and self.is_navigating:
             # 如果一个任务执行了超过 120 秒还没返回，强制认为失败并清除
-            if time.time() - self.goal_start_time > 120.0:
-                self.get_logger().error("[TIMEOUT] Goal hung for too long, clearing...")
-                self.cancel_goal() # 尝试取消
-                self.goal_handle = None # 强制释放锁
+            if time.time() - self.goal_start_time > 60.0:
+                self.get_logger().error("[TIMEOUT] 导航超时，启动强制脱困序列...")
+                # 1. 立即停止当前导航
+                if self.is_navigating:
+                    self.cancel_goal() 
+                
+                # 2. 重置状态，防止 loop 下一次循环又进入这个 if
+                self.is_navigating = False
+                self.goal_handle = None 
+                
+                # 3. 记录当前点为失败点，防止刚退回来又立刻往坑里跳
+                if self.current_goal:
+                    self.failed_goals[self.current_goal] = time.time()
+
+                # 4. 执行物理自救 (后退)
+                # 注意：建议在 execute_backup_recovery 内部先调用地图清理服务
+                self.execute_backup_recovery()
+
             return
 
         # 节流 frontier 计算
@@ -366,6 +381,31 @@ class Explorer(Node):
         # 窗口内最大可能栅格数，用于归一化
         max_cells = (2*half)**2
         return min(risk / max_cells, 1.0)  # 归一化到 0~1
+    
+    def execute_backup_recovery(self):
+        # 1. 获取机器人当前的位姿 (x, y, yaw)
+        pose = self.get_robot_pose()
+        if pose is None:
+            self.get_logger().error("无法获取位姿，放弃后退自救")
+            return
+
+        curr_x, curr_y, curr_yaw = pose
+        
+        # 2. 计算后退后的目标点坐标
+        # 在当前朝向的反方向偏移 0.15 米
+        dist = 0.15  # 后退距离
+        backup_x = curr_x - dist * math.cos(curr_yaw)
+        backup_y = curr_y - dist * math.sin(curr_yaw)
+
+        self.get_logger().warn(f"⚠️ 触发自救：从({curr_x:.2f},{curr_y:.2f}) 后退到 ({backup_x:.2f},{backup_y:.2f})")
+
+        # 3. 将这个点标记为临时目标，直接调用 send_goal
+        # 注意：为了防止 send_goal 内部逻辑误判，我们可以临时关闭“超时监控”
+        self.is_navigating = True
+        self.goal_start_time = time.time()
+        
+        # 调用你现有的 send_goal 函数
+        self.send_goal((backup_x, backup_y))
 
     # ================= Navigation =================
     def send_goal(self, pos):
@@ -427,6 +467,9 @@ class Explorer(Node):
             self.failed_goals[self.current_goal] = time.time()
         elif status == GoalStatus.STATUS_CANCELED:
             status_msg = "CANCELED"
+            self.failed_goals[self.current_goal] = time.time()
+        else:
+            self.failed_goals[self.current_goal] = time.time()
 
         self.get_logger().info(f"[NAV] Goal finished with status: {status_msg} ({status})")
         self.goal_handle = None
