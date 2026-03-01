@@ -100,9 +100,9 @@ def generate_launch_description():
         "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
         "Grid/GroundIsObstacle": "false",
         # 4. 清理无效障碍（超重要）
-        "Grid/NoiseFilteringRadius": "0.4",
-        "Grid/NoiseFilteringMinNeighbors": "8",
-        "Grid/Scan2dUnknownSpaceFilled": "true", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
+        "Grid/NoiseFilteringRadius": "0.2",
+        "Grid/NoiseFilteringMinNeighbors": "10",
+        "Grid/Scan2dUnknownSpaceFilled": "false", #如果为 true → 超过 RangeMax 的地方会被填为 free (0)
 
 
         

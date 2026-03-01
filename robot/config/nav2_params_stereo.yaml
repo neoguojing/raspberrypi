@@ -65,10 +65,10 @@ controller_server:
       min_linear_vel: -0.1
       max_angular_vel: 0.6
       min_angular_vel: -0.6
-      max_linear_accel: 1.0
-      max_linear_decel: -1.0
-      max_angular_accel: 0.3
-      max_angular_decel: -0.3
+      max_linear_accel: 0.8
+      max_linear_decel: -0.8
+      max_angular_accel: 1.2
+      max_angular_decel: -1.2
       lookahead_dist: 0.8
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.9
@@ -110,8 +110,8 @@ velocity_smoother:
     
     # --- 加速度限制 (防止电机打滑或电流激增) ---
     # 将加速度限制在 0.5，可以解决你之前提到的“起步太快”和“S型震荡”问题
-    max_accel: [0.5, 0.0, 1.2]      # 线加速度：0.5m/s²；角加速度：1.0rad/s² (保证转向平稳)
-    max_decel: [-0.5, 0.0, -1.2]    # 线减速度：-0.5m/s²；角减速度：-1.0rad/s² (防止急刹车导致惯性甩尾)
+    max_accel: [0.8, 0.0, 1.2]      # 线加速度：0.5m/s²；角加速度：1.0rad/s² (保证转向平稳)
+    max_decel: [-0.8, 0.0, -1.2]    # 线减速度：-0.5m/s²；角减速度：-1.0rad/s² (防止急刹车导致惯性甩尾)
     odom_topic: "/ekf/odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
@@ -144,8 +144,8 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 5.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.3      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        cost_scaling_factor: 15.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
+        inflation_radius: 0.18     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -157,7 +157,7 @@ local_costmap:
         origin_z: -0.1
         z_resolution: 0.05
         z_voxels: 20
-        max_obstacle_height: 2.0    # 考虑的最大障碍物高度
+        max_obstacle_height: 0.8    # 考虑的最大障碍物高度
         mark_threshold: 8           # 当列中有多少个体素被占用时，标记为障碍物
         
         observation_sources: rtabmap_obstacles
@@ -171,7 +171,7 @@ local_costmap:
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           min_obstacle_height: 0.15  # 忽略掉贴近地面的噪点（防止把地毯当墙）
-          max_obstacle_height: 2.0
+          max_obstacle_height: 0.8
 
       always_send_full_costmap: true
       introspection_mode: "disabled"
@@ -218,7 +218,7 @@ global_costmap:
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           min_obstacle_height: 0.15  # 忽略掉贴近地面的噪点（防止把地毯当墙）
-          max_obstacle_height: 2.0
+          max_obstacle_height: 0.8
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -232,8 +232,8 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 5.0
-        inflation_radius: 0.3
+        cost_scaling_factor: 15.0
+        inflation_radius: 0.18
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -245,7 +245,7 @@ global_costmap:
 planner_server:
   ros__parameters:
     allow_partial_planning: true
-    expected_planner_frequency: 2.0
+    expected_planner_frequency: 1.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 2.0
     introspection_mode: "contents"
@@ -266,7 +266,7 @@ planner_server:
       max_on_approach_iterations: 1000   # 接近目标后最多迭代次数
       
       # ⭐⭐⭐ 关键：设置最小转弯半径（必须与 controller 一致）
-      minimum_turning_radius: 0.2        # 单位：米（例如 10cm）
+      minimum_turning_radius: 0.4        # 单位：米（例如 10cm）
       
       # ⭐ 运动模型：选择适合你的车辆
       motion_model_for_search: "REEDS_SHEPP"  # 支持前进+倒车
@@ -302,22 +302,55 @@ collision_monitor:
     stop_pub_timeout: 2.0
     # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
     # and robot footprint for "approach" action type.
-    polygons: ["FootprintApproach"]
+    # polygons: ["FootprintApproach"]
+    # FootprintApproach:
+    #   type: "polygon"
+    #   action_type: "approach"
+    #   footprint_topic: "local_costmap/published_footprint"
+    #   time_before_collision: 0.5
+    #   simulation_time_step: 0.1
+    #   min_points: 12
+    #   visualize: false
+    #   enabled: true
+    polygons: ["PolygonStop", "PolygonSlow", "FootprintApproach"]
+    
+    # 1. 紧急刹车：只要障碍物离车中心 15cm 立即停车
+    PolygonStop:
+      type: "circle"
+      radius: 0.15       # 适配 9.7cm 轴距，留出约 5cm 缓冲
+      action_type: "stop"
+      min_points: 4
+      visualize: True
+      enabled: True
+
+    # 2. 预警减速：前方 40cm 有东西时，速度降为原来的 40%
+    PolygonSlow:
+      type: "polygon"
+      # 点定义：[前/后, 左/右]
+      points: "[[0.4, 0.2], [0.4, -0.2], [-0.2, -0.2], [-0.2, 0.2]]"
+      action_type: "slowdown"
+      slowdown_ratio: 0.4
+      min_points: 4
+      visualize: True
+      enabled: True
+
+    # 3. 动态轨迹预测：最推荐开启，防止阿克曼转弯撞墙
     FootprintApproach:
       type: "polygon"
       action_type: "approach"
-      footprint_topic: "local_costmap/published_footprint"
-      time_before_collision: 0.5
-      simulation_time_step: 0.1
-      min_points: 12
-      visualize: false
-      enabled: true
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.0   # 预测未来 1 秒的路径
+      simulation_time_step: 0.05
+      min_points: 6
+      visualize: True
+      enabled: True
     observation_sources: ["rtabmap_obstacles"]
     rtabmap_obstacles:
       type: "pointcloud"
       topic: "/cloud_obstacles"
       min_obstacle_height: 0.15  # 关键：忽略掉离地 15cm 以下的所有东西
-      max_obstacle_height: 2.0
+      max_obstacle_height: 0.8
+      min_range: 0.2
       enabled: true
 
 # Behavior Server (行为服务器):
