@@ -1,125 +1,239 @@
-# 验证两台机器是否能通过多播发现对方（DDS 发现的基础）
-ros2 multicast receive  # 在服务器端运行
-ros2 multicast send     # 在树莓派端运行，看服务器是否有输出
+# Robot 模块说明（ROS2 + 单目视觉导航）
 
-# 检查节点之间的逻辑连接（查看整个计算图）
+本目录是机器人侧（ROS2）的核心工程，包含底盘控制、相机/IMU、SLAM、定位融合、导航与仿真相关能力。
+
+## 项目视频（保留 2 个位置）
+
+- 视频 1（本地演示文件）：`../asset/fpv-demo-50-2.mp4`
+- 视频 2（预留位置，后续补充）：`<TODO: 在此补充第二个演示视频链接或路径>`
+
+---
+
+## 1. 目录结构
+
+- `launch/`：系统启动编排（实车/仿真/算法组合）
+- `config/`：URDF、EKF、Nav2、相机、RTAB-Map 等参数
+- `robot/`：ROS2 Python 节点实现（底盘、相机、感知、控制）
+- `docs/`：专题文档（IMU / Nav2）
+- `Dockerfile*`：容器化构建入口
+
+---
+
+## 2. 快速开始（Start）
+
+> 以下命令以 ROS2 Jazzy 为参考，按你的环境调整。
+
+### 2.1 安装依赖（示例）
+
+```bash
+sudo apt update
+sudo apt install -y \
+  ros-jazzy-desktop \
+  ros-jazzy-nav2-bringup \
+  ros-jazzy-robot-localization \
+  ros-jazzy-rtabmap-ros \
+  ros-jazzy-tf2-tools
+```
+
+### 2.2 构建
+
+在仓库根目录执行：
+
+```bash
+colcon build --packages-select robot
+source install/setup.bash
+```
+
+### 2.3 常用启动命令
+
+```bash
+# 仅机器人基础节点（底盘 / 相机 / TF 等）
+ros2 launch robot robot.launch.py
+
+# 完整链路（示例，按你当前配置选择）
+ros2 launch robot full.launch.py
+
+# 仿真链路
+ros2 launch robot full.sim.launch.py
+```
+
+---
+
+## 3. 系统架构（简化）
+
+### 3.1 ORB-SLAM3 节点（视觉里程计 + 稀疏地图）
+
+- 订阅：
+  - `/camera/image_raw` 或 `/camera/image_raw/compressed`
+  - `/camera/camera_info`
+  - `/imu/data_raw`
+- 发布：
+  - `/slam3/pose` (`geometry_msgs/PoseStamped`)
+  - `/slam3/odom` (`nav_msgs/Odometry`)
+  - `/slam3/map_points` (`sensor_msgs/PointCloud2`)
+  - `/slam3/debug_image` (`sensor_msgs/Image`，默认可关闭)
+- TF（可选）：`map -> odom`
+
+### 3.2 robot_localization（EKF）
+
+- 订阅：`/imu/data_raw`、`/slam3/odom`（或 `/wheel_odom`）
+- 发布：`/odometry/filtered`（或 `/ekf/odom`）
+- TF：`odom -> base_footprint`
+
+### 3.3 Nav2 导航栈
+
+- 依赖输入：
+  - `/map`（来自 RTAB-Map）
+  - `/ekf/odom`
+  - `/scan`（由视觉分割伪造或其他传感器）
+  - `/cloud_obstacles` / `/slam3/map_points`（局部避障增强）
+- 关键输出：
+  - `cmd_vel`
+  - `/plan`
+  - `/local_plan`
+
+### 3.4 RTAB-Map（建图）
+
+- 订阅：`/camera/image_raw`、`/camera/camera_info`、`/ekf/odom`、`/imu/data_raw`
+- 发布：`/map`、`/cloud_obstacles`
+- TF：`map -> odom`
+
+---
+
+## 4. TF 目标结构
+
+```text
+map
+ └── odom                (EKF)
+      └── base_footprint (EKF)
+           └── base_link (Static TF)
+                ├── imu_link
+                └── camera_link
+                     └── camera_link_optical
+```
+
+参考安装位姿（示例）：
+
+| Link | X | Y | Z | 说明 |
+|---|---:|---:|---:|---|
+| base_footprint | 0 | 0 | 0 | 车体中心地面投影 |
+| base_link | 0 | 0 | 0.021 | 车体中心 |
+| imu_link | 0 | 0 | 0.041 | IMU 中心 |
+| camera_link | 0.08 | 0 | 0.071 | 相机外壳 |
+| camera_link_optical | 0.08 | 0 | 0.071 | 光学坐标系（旋转后） |
+
+---
+
+## 5. 联调排障清单（网络 / DDS / 话题 / TF）
+
+### 5.1 网络发现
+
+```bash
+# 服务器端
+ros2 multicast receive
+
+# 树莓派端
+ros2 multicast send
+```
+
+### 5.2 图与话题检查
+
+```bash
 ros2 node list
 ros2 node info /your_slam_node_name
+ros2 topic list -t
+ros2 topic info /camera/image_raw --verbose
+ros2 topic echo /camera/image_raw --qos-profile sensor_data
+```
 
-# 查看所有话题，确认远端话题是否已经出现在列表中
-ros2 topic list -t      # -t 会显示话题类型，方便排查
+### 5.3 传输质量
 
-# 查看 CycloneDDS 的当前配置（确认 XML 是否生效）
+```bash
+ros2 topic hz /camera/image_raw
+ros2 topic hz /imu/data
+ros2 topic bw /camera/image_raw
+ros2 topic delay /camera/image_raw
+```
+
+### 5.4 CycloneDDS 检查
+
+```bash
 ros2 doctor --report | grep rmw
-
-# 实时监测网络流量与丢包（需要安装 cyclonedds-tools）
 # sudo apt install ros-jazzy-cyclonedds-tools
 ros2 run cyclonedds_cpp_tools cyclone_find_topic /camera/image_raw
-
-# 强制刷新发现机制（有时节点重启后没对上，可以用这个查看）
 ros2 run cyclonedds_cpp_tools cyclone_list_nodes
+```
 
-# 查看话题的详细 QoS 设置
-# 重点检查：Reliability (可靠性) 和 Durability (持久性)
-ros2 topic info /camera/image_raw --verbose
+### 5.5 TF 检查
 
-# 手动指定 QoS 打印话题（如果对方是 SensorDataQoS，普通 echo 可能没数据）
-# 单目视觉和 IMU 通常使用 'sensor_data' 策略
-ros2 topic echo /camera/image_raw --qos-profile sensor_data
-
-# 检查消息频率是否稳定（判断 WiFi 是否堵塞）
-ros2 topic hz /camera/image_raw    # 图像频率
-ros2 topic hz /imu/data            # IMU 频率
-ros2 topic bw /camera/image_raw    # 查看实际占用的带宽（Mbps）
-
-# 检查图像消息从树莓派发出到服务器接收的时间延迟
-# (前提：两台机器已通过 chrony 进行时间同步)
-ros2 topic delay /camera/image_raw
-
-# 查看 TF 树是否完整，以及是否存在过期数据
+```bash
 ros2 run tf2_tools view_frames
-# 在 Jazzy 中，建议使用：
 ros2 run tf2_ros tf2_monitor
+```
 
-# 仿真环境安装
-sudo apt update && sudo apt install curl gnupg lsb-release -y
-sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osr-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osr-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+---
+
+## 6. 仿真环境（Gazebo Harmonic）
+
+```bash
+sudo apt update && sudo apt install -y curl gnupg lsb-release
+sudo curl https://packages.osrfoundation.org/gazebo.gpg \
+  --output /usr/share/keyrings/pkgs-osr-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osr-archive-keyring.gpg] \
+http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+| sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 
 sudo apt update
-sudo apt install gz-harmonic
+sudo apt install -y gz-harmonic
 
 export GZ_PARTITION=sim
-gz sim -v 4 shapes.sdf
+gz sim -v 4 world/bed_room.sdf
+```
 
-# 架构
-# ORB-/SLAM3 节点（视觉里程计 +地图特征）
-slam3 (ORB-SLAM3) --
-    subscribes: /camera/image_raw or /camera/image_raw/compressed, /camera/camera_info, /imu/data_raw  
-    publishes:
-        /slam3/pose             (geometry_msgs/PoseStamped)   frame_id: map 实际对应map->base_link 默认关闭，用于调试
-        /slam3/odom             (nav_msgs/Odometry)           base_link->base_link  提供线速度和角速度，给ekf用于约束，提供视觉轮速
-        /slam3/map_points       (sensor_msgs/PointCloud2)     给nv2，用于局部避障（供可视化或稠密化）
-        /slam3/debug_image      (sensor_msgs/Image)           debug visualization (Foxglove) 默认关闭
-    broadcasts:
-        TF: map -> map -> odom   可选，推荐用rtabmap提供的变化，默认关闭
+---
 
-# robot_localization (EKF) — 融合 IMU + slam3/odom
-ekf_localization_node --
-    subscribes: /imu/data_raw, /slam3/odom  /wheel_odom（模拟环境可用）
-    publishes:
-        /odometry/filtered(/ekf/odom)     (nav_msgs/Odometry)         frame_id: odom -> base_footprint
-    broadcasts:
-        TF: odom -> base_footprint
+## 7. 技术路线结论（当前）
 
-# Nav2 (导航堆栈)
-nav2 (bt_navigator, planner_server, controller_server, costmap) --
-    subscribes:
-        /map  (OccupancyGrid): 来自 rtabmap 
-        /ekf/odom : 来自于ekf
-        /scan (LaserScan): 用于 obstacle_layer 避障，来自于seg模型伪装
-        /cloud_obstacles (PointCloud2): 来自于rtabmap,用于局部避障
-        /slam3/map_points (PointCloud2): 来自于slam3,用于局部避障
-        /initialpose: 用于手动初始化机器人在地图中的位姿。
-    publishes:
-        cmd_vel -> robot base controller (geometry_msgs/Twist)
-        /plan: 规划的全局路径。
-        /local_plan: 局部控制器生成的轨迹。
-    uses tf: map -> odom, odom -> base_link, base_link -> sensors 必须包含完整的坐标变换树。
+- ✅ 采用：RTAB-Map（单目 + 运动估计）生成导航栅格地图。
+- ❌ 暂不采用：仅依赖 ORB-SLAM3 稀疏点云直接供 Nav2 做建图。
+- ✅ 在做：YOLOv8-Seg -> 几何投影 -> 伪 `/scan`（局部代价地图）。
+- ❌ 暂不采用：单目深度大模型（Depth-Anything / MiDaS）实时链路（算力压力大）。
 
+---
 
+## 8. 优秀开源项目参考
 
-# RTAB-Map 用于生成导航地图（占领网格 / 点云）
-rtabmap --
-    subscribes: /camera/image_raw, /camera/camera_info, /ekf/odom /imu/data_raw 
-    publishes:
-        /map                    (nav_msgs/OccupancyGrid) or /rtabmap/grid_map   用于nv2地图管理和全局避障
-        /cloud_obstacles        (sensor_msgs/PointCloud2) (map points / obstacles) 用于nv2局部避障
-    tf: map -> odom
+以下项目是本模块设计和实现的重要参考：
 
+1. **Nav2**（ROS2 官方导航栈）
+   - 仓库：<https://github.com/ros-navigation/navigation2>
+   - 价值：路径规划、局部控制、行为树导航框架。
 
-## 目标tf
-map (全局坐标系)
- └── odom (局部连续坐标系)  <-- [由 EKF 发布]
-      └── base_footprint (机器人投影) <-- [由 EKF 发布]
-           └── base_link (机器人本体) <-- [由 Static TF 发布]
-                ├── imu_link (惯性单元)
-                └── camera_link (相机外壳)
-                     └── camera_link_optical (算法核心坐标系)
+2. **RTAB-Map / rtabmap_ros**
+   - 仓库：<https://github.com/introlab/rtabmap>
+   - ROS2 封装：<https://github.com/introlab/rtabmap_ros>
+   - 价值：视觉里程计、回环检测、占据栅格地图。
 
-坐标系名称 (Link),X (前后),Y (左右),Z (高度),说明
-base_footprint,0,0,0,原点： 车体中心在地面上的投影点
-base_link,0,0,0.021,车体中心： 抬高了一个轮子半径 (wheel_radius)
-imu_link,0,0,0.041,IMU中心： 位于车体中心上方 2cm 处
-camera_link,0.08,0,0.071,摄像头外壳： 位于车头（前方 8cm），高度 7.1cm
-camera_link_optical,0.08,0,0.071,光学中心： 位置同上，但坐标轴已旋转（符合 ROS 视觉标准）
-## 地图生成方案：
-1. RTAB-Map：但支持单目输入。通过 Mem/StereoFromMotion 参数，它可以利用相机运动产生的位移（SFM）来估计深度并构建占据网格图（Occupancy Grid Map）。
-2. SLAM3它能发布 map -> odom 的 TF 变换。你可以使用 orb_slam3_ros_wrapper 将其稀疏特征点云转化为 Nav2 可识别的消息。 REJECT
-## 
-1. 使用 YOLOv8-Seg,将分割出的非地面区域（障碍物）通过几何投影映射到地平面的极坐标系，伪造出 /scan (LaserScan) 用于局部代价地图  TODO
-3.直接在图像上运行目标检测（YOLO），当检测到“人”或“障碍物”且其在图像底部的像素坐标超过安全阈值时（图像越靠下，障碍物离机器人越近），直接给 collision_monitor 发送一个虚拟的距离信号或触发底盘停止。TODO
-2.单目深度估计 (Monocular Depth Estimation):Depth-Anything 或 MiDaS 模型，将单目 RGB 图实时转化为“伪深度图”。配合 depthimage_to_laserscan 插件，将伪深度图转化为标准的 /scan 信号 REJECT （模型太大，算力要求极高）
+3. **robot_localization**
+   - 文档：<https://docs.ros.org/en/rolling/p/robot_localization/>
+   - 价值：IMU/里程计多源融合，稳定发布 `odom -> base_*`。
 
+4. **ORB-SLAM3**
+   - 仓库：<https://github.com/UZ-SLAMLab/ORB_SLAM3>
+   - 价值：高质量视觉里程计与稀疏地图能力。
 
+5. **slam_toolbox**
+   - 仓库：<https://github.com/SteveMacenski/slam_toolbox>
+   - 价值：2D SLAM 和地图保存/加载工具链（可作为对照方案）。
+
+6. **Ultralytics YOLO**
+   - 仓库：<https://github.com/ultralytics/ultralytics>
+   - 价值：分割模型用于障碍物提取与伪激光生成。
+
+---
+
+## 9. 其他调试入口
+
+```bash
 curl http://127.0.0.1:25000/@/local/ros2/node/**
+```
