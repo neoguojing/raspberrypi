@@ -10,9 +10,16 @@ from action_msgs.msg import GoalStatus # 需要导入状态常量
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.srv import SaveMap
 from tf2_ros import Buffer, TransformListener
+from geometry_msgs.msg import Twist
 import numpy as np
 import math
 import time
+from enum import Enum
+
+class RobotState(Enum):
+    IDLE = 0          # 待命（找点中）
+    NAVIGATING = 1    # 导航中（监控进度）
+    RECOVERING = 2    # 自救中（底层接管）
 
 # ================= 工具函数 =================
 
@@ -43,11 +50,19 @@ class Explorer(Node):
         self.scan_sub = self.create_subscription(
             LaserScan, '/seg/scan', self.scan_cb, 10
         )
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+
+        # 监控进度用的状态变量
+        self.state = RobotState.IDLE
+        self.last_pose = None
+        self.last_progress_time = 0.0
+        self.stuck_threshold_dist = 0.05  # 5厘米
+        self.stuck_threshold_time = 5.0   # 5秒
 
         # ---- 状态 ----
         self.map = None
@@ -55,14 +70,12 @@ class Explorer(Node):
         self.goal_handle = None
         self.current_goal = None
         self.goal_start_time = 0.0
-        self.is_navigating = False
 
         # ---- 参数（工程可调）----
         self.frontier_min_size = 5
 
         self.recompute_interval = 3.0
         self.last_compute = 0.0
-        self.bad_frames = 0
 
         self.failed_goals = {}  # (x,y) -> time
 
@@ -119,62 +132,59 @@ class Explorer(Node):
             self.get_logger().warn("[TF] cannot get robot pose")
             return
 
+        self.cleanup_failed_goals()
+
         # 初始时全-1，主动触发前进1m
         if np.all(np.array(self.map.data) == -1):
             self.get_logger().info("[INIT] Map all unknown → move forward")
-            x, y, yaw = pose
-            goal_x = x + 1.0 * math.cos(yaw)
-            goal_y = y + 1.0 * math.sin(yaw)
-            self.send_goal((goal_x, goal_y))
+            self.drive_manually_non_blocking(vx=0.1,duration=1)
+            return
+        
+        # 状态 A: 正在自救。不执行任何逻辑，直到自救完成切换回 IDLE
+        if self.state == RobotState.RECOVERING:
+            return
+
+        # 状态 B: 正在导航。检查是否卡死。
+        if self.state == RobotState.NAVIGATING:
+            # 1. 检查物理停滞 (Stuck)
+            moving = self.check_motion_status()
+            # 2. 检查总耗时超时 (你的原逻辑: 60s)
+            is_timeout = (time.time() - self.goal_start_time > 60.0)
+
+            if not moving or is_timeout:
+                reason = "停滞" if not moving else "超时"
+                self.get_logger().error(f"[ALARM] 导航{reason}！切换至自救模式...")
+                self.execute_hard_recovery() 
             return
     
-        # 正在导航 → 监控安全
-        if self.goal_handle and self.is_navigating:
-            # 如果一个任务执行了超过 120 秒还没返回，强制认为失败并清除
-            if time.time() - self.goal_start_time > 60.0:
-                self.get_logger().error("[TIMEOUT] 导航超时，启动强制脱困序列...")
-                # 1. 立即停止当前导航
-                if self.is_navigating:
-                    self.cancel_goal() 
-                
-                # 2. 重置状态，防止 loop 下一次循环又进入这个 if
-                self.is_navigating = False
-                self.goal_handle = None 
-                
-                # 3. 记录当前点为失败点，防止刚退回来又立刻往坑里跳
-                if self.current_goal:
-                    self.failed_goals[self.current_goal] = time.time()
+        
+        # 状态 C: 空闲。寻找新目标。
+        if self.state == RobotState.IDLE:
+            # 节流 frontier 计算
+            now = time.time()
+            if now - self.last_compute < self.recompute_interval:
+                return
+            self.last_compute = now
 
-                # 4. 执行物理自救 (后退)
-                # 注意：建议在 execute_backup_recovery 内部先调用地图清理服务
-                self.execute_backup_recovery()
+            frontiers = self.find_frontiers()
+            self.get_logger().info(f"[FRONTIER] clusters={len(frontiers)}")
 
-            return
+            if not frontiers:
+                self.get_logger().warn("[FRONTIER] none found")
+                return
 
-        # 节流 frontier 计算
-        now = time.time()
-        if now - self.last_compute < self.recompute_interval:
-            return
-        self.last_compute = now
+            # 前沿点打分，分数越低优先级约高
+            scored = self.score_frontiers(frontiers, pose)
 
-        frontiers = self.find_frontiers()
-        self.get_logger().info(f"[FRONTIER] clusters={len(frontiers)}")
+            for score, cent, size in scored:
+                grid_r, grid_c = self.world_to_index(cent[0], cent[1])
+                key = (int(grid_r), int(grid_c)) # 显式转 int 确保 key 稳定
+                if key in self.failed_goals and time.time() - self.failed_goals[key] < 30:
+                    self.get_logger().debug(f"[SKIP] failed frontier {cent}")
+                    continue
 
-        if not frontiers:
-            self.get_logger().warn("[FRONTIER] none found")
-            return
-
-        # 前沿点打分，分数越低优先级约高
-        scored = self.score_frontiers(frontiers, pose)
-
-        for score, cent, size in scored:
-            key = (round(cent[0], 2), round(cent[1], 2))
-            if key in self.failed_goals and time.time() - self.failed_goals[key] < 30:
-                self.get_logger().debug(f"[SKIP] failed frontier {cent}")
-                continue
-
-            self.send_goal(cent)
-            return
+                self.send_goal(cent)
+                return
 
     # ================= Pose =================
 
@@ -296,6 +306,9 @@ class Explorer(Node):
         for f in frontiers:
             cx, cy = f["centroid"]
             size = f["size"]
+            # 使用 log 压缩 size 的量级
+            # +1 是为了防止 size 为 1 时 log 结果为 0
+            size_factor = math.log(size + 1)
 
             # 1️⃣ 距离
             dist = math.hypot(cx - rx, cy - ry)
@@ -324,12 +337,18 @@ class Explorer(Node):
             score = (
                 1.0 * dist +          # 距离权重
                 1.5 * heading_cost -  # 方向权重
-                2.0 * size -           # 面积权重
+                2.0 * size_factor -           # 面积权重
                 4.0 * (1-risk) -       # 越安全越优先，risk 越大扣分越多
                 0.0                     # 可加其他惩罚项
             )
             # 加上未知奖励（未知越多分越低，前沿越优先）
-            score -= 2.0 * unk_count * res**2  # 未知面积权重，可调
+            # 1. 计算窗口内未知的实际面积（单位：平方米）
+            unk_area = unk_count * (res ** 2)
+
+            # 2. 核心改动：给奖励设定上限 (例如最大奖励抵消 3 米距离)
+            # 这样即使前方有一片大海般的未知区域，它也只会被视为“非常有价值”，而不会变成“无限价值”
+            unk_bonus = min(unk_area, 1.5) # 1.5㎡ 以上的未知区域，奖励封顶
+            score -= 2.0 * unk_bonus
 
             self.get_logger().debug(
                 f"[FRONTIER-CAND] {cx:.2f},{cy:.2f} "
@@ -381,36 +400,82 @@ class Explorer(Node):
         # 窗口内最大可能栅格数，用于归一化
         max_cells = (2*half)**2
         return min(risk / max_cells, 1.0)  # 归一化到 0~1
-    
-    def execute_backup_recovery(self):
+    ####################################recover########################################
+
+    def execute_hard_recovery(self):
+        self.get_logger().error("🚨 检测到物理卡死！启动强制底层脱困...")
+        self.state = RobotState.RECOVERING
+
+        # 1. 停止 Nav2 任务
+        self.cancel_goal()
+        # 2. 直接发布速度指令（阻塞式或定时器式）
+        # 这里为了简单演示用循环，实际建议用定时器
+        self.drive_manually_non_blocking(vx=-0.15)
+        
+        # 3. 记录该区域为失败区域，短时间内不再尝试
+        if self.current_goal:
+            self.failed_goals[self.current_goal] = time.time()
+
+    def check_motion_status(self):
+        """
+        判断小车是否真的在移动
+        """
+
+        now = self.get_clock().now().nanoseconds / 1e9
         # 1. 获取机器人当前的位姿 (x, y, yaw)
-        pose = self.get_robot_pose()
-        if pose is None:
+        current_pose = self.get_robot_pose()
+        if current_pose is None:
             self.get_logger().error("无法获取位姿，放弃后退自救")
             return
+        curr_x, curr_y, _ = current_pose
 
-        curr_x, curr_y, curr_yaw = pose
+        if self.last_pose is None:
+            self.last_pose = (curr_x, curr_y)
+            self.last_progress_time = now
+            return True
+
+        # 计算位移
+        dist = math.hypot(curr_x - self.last_pose[0], curr_y - self.last_pose[1])
         
-        # 2. 计算后退后的目标点坐标
-        # 在当前朝向的反方向偏移 0.15 米
-        dist = 0.15  # 后退距离
-        backup_x = curr_x - dist * math.cos(curr_yaw)
-        backup_y = curr_y - dist * math.sin(curr_yaw)
-
-        self.get_logger().warn(f"⚠️ 触发自救：从({curr_x:.2f},{curr_y:.2f}) 后退到 ({backup_x:.2f},{backup_y:.2f})")
-
-        # 3. 将这个点标记为临时目标，直接调用 send_goal
-        # 注意：为了防止 send_goal 内部逻辑误判，我们可以临时关闭“超时监控”
-        self.is_navigating = True
-        self.goal_start_time = time.time()
+        # 如果位移超过阈值，更新进度时间
+        if dist > self.stuck_threshold_dist:
+            self.last_pose = (curr_x, curr_y)
+            self.last_progress_time = now
+            return True # 正在正常移动
         
-        # 调用你现有的 send_goal 函数
-        self.send_goal((backup_x, backup_y))
+        # 如果位移不足，且持续时间超过阈值 -> 判定为卡死
+        if (now - self.last_progress_time) > self.stuck_threshold_time:
+            return False # 判定为卡死
+            
+        return True
 
     # ================= Navigation =================
+
+    def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
+        """利用 Timer 实现非阻塞控制，不卡死节点"""
+        start_time = self.get_clock().now()
+        end_time = start_time + Duration(seconds=duration)
+        
+        def timer_callback():
+            if self.get_clock().now() < end_time:
+                msg = Twist()
+                msg.linear.x = vx
+                msg.angular.z = wz
+                self.cmd_vel_pub.publish(msg)
+            else:
+                # 结束自救
+                self.cmd_vel_pub.publish(Twist()) # 停止
+                self.recovery_timer.cancel()
+                self.state = RobotState.IDLE
+                self.last_pose = None
+                self.get_logger().info("✅ 自救动作完成，返回寻路状态")
+
+        self.recovery_timer = self.create_timer(0.1, timer_callback)
+
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
-        self.is_navigating = True # 新增标志位
+        self.state = RobotState.NAVIGATING
+
         self.goal_start_time = time.time() # 记录开始时间
         # # 1. 获取当前位姿，用于计算“指向目标”的角度
         # current_pose = self.get_robot_pose()
@@ -437,7 +502,8 @@ class Explorer(Node):
         # ps.pose.orientation.w = math.cos(target_yaw / 2.0)
         ps.pose.orientation.w = 1.0
 
-        self.current_goal = (pos[0], pos[1])
+        r, c = self.world_to_index(pos[0], pos[1])
+        self.current_goal = (int(r), int(c))
 
         goal = NavigateToPose.Goal()
         goal.pose = ps
@@ -472,8 +538,8 @@ class Explorer(Node):
             self.failed_goals[self.current_goal] = time.time()
 
         self.get_logger().info(f"[NAV] Goal finished with status: {status_msg} ({status})")
+        self.state = RobotState.IDLE
         self.goal_handle = None
-        self.is_navigating = False # 任务彻底结束
         self.current_goal = None
 
     def cancel_goal(self):
@@ -500,10 +566,10 @@ class Explorer(Node):
     def world_to_index(self, x, y):
         res, w, h, ox, oy = self._map_info()
         # 使用 floor 确保在负值区间也能正确映射到栅格
-        # c = math.floor((x - ox) / res)
-        # r = math.floor((y - oy) / res)
-        c = int((x - ox) / res)
-        r = h - 1 - int((y - oy) / res)
+        c = math.floor((x - ox) / res)
+        r = math.floor((y - oy) / res)
+        # c = int((x - ox) / res)
+        # r = h - 1 - int((y - oy) / res)
         
         # 使用 numpy.clip 或原生 min/max 限制在数组范围内
         r = max(0, min(r, h - 1))
@@ -514,13 +580,31 @@ class Explorer(Node):
         # r: row index (0..h-1), c: col index (0..w-1)
         res, w, h, ox, oy = self._map_info()
         # 假定 data 按 row-major 从 origin.y 向上增加（常见情况）
-        # x = ox + (c + 0.5) * res
-        # y = oy + (r + 0.5) * res
-
         x = ox + (c + 0.5) * res
-        y = oy + (h - r - 0.5) * res
+        y = oy + (r + 0.5) * res
+
+        # x = ox + (c + 0.5) * res
+        # y = oy + (h - r - 0.5) * res
 
         return x, y
+    
+    def cleanup_failed_goals(self):
+        """清理陈旧的失败记录，防止内存泄漏"""
+        now = time.time()
+        # 建议清理阈值设为比屏蔽时间（30s）略长，例如 60s
+        expiry_threshold = 60.0
+        
+        # 使用 list() 包装 keys 是为了避免在遍历时修改字典导致报错
+        expired_keys = [
+            key for key, timestamp in self.failed_goals.items() 
+            if now - timestamp > expiry_threshold
+        ]
+        
+        for key in expired_keys:
+            del self.failed_goals[key]
+            
+        if expired_keys:
+            self.get_logger().info(f"已清理 {len(expired_keys)} 条过期的失败目标记录")
     
     def validate_map_orientation(self):
         """
