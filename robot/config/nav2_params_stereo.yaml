@@ -317,11 +317,11 @@ collision_monitor:
     # 1. 紧急刹车：只要障碍物离车中心 15cm 立即停车
     PolygonStop:
       type: "circle"
-      radius: 0.15       # 适配 9.7cm 轴距，留出约 5cm 缓冲
+      radius: 0.35       # 适配 9.7cm 轴距，留出约 5cm 缓冲
       action_type: "stop"
       min_points: 4
-      visualize: True
-      enabled: True
+      visualize: false
+      enabled: true
 
     # 2. 预警减速：前方 40cm 有东西时，速度降为原来的 40%
     PolygonSlow:
@@ -331,8 +331,8 @@ collision_monitor:
       action_type: "slowdown"
       slowdown_ratio: 0.4
       min_points: 4
-      visualize: True
-      enabled: True
+      visualize: false
+      enabled: true
 
     # 3. 动态轨迹预测：最推荐开启，防止阿克曼转弯撞墙
     FootprintApproach:
@@ -342,15 +342,15 @@ collision_monitor:
       time_before_collision: 1.0   # 预测未来 1 秒的路径
       simulation_time_step: 0.05
       min_points: 6
-      visualize: True
-      enabled: True
+      visualize: false
+      enabled: true
     observation_sources: ["rtabmap_obstacles"]
     rtabmap_obstacles:
       type: "pointcloud"
       topic: "/cloud_obstacles"
       min_obstacle_height: 0.15  # 关键：忽略掉离地 15cm 以下的所有东西
       max_obstacle_height: 0.8
-      min_range: 0.2
+      min_range: 0.3
       enabled: true
 
 # Behavior Server (行为服务器):

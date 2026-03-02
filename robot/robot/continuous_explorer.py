@@ -160,6 +160,9 @@ class Explorer(Node):
         
         # 状态 C: 空闲。寻找新目标。
         if self.state == RobotState.IDLE:
+            if self.goal_handle is not None:
+                return
+            
             # 节流 frontier 计算
             now = time.time()
             if now - self.last_compute < self.recompute_interval:
@@ -544,12 +547,15 @@ class Explorer(Node):
             status_msg = "SUCCEEDED"
         elif status == GoalStatus.STATUS_ABORTED:
             status_msg = "ABORTED"
-            self.failed_goals[self.current_goal] = time.time()
+            if self.current_goal:
+                self.failed_goals[self.current_goal] = time.time()
         elif status == GoalStatus.STATUS_CANCELED:
             status_msg = "CANCELED"
-            self.failed_goals[self.current_goal] = time.time()
+            if self.current_goal:
+                self.failed_goals[self.current_goal] = time.time()
         else:
-            self.failed_goals[self.current_goal] = time.time()
+            if self.current_goal:
+                self.failed_goals[self.current_goal] = time.time()
 
         self.get_logger().info(f"[NAV] Goal finished with status: {status_msg} ({status})")
         self.state = RobotState.IDLE
