@@ -62,7 +62,7 @@ class Explorer(Node):
         self.last_pose = None
         self.last_progress_time = 0.0
         self.stuck_threshold_dist = 0.05  # 5厘米
-        self.stuck_threshold_time = 5.0   # 5秒
+        self.stuck_threshold_time = 10.0   # 10秒
 
         # ---- 状态 ----
         self.map = None
@@ -222,34 +222,34 @@ class Explorer(Node):
         #   1. 当前格子未知 (data[r,c] == -1)
         #   2. 相邻的上下左右至少有一个空地 (0)
         # ----------------------------
-        # for r in range(1, h - 1):
-        #     for c in range(1, w - 1):
-        #         if data[r, c] != -1:
-        #             continue
-        #         if (data[r+1, c] == 0 or data[r-1, c] == 0 or
-        #             data[r, c+1] == 0 or data[r, c-1] == 0):
-        #             frontier[r, c] = True
-                    
-        # === 核心修改：放宽 frontier 判定条件 ===
         for r in range(1, h - 1):
             for c in range(1, w - 1):
-                # 1. 当前格子必须是未知区域
                 if data[r, c] != -1:
                     continue
-                
-                # 2. 检查上下左右邻居
-                neighbors = [data[r+1, c], data[r-1, c], data[r, c+1], data[r, c-1]]
-                
-                # 3. 改进逻辑：只要有一个邻居是“已知且非障碍”的
-                # 这样即使地图上有噪声（如 5, 10, 20），只要没超过 50，都能触发探索
-                is_frontier = False
-                for n in neighbors:
-                    if 0 <= n <= 50:  # 关键点：不再只盯着 0 看
-                        is_frontier = True
-                        break
-                
-                if is_frontier:
+                if (data[r+1, c] == 0 or data[r-1, c] == 0 or
+                    data[r, c+1] == 0 or data[r, c-1] == 0):
                     frontier[r, c] = True
+                    
+        # === 核心修改：放宽 frontier 判定条件 ===
+        # for r in range(1, h - 1):
+        #     for c in range(1, w - 1):
+        #         # 1. 当前格子必须是未知区域
+        #         if data[r, c] != -1:
+        #             continue
+                
+        #         # 2. 检查上下左右邻居
+        #         neighbors = [data[r+1, c], data[r-1, c], data[r, c+1], data[r, c-1]]
+                
+        #         # 3. 改进逻辑：只要有一个邻居是“已知且非障碍”的
+        #         # 这样即使地图上有噪声（如 5, 10, 20），只要没超过 50，都能触发探索
+        #         is_frontier = False
+        #         for n in neighbors:
+        #             if 0 <= n <= 50:  # 关键点：不再只盯着 0 看
+        #                 is_frontier = True
+        #                 break
+                
+        #         if is_frontier:
+        #             frontier[r, c] = True
 
         # ----------------------------
         # 聚类 frontier 点
@@ -302,6 +302,7 @@ class Explorer(Node):
         """
         rx, ry, ryaw = pose
         scored = []
+        now = time.time()
 
         for f in frontiers:
             cx, cy = f["centroid"]
@@ -333,9 +334,22 @@ class Explorer(Node):
                     if data[rr, cc] == -1:
                         unk_count += 1
 
+            # --- 新增：避开失败点区域 (差异化选择) ---
+            failure_penalty = 0.0
+            for (fr, fc), timestamp in self.failed_goals.items():
+                # 只考虑最近 60 秒内的失败点
+                if now - timestamp < 60.0:
+                    fx, fy = self.index_to_world(fr, fc)
+                    dist_to_failed = math.hypot(cx - fx, cy - fy)
+                    
+                    # 如果离失败点 2 米以内，施加阶梯式惩罚
+                    if dist_to_failed < 2.0:
+                        # 离失败点越近，惩罚越重
+                        failure_penalty += 5.0 * (2.0 - dist_to_failed)
             # 组合打分公式
             score = (
                 1.0 * dist +          # 距离权重
+                + failure_penalty +  # 新增：失败点惩罚
                 1.5 * heading_cost -  # 方向权重
                 2.0 * size_factor -           # 面积权重
                 4.0 * (1-risk) -       # 越安全越优先，risk 越大扣分越多
@@ -410,7 +424,7 @@ class Explorer(Node):
         self.cancel_goal()
         # 2. 直接发布速度指令（阻塞式或定时器式）
         # 这里为了简单演示用循环，实际建议用定时器
-        self.drive_manually_non_blocking(vx=-0.15)
+        self.drive_manually_non_blocking(vx=-0.1, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
         
         # 3. 记录该区域为失败区域，短时间内不再尝试
         if self.current_goal:

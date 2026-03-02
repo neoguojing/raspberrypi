@@ -83,7 +83,7 @@ def generate_launch_description():
         "Grid/Sensor": "1",           # 0=Laser Scan, 1=Depth, 2=Both
         "Grid/RayTracing": "true",  
         "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
-        "Grid/MinDepth": "0.1",  # 过滤掉 0.1 米以内的所有数据，直接无视盲区噪点
+        "Grid/MinDepth": "0.3",  # 过滤掉 0.1 米以内的所有数据，直接无视盲区噪点
         "Grid/MaxDepth": "3.0",  # 远距离太虚的数据也不要
         "Grid/RangeMin": "0.3",
         "Grid/RangeMax": "3.0",  # 不要看太远，减少点云密度
