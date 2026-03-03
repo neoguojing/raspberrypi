@@ -477,47 +477,28 @@ class Explorer(Node):
     # ================= Navigation =================
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
-        """优化后的非阻塞控制"""
-        # 1. 安全检查：如果已有定时器在跑，先销毁它，防止“僵尸定时器”
-        if hasattr(self, 'recovery_timer') and self.recovery_timer:
-            self.recovery_timer.cancel()
-            self.destroy_timer(self.recovery_timer)
-            self.recovery_timer = None
-
+        """利用 Timer 实现非阻塞控制，不卡死节点"""
         start_time = self.get_clock().now()
-        # 明确计算结束时间点
         end_time = start_time + Duration(seconds=duration)
         
         def timer_callback():
-            # 2. 检查当前状态是否仍为 RECOVERING，防止外部逻辑干扰
-            if self.state != RobotState.RECOVERING:
-                self.stop_and_cleanup_timer()
-                return
-
             if self.get_clock().now() < end_time:
                 msg = Twist()
                 msg.linear.x = vx
                 msg.angular.z = wz
                 self.cmd_vel_pub.publish(msg)
             else:
-                self.get_logger().info("✅ 自救动作完成，重置状态")
-                self.stop_and_cleanup_timer()
+                # 结束自救
+                self.cmd_vel_pub.publish(Twist()) # 停止
+                self.recovery_timer.cancel()
+                self.state = RobotState.IDLE
+                self.last_pose = None
+                self.goal_handle = None
+                self.current_goal = None
+                self.get_logger().info("✅ 自救动作完成，返回寻路状态")
 
         self.recovery_timer = self.create_timer(0.1, timer_callback)
-    
-    def stop_and_cleanup_timer(self):
-        """清理自救状态的辅助函数"""
-        self.cmd_vel_pub.publish(Twist()) # 强制停止
-        if self.recovery_timer:
-            self.recovery_timer.cancel()
-            # 注意：在回调内部销毁自己需要小心，通常 cancel 就够了
-        
-        # 统一重置状态位
-        self.state = RobotState.IDLE
-        self.goal_handle = None
-        self.current_goal = None
-        # 允许下一轮探索逻辑启动
-    
+
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
         self.state = RobotState.NAVIGATING
