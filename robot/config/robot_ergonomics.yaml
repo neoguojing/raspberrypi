@@ -1,0 +1,189 @@
+# 机器人结构/工程学参数总表
+#
+# 数据来源：
+# - robot/config/4wd_car.urdf.xacro
+# - robot/config/4wd_car_stereo.urdf.xacro
+#
+# 使用约定：
+# - 单位统一为 SI：长度 m、质量 kg、角度 rad、频率 Hz。
+# - 本文件用于“集中读取参数”，不替代 URDF/Xacro 的模型定义能力。
+# - 参数命名尽量与机器人学常用术语一致，便于控制、标定、仿真复用。
+
+robot:
+  # 机器人名称（对应 xacro robot name）
+  name: n20_sg90_robot
+
+  # 溯源：该配置由以下 xacro 整理生成
+  source_xacro_files:
+    - 4wd_car.urdf.xacro
+    - 4wd_car_stereo.urdf.xacro
+
+chassis:
+  # base_link 盒体尺寸：[长, 宽, 高]
+  base_link_size_m: [0.21, 0.09, 0.021]
+
+  # 车体主体质量（不含各轮和附加传感器）
+  body_mass_kg: 0.8
+
+  # base_link 简化惯量矩阵（kg·m^2）
+  body_inertia_kg_m2:
+    ixx: 0.001
+    ixy: 0.0
+    ixz: 0.0
+    iyy: 0.003
+    iyz: 0.0
+    izz: 0.003
+
+locomotion:
+  # 运动形式：4轮 Ackermann（前轮转向，后轮驱动）
+  drive_type: ackermann_4wd
+
+  wheel:
+    # 轮胎半径
+    radius_m: 0.021
+
+    # 轮胎厚度（cylinder length）
+    width_m: 0.018
+
+    # 单个轮子质量
+    mass_kg_each: 0.05
+
+    # 单个轮子简化惯量
+    inertia_kg_m2_each:
+      ixx: 0.0001
+      ixy: 0.0
+      ixz: 0.0
+      iyy: 0.0001
+      iyz: 0.0
+      izz: 0.0001
+
+  geometry:
+    # 轴距：前后轮中心在 x 方向的距离
+    wheel_base_m: 0.097
+
+    # 轮距：左右轮中心在 y 方向的距离
+    track_width_m: 0.12
+
+    # kingpin 宽度（xacro 插件中与 track_width 一致）
+    kingpin_width_m: 0.12
+
+  steering:
+    # 前轮转向关节物理限位（弧度）
+    joint_limit_rad:
+      lower: -0.52
+      upper: 0.52
+
+    # Ackermann 插件 steering_limit
+    steering_limit_rad: 0.52
+
+    # 转向关节 effort/velocity 限制
+    effort_limit: 1.0
+    velocity_limit_rad_s: 2.0
+
+    # 前轮中间转向 link（front_*_steer_link）参数
+    steer_link_mass_kg_each: 0.02
+    steer_link_inertia_kg_m2_each:
+      ixx: 0.00001
+      ixy: 0.0
+      ixz: 0.0
+      iyy: 0.00001
+      iyz: 0.0
+      izz: 0.00001
+
+frames:
+  # base_footprint -> base_link 固定变换
+  base_footprint_to_base_link:
+    xyz_m: [0.0, 0.0, 0.021]
+    rpy_rad: [0.0, 0.0, 0.0]
+
+  # IMU 安装位姿（相对 base_link）
+  imu_mount:
+    parent: base_link
+    child: imu_link
+    xyz_m: [0.0, 0.0, 0.03]
+
+camera_mount:
+  mono:
+    # 单目相机安装位姿（相对 base_link）
+    parent: base_link
+    child: camera_link
+    xyz_m: [0.1, 0.0, 0.05]
+    rpy_rad: [0.0, 0.1484, 0.0]
+
+    # REP-103 optical frame 旋转
+    optical_frame_rpy_rad: [-1.57079632679, 0.0, -1.57079632679]
+
+  stereo:
+    # 双目基础挂载点（camera_link）
+    camera_base:
+      parent: base_link
+      child: camera_link
+      xyz_m: [0.1, 0.0, 0.05]
+      rpy_rad: [0.0, 0.1484, 0.0]
+
+    # 左右相机相对 camera_link 的偏移
+    left_camera_offset_xyz_m: [0.0, 0.05, 0.0]
+    right_camera_offset_xyz_m: [0.0, -0.05, 0.0]
+
+    # 双目基线（左右相机 y 偏移差值）
+    baseline_m: 0.1
+
+    # 左/右 optical frame 旋转一致
+    optical_frame_rpy_rad: [-1.57079632679, 0.0, -1.57079632679]
+
+sensors:
+  imu:
+    topic: /imu/data_raw
+    update_rate_hz: 100
+
+    # IMU 高斯噪声标准差（xyz）
+    noise:
+      angular_velocity_stddev: [0.0002, 0.0002, 0.0002]
+      linear_acceleration_stddev: [0.017, 0.017, 0.017]
+
+  # 单目/双目共用相机模型参数
+  camera_common:
+    horizontal_fov_rad: 1.536
+    image_width: 1640
+    image_height: 1232
+    clip_near_m: 0.01
+    clip_far_m: 50.0
+
+    # pinhole 内参
+    intrinsics:
+      fx: 849.13
+      fy: 841.08
+      cx: 814.55
+      cy: 616.51
+      skew_s: 0.0
+
+    # 畸变系数（Brown-Conrady）
+    distortion:
+      k1: -0.1285525942700174
+      k2: 0.02497603265688913
+      p1: 0.008794867422604234
+      p2: 0.016015598225423082
+      k3: -0.0006761874368819685
+
+  # Gazebo 传感器输出 topic
+  camera_topics:
+    mono: /camera/image_raw
+    stereo_left: /camera/image_raw
+    stereo_right: /camera/right/image_raw
+
+simulation:
+  ackermann_plugin:
+    command_topic: /cmd_vel
+    odom_topic: /wheel_odom
+    frame_id: odom
+    child_frame_id: base_footprint
+
+    # 与 xacro 保持一致：由外部系统决定是否发布 odom->base TF
+    publish_odom_tf: false
+
+  wheel_contact:
+    # Gazebo 轮胎接触参数（四个轮子配置一致）
+    mu1: 1.0
+    mu2: 1.0
+    kp: 1000000.0
+    kd: 1.0
