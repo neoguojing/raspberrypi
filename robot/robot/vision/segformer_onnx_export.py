@@ -28,10 +28,10 @@ def export_segformer_to_onnx(model_name_or_path="nvidia/segformer-b2-finetuned-a
     )
 
     # 3. ONNX 导出配置
-    onnx_export_args = dict(
-        f= model,
-        args=(dummy_input,),
-        f=output_path,
+    torch.onnx.export(
+        model,  # 模型（位置参数 0）
+        (dummy_input,),  # 输入示例（位置参数 1）
+        output_path,  # 输出文件路径（位置参数 2 或 f=output_path）
         export_params=True,
         opset_version=opset,
         do_constant_folding=True,
