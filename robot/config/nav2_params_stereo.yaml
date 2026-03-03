@@ -144,8 +144,8 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 25.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.15     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        cost_scaling_factor: 8.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
+        inflation_radius: 0.18     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -232,8 +232,8 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        cost_scaling_factor: 25.0
-        inflation_radius: 0.15
+        cost_scaling_factor: 8.0
+        inflation_radius: 0.18
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -266,7 +266,7 @@ planner_server:
       max_on_approach_iterations: 1000   # 接近目标后最多迭代次数
       
       # ⭐⭐⭐ 关键：设置最小转弯半径（必须与 controller 一致）
-      minimum_turning_radius: 0.4        # 单位：米（例如 10cm）
+      minimum_turning_radius: 0.2        # 单位：米（例如 20cm）
       
       # ⭐ 运动模型：选择适合你的车辆
       motion_model_for_search: "REEDS_SHEPP"  # 支持前进+倒车
@@ -317,7 +317,7 @@ collision_monitor:
     # 1. 紧急刹车：只要障碍物离车中心 15cm 立即停车
     PolygonStop:
       type: "circle"
-      radius: 0.35       # 适配 9.7cm 轴距，留出约 5cm 缓冲
+      radius: 0.18       # 适配 9.7cm 轴距，留出约 5cm 缓冲
       action_type: "stop"
       min_points: 4
       visualize: false
