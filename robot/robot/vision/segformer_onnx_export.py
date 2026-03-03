@@ -3,10 +3,40 @@ import argparse
 from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
 import os
 
+def make_onnx_filename(model_name_or_path: str, opset: int) -> str:
+    """
+    根据模型名、opset、设备和环境自动生成 ONNX 文件名。
+    
+    示例输出:
+      segformer-nvidia_segformer-b2-finetuned-ade-512-512_torch2.3.0_cu121_opset17.onnx
+      segformer-my_local_model_torch2.2.0_cpu_opset16.onnx
+    """
+    # 获取 PyTorch 版本（去掉 +cuXXX 等后缀）
+    torch_ver = torch.__version__.split('+')[0]
+    
+    # 获取 CUDA 或 CPU 标识
+    if torch.cuda.is_available():
+        cuda_ver = torch.version.cuda
+        if cuda_ver:
+            # 转为 cuXXX 格式，如 cu121
+            cuda_str = "cu" + cuda_ver.replace('.', '')
+        else:
+            cuda_str = "cpu"
+    else:
+        cuda_str = "cpu"
+    
+    # 清理模型名（只保留字母、数字、下划线、连字符）
+    base_name = os.path.basename(model_name_or_path)
+    clean_name = "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in base_name)
+    
+    # 构造文件名
+    filename = f"{clean_name}_torch{torch_ver}_{cuda_str}_opset{opset}.onnx"
+    return filename
+
 def export_segformer_to_onnx(
     model_name_or_path="nvidia/segformer-b2-finetuned-ade-512-512",
     output_path="./models/segformer_b2.onnx",
-    opset=17,
+    opset=18,
     use_gpu=True,
     dynamic_axes=True
 ):
@@ -25,6 +55,8 @@ def export_segformer_to_onnx(
     print(f"[INFO] Loading model '{model_name_or_path}' on {device} ...")
     model = SegformerForSemanticSegmentation.from_pretrained(model_name_or_path).to(device)
     model.eval()
+    
+    output_path = os.path.join(os.path.dirname(output_path), make_onnx_filename("segformer_b2", opset))
 
     # 2. 获取输入尺寸（默认模型大小）
     processor = SegformerImageProcessor.from_pretrained(model_name_or_path)
@@ -64,25 +96,9 @@ if __name__ == "__main__":
         default="nvidia/segformer-b2-finetuned-ade-512-512",
         help="HF model name or path"
     )
-    parser.add_argument(
-        "--output", type=str,
-        default="./models/segformer_b2.onnx",
-        help="ONNX output file path"
-    )
-    parser.add_argument(
-        "--opset", type=int,
-        default=17,
-        help="ONNX opset version"
-    )
-    parser.add_argument(
-        "--gpu", action="store_true",
-        help="Use GPU for export"
-    )
+    
     args = parser.parse_args()
 
     export_segformer_to_onnx(
         model_name_or_path=args.model,
-        output_path=args.output,
-        opset=args.opset,
-        use_gpu=args.gpu
     )

@@ -106,6 +106,9 @@ yolo:
 seg:
 	docker build -t guojingneo/seg_zenoh:pi5 -f $(YOLO_DIR)/Dockerfile .
 
+trt_image:
+	docker build -t guojingneo/tensor_engine:pi5 -f $(YOLO_DIR)/Dockerfile.segformer_trt .
+
 runtime:
 	docker run -d --rm \
 		--name ros2_container \
@@ -247,12 +250,12 @@ tf:
 
 .PHONY: onnx trt
 onnx:
-	python -m root.robot.vision.segformer_onnx_export
+	python3 -m robot.robot.vision.segformer_onnx_export
 
 trt:
 	trtexec \
-		--onnx=segformer_b2.onnx \
-		--saveEngine=segformer_b2.engine \
+		--onnx=segformer_b2_torch2.9.0_cu126_opset18.onnx \
+		--saveEngine=segformer_b2_torch2.9.0_cu126_opset18.engine \
 		--fp16 \
 		--workspace=4096
 

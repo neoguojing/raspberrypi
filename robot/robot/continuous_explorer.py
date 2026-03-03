@@ -114,8 +114,8 @@ class Explorer(Node):
         req.map_url = self.map_url
         req.image_format = "png"
         req.map_mode = "trinary"
-        req.free_thresh = 0.0
-        req.occupied_thresh = 0.0
+        req.free_thresh = 0.25
+        req.occupied_thresh = 0.65
         
         # 使用异步调用
         future = self.save_map_cli.call_async(req)
@@ -128,7 +128,9 @@ class Explorer(Node):
 
         # self.validate_map_orientation()
         self.cleanup_failed_goals()
-
+        
+        self.get_logger().info(f"current status {self.state.name}, failed_goals={len(self.failed_goals)}")
+        
         # 初始时全-1，主动触发前进1m
         if np.all(np.array(self.map.data) == -1):
             self.get_logger().info("[INIT] Map all unknown → move forward")
@@ -290,6 +292,14 @@ class Explorer(Node):
             dist = math.hypot(cx - rx, cy - ry)
             dist_cost = 1.0 * dist 
 
+            # 核心改进：防止原地打转的“近距离惩罚”
+            # 逻辑：如果目标点距离机器人小于 1.0 米，视为“无意义目标”，强制加 10 米惩罚
+            proximity_penalty = 0.0
+            if dist < 1.0:
+                # 距离越近，惩罚越重（阶梯式或固定值）
+                proximity_penalty = 10.0 * (1.0 - dist) 
+                # self.get_logger().debug(f"目标太近({dist:.2f}m)，已施加避让惩罚")
+            
             # 2️⃣ 方向代价 (等效距离)
             # 逻辑：掉头(pi)相当于多跑 2 米。转换率约 0.63m/rad
             heading = math.atan2(cy - ry, cx - rx)
@@ -332,7 +342,7 @@ class Explorer(Node):
 
             # --- 最终评分汇总 ---
             # 基础代价 + 各种惩罚 - 各种奖励
-            score = (dist_cost + heading_penalty + risk_penalty + 
+            score = (dist_cost + proximity_penalty + heading_penalty + risk_penalty + 
                     failure_penalty + wall_penalty - size_reward - unk_reward)
 
             self.get_logger().info(
@@ -467,26 +477,47 @@ class Explorer(Node):
     # ================= Navigation =================
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
-        """利用 Timer 实现非阻塞控制，不卡死节点"""
+        """优化后的非阻塞控制"""
+        # 1. 安全检查：如果已有定时器在跑，先销毁它，防止“僵尸定时器”
+        if hasattr(self, 'recovery_timer') and self.recovery_timer:
+            self.recovery_timer.cancel()
+            self.destroy_timer(self.recovery_timer)
+            self.recovery_timer = None
+
         start_time = self.get_clock().now()
+        # 明确计算结束时间点
         end_time = start_time + Duration(seconds=duration)
         
         def timer_callback():
+            # 2. 检查当前状态是否仍为 RECOVERING，防止外部逻辑干扰
+            if self.state != RobotState.RECOVERING:
+                self.stop_and_cleanup_timer()
+                return
+
             if self.get_clock().now() < end_time:
                 msg = Twist()
                 msg.linear.x = vx
                 msg.angular.z = wz
                 self.cmd_vel_pub.publish(msg)
             else:
-                # 结束自救
-                self.cmd_vel_pub.publish(Twist()) # 停止
-                self.recovery_timer.cancel()
-                self.state = RobotState.IDLE
-                self.last_pose = None
-                self.get_logger().info("✅ 自救动作完成，返回寻路状态")
+                self.get_logger().info("✅ 自救动作完成，重置状态")
+                self.stop_and_cleanup_timer()
 
         self.recovery_timer = self.create_timer(0.1, timer_callback)
-
+    
+    def stop_and_cleanup_timer(self):
+        """清理自救状态的辅助函数"""
+        self.cmd_vel_pub.publish(Twist()) # 强制停止
+        if self.recovery_timer:
+            self.recovery_timer.cancel()
+            # 注意：在回调内部销毁自己需要小心，通常 cancel 就够了
+        
+        # 统一重置状态位
+        self.state = RobotState.IDLE
+        self.goal_handle = None
+        self.current_goal = None
+        # 允许下一轮探索逻辑启动
+    
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
         self.state = RobotState.NAVIGATING
@@ -545,8 +576,9 @@ class Explorer(Node):
             status_msg = "SUCCEEDED"
         elif status == GoalStatus.STATUS_ABORTED:
             status_msg = "ABORTED"
-            if self.current_goal:
-                self.failed_goals[self.current_goal] = time.time()
+            self.execute_hard_recovery() # 直接进入自救模式
+            return
+            
         elif status == GoalStatus.STATUS_CANCELED:
             status_msg = "CANCELED"
             if self.current_goal:
