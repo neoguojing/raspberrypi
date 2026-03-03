@@ -127,11 +127,6 @@ class Explorer(Node):
             return
 
         # self.validate_map_orientation()
-        pose = self.get_robot_pose()
-        if pose is None:
-            self.get_logger().warn("[TF] cannot get robot pose")
-            return
-
         self.cleanup_failed_goals()
 
         # 初始时全-1，主动触发前进1m
@@ -177,7 +172,7 @@ class Explorer(Node):
                 return
 
             # 前沿点打分，分数越低优先级约高
-            scored = self.score_frontiers(frontiers, pose)
+            scored = self.score_frontiers(frontiers)
 
             for score, cent, size in scored:
                 grid_r, grid_c = self.world_to_index(cent[0], cent[1])
@@ -232,27 +227,6 @@ class Explorer(Node):
                 if (data[r+1, c] == 0 or data[r-1, c] == 0 or
                     data[r, c+1] == 0 or data[r, c-1] == 0):
                     frontier[r, c] = True
-                    
-        # === 核心修改：放宽 frontier 判定条件 ===
-        # for r in range(1, h - 1):
-        #     for c in range(1, w - 1):
-        #         # 1. 当前格子必须是未知区域
-        #         if data[r, c] != -1:
-        #             continue
-                
-        #         # 2. 检查上下左右邻居
-        #         neighbors = [data[r+1, c], data[r-1, c], data[r, c+1], data[r, c-1]]
-                
-        #         # 3. 改进逻辑：只要有一个邻居是“已知且非障碍”的
-        #         # 这样即使地图上有噪声（如 5, 10, 20），只要没超过 50，都能触发探索
-        #         is_frontier = False
-        #         for n in neighbors:
-        #             if 0 <= n <= 50:  # 关键点：不再只盯着 0 看
-        #                 is_frontier = True
-        #                 break
-                
-        #         if is_frontier:
-        #             frontier[r, c] = True
 
         # ----------------------------
         # 聚类 frontier 点
@@ -292,94 +266,118 @@ class Explorer(Node):
                         })
         return clusters
     
-    def score_frontiers(self, frontiers, pose):
-        """
-        对 frontier 点集进行打分
-        1. 距离：越近越优先
-        2. 方向：和机器人当前朝向差越小越优先
-        3. 尺寸：越大越优先（面积越大说明空间更大）
-        4. 风险：障碍风险越小越优先
-        5. 未知奖励：未知栅格越多越优先
-
-        返回按 score 排序的列表 [(score, (cx, cy), size), ...]
-        """
+    def score_frontiers(self, frontiers):
+        pose = self.get_robot_pose()
+        if pose is None:
+            self.get_logger().warn("[TF] 无法获取机器人位姿")
+            return []
+        
         rx, ry, ryaw = pose
         scored = []
         now = time.time()
 
+        # --- 性能优化：将高耗时操作移出循环 ---
+        res = self.map.info.resolution
+        # 只转换一次 numpy 数组
+        map_data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
+        h, w = self.map.info.height, self.map.info.width
+
         for f in frontiers:
             cx, cy = f["centroid"]
             size = f["size"]
-            # 使用 log 压缩 size 的量级
-            # +1 是为了防止 size 为 1 时 log 结果为 0
-            size_factor = math.log(size + 1)
-
-            # 1️⃣ 距离
+            
+            # 1️⃣ 基础物理距离 (单位: 米)
             dist = math.hypot(cx - rx, cy - ry)
+            dist_cost = 1.0 * dist 
 
-            # 2️⃣ 方向差
+            # 2️⃣ 方向代价 (等效距离)
+            # 逻辑：掉头(pi)相当于多跑 2 米。转换率约 0.63m/rad
             heading = math.atan2(cy - ry, cx - rx)
             heading_cost = abs(angle_diff(heading, ryaw))
+            heading_penalty = 0.63 * heading_cost 
 
-            # 3️⃣ 风险（只考虑障碍，未知区域不惩罚）
+            # 3️⃣ 风险惩罚 (等效距离)
+            # 逻辑：risk 是 0~1。如果目标点很挤(risk=0.5)，相当于多跑 5 米绕路
             risk = self.estimate_risk(cx, cy)
+            risk_penalty = 10.0 * risk
 
-            # 4️⃣ 未知奖励：计算 frontier 附近未知栅格数量
-            res = self.map.info.resolution
-            data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
-            h = self.map.info.height
-            w = self.map.info.width
+            # 4️⃣ 未知区域奖励 (等效距离 - 负分)
+            # 逻辑：发现 1㎡ 未知区域，相当于心理距离缩短 2 米
             r_idx, c_idx = self.world_to_index(cx, cy)
-            window = int(1.0 / res / 2)  # 1m 窗口
-            unk_count = 0
-            for rr in range(max(0, r_idx-window), min(h, r_idx+window)):
-                for cc in range(max(0, c_idx-window), min(w, c_idx+window)):
-                    if data[rr, cc] == -1:
-                        unk_count += 1
+            win = int(1.0 / res / 2)
+            # 使用 numpy 切片快速计算区域
+            r0, r1 = max(0, r_idx-win), min(h, r_idx+win)
+            c0, c1 = max(0, c_idx-win), min(w, c_idx+win)
+            unk_count = np.sum(map_data[r0:r1, c0:c1] == -1)
+            unk_area = unk_count * (res ** 2)
+            unk_reward = 2.0 * min(unk_area, 1.5) # 封顶奖励 3 米
 
-            # --- 新增：避开失败点区域 (差异化选择) ---
+            # 5️⃣ 面积收益 (等效距离 - 负分)
+            # 逻辑：每 100 个像素的 size 奖励 0.5 米
+            size_reward = 0.005 * size
+
+            # 6️⃣ 失败记录惩罚 (等效距离)
             failure_penalty = 0.0
             for (fr, fc), timestamp in self.failed_goals.items():
-                # 只考虑最近 60 秒内的失败点
                 if now - timestamp < 60.0:
                     fx, fy = self.index_to_world(fr, fc)
-                    dist_to_failed = math.hypot(cx - fx, cy - fy)
-                    
-                    # 如果离失败点 2 米以内，施加阶梯式惩罚
-                    if dist_to_failed < 2.0:
-                        # 离失败点越近，惩罚越重
-                        failure_penalty += 5.0 * (2.0 - dist_to_failed)
-            # 组合打分公式
-            score = (
-                1.0 * dist +          # 距离权重
-                + failure_penalty +  # 新增：失败点惩罚
-                1.5 * heading_cost -  # 方向权重
-                2.0 * size_factor -           # 面积权重
-                4.0 * (1-risk) -       # 越安全越优先，risk 越大扣分越多
-                0.0                     # 可加其他惩罚项
-            )
-            # 加上未知奖励（未知越多分越低，前沿越优先）
-            # 1. 计算窗口内未知的实际面积（单位：平方米）
-            unk_area = unk_count * (res ** 2)
+                    d_fail = math.hypot(cx - fx, cy - fy)
+                    if d_fail < 2.0:
+                        failure_penalty += 5.0 * (2.0 - d_fail)
 
-            # 2. 核心改动：给奖励设定上限 (例如最大奖励抵消 3 米距离)
-            # 这样即使前方有一片大海般的未知区域，它也只会被视为“非常有价值”，而不会变成“无限价值”
-            unk_bonus = min(unk_area, 1.5) # 1.5㎡ 以上的未知区域，奖励封顶
-            score -= 2.0 * unk_bonus
+            # 7️⃣ 穿墙检查 (等效距离)
+            # 逻辑：一旦穿墙，等效距离增加 50 米，使其几乎不可能被选中
+            is_clear = self.is_line_of_sight_clear((rx, ry), (cx, cy))
+            wall_penalty = 0.0 if is_clear else 50.0
 
-            self.get_logger().debug(
-                f"[FRONTIER-CAND] {cx:.2f},{cy:.2f} "
-                f"dist={dist:.2f} size={size} risk={risk:.2f} unk={unk_count} score={score:.2f}"
+            # --- 最终评分汇总 ---
+            # 基础代价 + 各种惩罚 - 各种奖励
+            score = (dist_cost + heading_penalty + risk_penalty + 
+                    failure_penalty + wall_penalty - size_reward - unk_reward)
+
+            self.get_logger().info(
+                f"[CANDIDATE] {cx:.1f},{cy:.1f} | Dist: {dist:.1f}m | "
+                f"Wall: {'OK' if is_clear else 'BLOCKED'} | Score: {score:.2f}"
             )
 
             scored.append((score, (cx, cy), size))
 
-        # 按 score 从小到大排序（分数越低越优先）
+        # 分数越低越优先
         scored.sort(key=lambda x: x[0])
         return scored
 
 
     # ================= Risk / Collision =================
+    # 判断起点终点是否穿越障碍
+    def is_line_of_sight_clear(self, start_pos, end_pos):
+        """
+        检查起点到终点的连线是否穿过障碍物。
+        start_pos, end_pos: (x, y) 世界坐标
+        """
+        if self.map is None:
+            return False
+        
+        # 1. 转换坐标为栅格索引
+        r0, c0 = self.world_to_index(start_pos[0], start_pos[1])
+        r1, c1 = self.world_to_index(end_pos[0], end_pos[1])
+        
+        # 2. 采样连线上的点（根据距离动态决定采样点数）
+        dist_px = math.hypot(r1 - r0, c1 - c0)
+        if dist_px < 1: return True
+        
+        num_samples = int(dist_px) # 每像素采样一次
+        rs = np.linspace(r0, r1, num_samples).astype(int)
+        cs = np.linspace(c0, c1, num_samples).astype(int)
+        
+        # 3. 检查地图数据
+        data = np.array(self.map.data).reshape(self.map.info.height, self.map.info.width)
+        for i in range(num_samples):
+            r, c = rs[i], cs[i]
+            # 如果路径上存在确定的障碍物 (> 50)
+            if data[r, c] > 50:
+                return False
+        return True
+
     # estimate_risk 就是计算一个点附近 1m 范围内有多少障碍和未知，越多 → 越危险。
     def estimate_risk(self, cx, cy, window=1.0):
         """
