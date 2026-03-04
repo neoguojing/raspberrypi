@@ -14,120 +14,8 @@ import numpy as np
 import math
 import time
 from enum import Enum
-#################################### base ####################################
-class NodeStatus(Enum):
-    SUCCESS = 1
-    FAILURE = 2
-    RUNNING = 3
-
-class BTNode:
-    def __init__(self, context):
-        self.ctx = context  # 指向 Explorer 实例
-    def tick(self) -> NodeStatus:
-        raise NotImplementedError
-
-class Selector(BTNode):
-    """Fallback 逻辑：只要有一个子节点不返回 FAILURE，就停止并返回该状态"""
-    def __init__(self, context, children):
-        super().__init__(context)
-        self.children = children
-    def tick(self):
-        for child in self.children:
-            status = child.tick()
-            if status != NodeStatus.FAILURE: return status
-        return NodeStatus.FAILURE
-
-class Sequence(BTNode):
-    """逻辑与：所有子节点必须返回 SUCCESS"""
-    def __init__(self, context, children):
-        super().__init__(context)
-        self.children = children
-    def tick(self):
-        for child in self.children:
-            status = child.tick()
-            if status != NodeStatus.SUCCESS: return status
-        return NodeStatus.SUCCESS
-    
-##################################### condition #################################################
-class ConditionIsStuck(BTNode):
-    def tick(self):
-        # 询问躯体：是否满足物理卡死阈值？
-        return NodeStatus.SUCCESS if not self.ctx.check_motion_status() else NodeStatus.FAILURE
-
-class ConditionIsNavigating(BTNode):
-    def tick(self):
-        # 询问躯体：ActionClient 此时是否在忙？
-        return NodeStatus.SUCCESS if self.ctx.is_navigating() else NodeStatus.FAILURE
-##################################### action #####################################################
-class ActionRecovery(BTNode):
-    def tick(self):
-        # 如果还没开始倒车，则触发
-        if not self.ctx.recovery_timer_active:
-            self.ctx.execute_hard_recovery()
-        return NodeStatus.RUNNING
-
-class ActionExplore(BTNode):
-    def tick(self):
-        # 找点、评分、发送
-        frontiers = self.ctx.find_frontiers()
-        if not frontiers: return NodeStatus.FAILURE
-        
-        scored = self.ctx.score_frontiers(frontiers)
-        if not scored: return NodeStatus.FAILURE
-        
-        # 发送目标
-        best_goal = scored[0][1]
-        self.ctx.send_goal(best_goal)
-        return NodeStatus.SUCCESS
-
-# ================= 工具函数 =================
-
-def yaw_from_quat(q):
-    return math.atan2(
-        2.0 * (q.w * q.z + q.x * q.y),
-        1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-    )
-
-def angle_diff(a, b):
-    d = a - b
-    while d > math.pi:
-        d -= 2 * math.pi
-    while d < -math.pi:
-        d += 2 * math.pi
-    return d
 
 # ================= Explorer Node =================
-
-#################################### composition ##################################################
-
-class Explorer(Node):
-    def __init__(self):
-        super().__init__('bt_explorer')
-        
-        # --- 资源池 (无逻辑状态位) ---
-        self.map = None
-        self.nav_goal_handle = None
-        self.recovery_timer_active = False
-        self.last_pose = None
-        self.last_progress_time = time.time()
-        
-        # --- 组装大脑 ---
-        self.bt_root = Selector(self, [
-            # 优先级 1: 卡死自救 (Sequence: 如果卡死 -> 则后退)
-            Sequence(self, [ConditionIsStuck(self), ActionRecovery(self)]),
-            
-            # 优先级 2: 探索导航
-            ActionExplore(self)
-        ])
-
-        self.create_timer(1.0, self.on_tick)
-
-    def on_tick(self):
-        """每秒一次的逻辑脉搏"""
-        # 彻底抛弃 if self.state == ...
-        # 行为树会根据 tick() 的结果自动决定当前该干什么
-        self.bt_root.tick()
-
 
 class Explorer(Node):
     def __init__(self):
@@ -148,7 +36,6 @@ class Explorer(Node):
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
         # 监控进度用的状态变量
-        self.state = RobotState.IDLE
         self.last_pose = None
         self.last_progress_time = 0.0
         self.stuck_threshold_dist = 0.05  # 5厘米
@@ -160,13 +47,10 @@ class Explorer(Node):
         self.goal_handle = None
         self.current_goal = None
 
-        self.goal_start_time = 0.0
+        self.goal_start_time = None
 
         # ---- 参数（工程可调）----
         self.frontier_min_size = 5
-
-        self.recompute_interval = 3.0
-        self.last_compute = 0.0
 
         self.failed_goals = {}  # (x,y) -> time
 
@@ -176,19 +60,34 @@ class Explorer(Node):
             '/map_saver_server/save_map'
         )
         self.map_url = "/home/ros_user/ros2_ws/my_map"
-        self.map_save_timer = self.create_timer(30, self.save_current_map)
-        # ---- 主循环 ----
-        self.timer = self.create_timer(3, self.loop)
+        self.map_save_timer = self.create_timer(60, self.save_current_map)
+
         self.recovery_timer = None
+
+        # --- 组装大脑 ---
+        self.bt_root = Selector(self, [
+            # 优先级 1: 异常处理 (卡死或超时) -> 触发自救
+            Sequence(self, [
+                Selector(self, [ConditionIsStuck(self), ConditionIsExploreTimeout(self)]),
+                ActionRecovery(self)
+            ]),
+
+            # 优先级 2: 状态维持 -> 如果正在导航，直接返回 SUCCESS/RUNNING，拦截下方的找点逻辑
+            ConditionIsExploring(self),
+
+            # 优先级 3: 任务发起 -> 只有上面都不满足（不卡死且没任务），才执行探索
+            ActionExplore(self)
+        ])
+
+        self.create_timer(1.0, self.on_tick)
+
         self.get_logger().info("🚀 Explorer node started")
+
 
     # ================= ROS Callbacks =================
 
     def map_cb(self, msg):
         self.map = msg
-        # self.get_logger().info(
-        #     f"[MAP] received {msg.info.width}x{msg.info.height}, res={msg.info.resolution}"
-        # )
 
     def scan_cb(self, msg):
         self.scan = msg
@@ -213,69 +112,11 @@ class Explorer(Node):
         future = self.save_map_cli.call_async(req)
         return future
 
-    def loop(self):
-        if self.map is None:
-            self.get_logger().debug("[WAIT] no map yet")
-            return
-
-        # self.validate_map_orientation()
-        self.cleanup_failed_goals()
-        
-        self.get_logger().info(f"current status {self.state.name}, failed_goals={len(self.failed_goals)}")
-        
-        # 初始时全-1，主动触发前进1m
-        if np.all(np.array(self.map.data) == -1):
-            self.get_logger().info("[INIT] Map all unknown → move forward")
-            self.drive_manually_non_blocking(vx=0.1,duration=1)
-            return
-        
-        # 状态 A: 正在自救。不执行任何逻辑，直到自救完成切换回 IDLE
-        if self.state == RobotState.RECOVERING:
-            return
-
-        # 状态 B: 正在导航。检查是否卡死。
-        if self.state == RobotState.NAVIGATING:
-            # 1. 检查物理停滞 (Stuck)
-            moving = self.check_motion_status()
-            # 2. 检查总耗时超时 (你的原逻辑: 60s)
-            is_timeout = (time.time() - self.goal_start_time > 60.0)
-
-            if not moving or is_timeout:
-                reason = "停滞" if not moving else "超时"
-                self.get_logger().error(f"[ALARM] 导航{reason}！切换至自救模式...")
-                self.execute_hard_recovery() 
-            return
-    
-        # 节流 frontier 计算
-        now = time.time()
-        if now - self.last_compute < self.recompute_interval:
-            return
-        self.last_compute = now
-
-        frontiers = self.find_frontiers()
-        self.get_logger().info(f"[FRONTIER] clusters={len(frontiers)}")
-
-        if not frontiers:
-            self.get_logger().warn("[FRONTIER] none found")
-            return
-
-        # 前沿点打分，分数越低优先级约高
-        scored = self.score_frontiers(frontiers)
-        # ========================== 可决定是否抢占 ==========================
-        if self.state == RobotState.NAVIGATING:
-            # 不抢占之前的导航
-            return 
-        # =================================================================
-
-        for score, cent, size in scored:
-            grid_r, grid_c = self.world_to_index(cent[0], cent[1])
-            key = (int(grid_r), int(grid_c)) # 显式转 int 确保 key 稳定
-            if key in self.failed_goals and time.time() - self.failed_goals[key] < 30:
-                self.get_logger().debug(f"[SKIP] failed frontier {cent}")
-                continue
-
-            self.send_goal(cent)
-            return
+    def on_tick(self):
+        """每秒一次的逻辑脉搏"""
+        # 彻底抛弃 if self.state == ...
+        # 行为树会根据 tick() 的结果自动决定当前该干什么
+        self.bt_root.tick()
 
     # ================= Pose =================
 
@@ -519,11 +360,7 @@ class Explorer(Node):
     ####################################recover########################################
 
     def execute_hard_recovery(self):
-        if self.state == RobotState.RECOVERING:
-            return
-
         self.get_logger().error("🚨 检测到物理卡死！启动强制底层脱困...")
-        self.state = RobotState.RECOVERING
         # 3. 记录该区域为失败区域，短时间内不再尝试
         if self.current_goal:
             self.failed_goals[self.current_goal] = time.time()
@@ -538,7 +375,6 @@ class Explorer(Node):
         """
         判断小车是否真的在移动
         """
-
         now = self.get_clock().now().nanoseconds / 1e9
         # 1. 获取机器人当前的位姿 (x, y, yaw)
         current_pose = self.get_robot_pose()
@@ -571,9 +407,8 @@ class Explorer(Node):
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
         # 如果已有定时器正在运行，先清理
-        if self.recovery_timer is not None:
-            self.recovery_timer.cancel()
-            self.destroy_timer(self.recovery_timer)
+        if self.recovery_timer:
+            return
 
         start_time = self.get_clock().now()
         end_time = start_time + Duration(seconds=duration)
@@ -587,18 +422,38 @@ class Explorer(Node):
             else:
                 self.cmd_vel_pub.publish(Twist()) # 停止
                 self.recovery_timer.cancel()
+                self.destroy_timer(self.recovery_timer)
+                self.recovery_timer = None
                 self.get_logger().info("✅ 自救完成")
                 self.reset_state() # 统一重置
                 
         self.recovery_timer = self.create_timer(0.1, timer_callback)
 
+    def do_explore(self):
+        frontiers = self.find_frontiers()
+        self.get_logger().info(f"[FRONTIER] clusters={len(frontiers)}")
+
+        if not frontiers:
+            self.get_logger().warn("[FRONTIER] none found")
+            return False
+
+        # 前沿点打分，分数越低优先级约高
+        scored = self.score_frontiers(frontiers)
+
+        for score, cent, size in scored:
+            grid_r, grid_c = self.world_to_index(cent[0], cent[1])
+            key = (int(grid_r), int(grid_c)) # 显式转 int 确保 key 稳定
+            if key in self.failed_goals and time.time() - self.failed_goals[key] < 30:
+                self.get_logger().debug(f"[SKIP] failed frontier {cent}")
+                continue
+
+            self.send_goal(cent)
+            return True
+        
+        return False
+        
     def send_goal(self, pos):
         self.get_logger().info(f"[NAV] send goal {pos}")
-        
-        if self.state != RobotState.IDLE:
-            self.get_logger().warn("当前状态非空闲，跳过发送新目标")
-            return
-        self.state = RobotState.NAVIGATING
 
         self.goal_start_time = time.time() # 记录开始时间
         # # 1. 获取当前位姿，用于计算“指向目标”的角度
@@ -647,10 +502,6 @@ class Explorer(Node):
         self.goal_handle.get_result_async().add_done_callback(self.goal_done)
 
     def goal_done(self, future):
-        # 增加健壮性检查
-        if self.state == RobotState.RECOVERING:
-            return
-
         try:
             result = future.result()
             status = result.status
@@ -667,8 +518,6 @@ class Explorer(Node):
             self.get_logger().error("❌ 导航中止（可能撞墙或规划失败）")
             if self.current_goal:
                 self.failed_goals[self.current_goal] = time.time()
-            self.execute_hard_recovery() # 触发自救
-            return # 自救会负责重置状态为 IDLE，这里直接返回
 
         elif status == GoalStatus.STATUS_CANCELED:
             # 💡 重要：抢占导致的任务取消不计入失败
@@ -682,7 +531,6 @@ class Explorer(Node):
 
     def reset_state(self):
         """清理所有状态位"""
-        self.state = RobotState.IDLE
         self.goal_handle = None
         self.current_goal = None
         self.last_pose = None # 重置卡死监控起始点
@@ -812,6 +660,93 @@ class Explorer(Node):
         else:
             self.get_logger().info("ℹ️  周围都是空地或未知，请移动机器人到墙边再试。")
         self.get_logger().info("-------------------------------")
+
+
+#################################### base ####################################
+class NodeStatus(Enum):
+    SUCCESS = 1
+    FAILURE = 2
+    RUNNING = 3
+
+
+
+class BTNode:
+    def __init__(self, context: Explorer):
+        self.ctx = context  # 指向 Explorer 实例
+    def tick(self) -> NodeStatus:
+        raise NotImplementedError
+
+class Selector(BTNode):
+    """Fallback 逻辑：只要有一个子节点不返回 FAILURE，就停止并返回该状态"""
+    def __init__(self, context, children):
+        super().__init__(context)
+        self.children = children
+    def tick(self):
+        for child in self.children:
+            status = child.tick()
+            if status != NodeStatus.FAILURE: return status
+        return NodeStatus.FAILURE
+
+class Sequence(BTNode):
+    """逻辑与：所有子节点必须返回 SUCCESS"""
+    def __init__(self, context, children):
+        super().__init__(context)
+        self.children = children
+    def tick(self):
+        for child in self.children:
+            status = child.tick()
+            if status != NodeStatus.SUCCESS: return status
+        return NodeStatus.SUCCESS
+    
+##################################### condition #################################################
+class ConditionIsStuck(BTNode):
+    def tick(self):
+        # 询问躯体：是否满足物理卡死阈值；通过一定时间内的位移判断
+        return NodeStatus.SUCCESS if not self.ctx.check_motion_status() else NodeStatus.FAILURE
+
+class ConditionIsExploreTimeout(BTNode):
+    def tick(self):
+        # 询问躯体：是否执行超时
+        return NodeStatus.SUCCESS if (
+            self.ctx.goal_start_time  and 
+            (time.time() - self.ctx.goal_start_time > 60.0)
+        ) else NodeStatus.FAILURE
+        
+class ConditionIsExploring(BTNode):
+    def tick(self):
+        # 询问躯体：是否正在探索，通过句柄判定
+        return NodeStatus.SUCCESS if self.ctx.goal_handle else NodeStatus.FAILURE
+##################################### action #####################################################
+class ActionRecovery(BTNode):
+    def tick(self):
+        # 如果还没开始倒车，则触发
+        if not self.ctx.recovery_timer:
+            self.ctx.execute_hard_recovery()
+        return NodeStatus.RUNNING
+
+class ActionExplore(BTNode):
+    def tick(self):
+        if self.ctx.do_explore():
+            return NodeStatus.RUNNING
+        return NodeStatus.FAILURE
+        
+
+# ================= 工具函数 =================
+
+def yaw_from_quat(q):
+    return math.atan2(
+        2.0 * (q.w * q.z + q.x * q.y),
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    )
+
+def angle_diff(a, b):
+    d = a - b
+    while d > math.pi:
+        d -= 2 * math.pi
+    while d < -math.pi:
+        d += 2 * math.pi
+    return d
+
 
 # ================= main =================
 

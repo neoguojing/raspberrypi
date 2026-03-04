@@ -481,9 +481,8 @@ class Explorer(Node):
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
         # 如果已有定时器正在运行，先清理
-        if self.recovery_timer is not None:
-            self.recovery_timer.cancel()
-            self.destroy_timer(self.recovery_timer)
+        if self.recovery_timer:
+            return
 
         start_time = self.get_clock().now()
         end_time = start_time + Duration(seconds=duration)
@@ -497,6 +496,8 @@ class Explorer(Node):
             else:
                 self.cmd_vel_pub.publish(Twist()) # 停止
                 self.recovery_timer.cancel()
+                self.destroy_timer(self.recovery_timer)
+                self.recovery_timer = None
                 self.get_logger().info("✅ 自救完成")
                 self.reset_state() # 统一重置
                 
