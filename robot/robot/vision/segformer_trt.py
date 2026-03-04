@@ -142,7 +142,7 @@ class SegFormerTRTDetector:
 
 if __name__ == "__main__":
     # --- 1. 配置参数 ---
-    ENGINE_PATH = "models/segformer_b2.engine"  # 你的引擎文件路径
+    ENGINE_PATH = "models/segformer_b2_torch2.9.0_cu126_opset18.engine"  # 你的引擎文件路径
     IMAGE_PATH = "asset/test.png"              # 你要验证的测试图路径
     
     # 填充部分 ADE20K 标签，用于验证打印结果

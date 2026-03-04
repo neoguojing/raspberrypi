@@ -254,8 +254,8 @@ onnx:
 
 trt:
 	trtexec \
-		--onnx=segformer_b2_torch2.9.0_cu126_opset18.onnx \
-		--saveEngine=segformer_b2_torch2.9.0_cu126_opset18.engine \
+		--onnx=models/segformer_b2_torch2.9.0_cu126_opset18.onnx \
+		--saveEngine=models/segformer_b2_torch2.9.0_cu126_opset18.engine \
 		--fp16 \
 		--workspace=4096
 
