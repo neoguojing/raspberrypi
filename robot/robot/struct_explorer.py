@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
@@ -15,11 +14,71 @@ import numpy as np
 import math
 import time
 from enum import Enum
+#################################### base ####################################
+class NodeStatus(Enum):
+    SUCCESS = 1
+    FAILURE = 2
+    RUNNING = 3
 
-class RobotState(Enum):
-    IDLE = 0          # 待命（找点中）
-    NAVIGATING = 1    # 导航中（监控进度）
-    RECOVERING = 2    # 自救中（底层接管）
+class BTNode:
+    def __init__(self, context):
+        self.ctx = context  # 指向 Explorer 实例
+    def tick(self) -> NodeStatus:
+        raise NotImplementedError
+
+class Selector(BTNode):
+    """Fallback 逻辑：只要有一个子节点不返回 FAILURE，就停止并返回该状态"""
+    def __init__(self, context, children):
+        super().__init__(context)
+        self.children = children
+    def tick(self):
+        for child in self.children:
+            status = child.tick()
+            if status != NodeStatus.FAILURE: return status
+        return NodeStatus.FAILURE
+
+class Sequence(BTNode):
+    """逻辑与：所有子节点必须返回 SUCCESS"""
+    def __init__(self, context, children):
+        super().__init__(context)
+        self.children = children
+    def tick(self):
+        for child in self.children:
+            status = child.tick()
+            if status != NodeStatus.SUCCESS: return status
+        return NodeStatus.SUCCESS
+    
+##################################### condition #################################################
+class ConditionIsStuck(BTNode):
+    def tick(self):
+        # 询问躯体：是否满足物理卡死阈值？
+        return NodeStatus.SUCCESS if not self.ctx.check_motion_status() else NodeStatus.FAILURE
+
+class ConditionIsNavigating(BTNode):
+    def tick(self):
+        # 询问躯体：ActionClient 此时是否在忙？
+        return NodeStatus.SUCCESS if self.ctx.is_navigating() else NodeStatus.FAILURE
+##################################### action #####################################################
+class ActionRecovery(BTNode):
+    def tick(self):
+        # 如果还没开始倒车，则触发
+        if not self.ctx.recovery_timer_active:
+            self.ctx.execute_hard_recovery()
+        return NodeStatus.RUNNING
+
+class ActionExplore(BTNode):
+    def tick(self):
+        # 找点、评分、发送
+        frontiers = self.ctx.find_frontiers()
+        if not frontiers: return NodeStatus.FAILURE
+        
+        scored = self.ctx.score_frontiers(frontiers)
+        if not scored: return NodeStatus.FAILURE
+        
+        # 发送目标
+        best_goal = scored[0][1]
+        self.ctx.send_goal(best_goal)
+        return NodeStatus.SUCCESS
 
 # ================= 工具函数 =================
 
@@ -38,6 +97,37 @@ def angle_diff(a, b):
     return d
 
 # ================= Explorer Node =================
+
+#################################### composition ##################################################
+
+class Explorer(Node):
+    def __init__(self):
+        super().__init__('bt_explorer')
+        
+        # --- 资源池 (无逻辑状态位) ---
+        self.map = None
+        self.nav_goal_handle = None
+        self.recovery_timer_active = False
+        self.last_pose = None
+        self.last_progress_time = time.time()
+        
+        # --- 组装大脑 ---
+        self.bt_root = Selector(self, [
+            # 优先级 1: 卡死自救 (Sequence: 如果卡死 -> 则后退)
+            Sequence(self, [ConditionIsStuck(self), ActionRecovery(self)]),
+            
+            # 优先级 2: 探索导航
+            ActionExplore(self)
+        ])
+
+        self.create_timer(1.0, self.on_tick)
+
+    def on_tick(self):
+        """每秒一次的逻辑脉搏"""
+        # 彻底抛弃 if self.state == ...
+        # 行为树会根据 tick() 的结果自动决定当前该干什么
+        self.bt_root.tick()
+
 
 class Explorer(Node):
     def __init__(self):
