@@ -80,6 +80,10 @@ class Explorer(Node):
 
         self.failed_goals = {}  # (x,y) -> time
 
+        # 初始化状态
+        self.cancel_goal()
+        self.cmd_vel_pub.publish(Twist())
+
         # --- 服务客户端：调用 map_server 保存地图 ---
         self.save_map_cli = self.create_client(
             SaveMap,

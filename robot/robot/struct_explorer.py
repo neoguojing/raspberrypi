@@ -64,6 +64,10 @@ class Explorer(Node):
 
         self.recovery_timer = None
 
+        # 初始化状态
+        self.cancel_goal()
+        self.cmd_vel_pub.publish(Twist())
+
         # --- 组装大脑 ---
         self.bt_root = Selector(self, [
             # 优先级 1: 异常处理 (卡死或超时) -> 触发自救
@@ -114,6 +118,7 @@ class Explorer(Node):
 
     def on_tick(self):
         """每秒一次的逻辑脉搏"""
+        if self.map is None: return
         # 彻底抛弃 if self.state == ...
         # 行为树会根据 tick() 的结果自动决定当前该干什么
         self.bt_root.tick()
@@ -452,21 +457,10 @@ class Explorer(Node):
         
         return False
         
-    def send_goal(self, pos):
+    def send_goal(self, pos, need_yaw= False):
         self.get_logger().info(f"[NAV] send goal {pos}")
 
         self.goal_start_time = time.time() # 记录开始时间
-        # # 1. 获取当前位姿，用于计算“指向目标”的角度
-        # current_pose = self.get_robot_pose()
-        
-        # # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
-        # target_yaw = 0.0
-        # if current_pose is not None:
-        #     curr_x, curr_y, curr_yaw = current_pose
-        #     # 计算从当前点到目标点的向量夹角
-        #     target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
-        
-        # self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
 
         ps = PoseStamped()
         ps.header.frame_id = 'map'
@@ -477,9 +471,20 @@ class Explorer(Node):
 
         ps.pose.orientation.x = 0.0
         ps.pose.orientation.y = 0.0
-        # ps.pose.orientation.z = math.sin(target_yaw / 2.0)
-        # ps.pose.orientation.w = math.cos(target_yaw / 2.0)
         ps.pose.orientation.w = 1.0
+        if need_yaw:
+            # 1. 获取当前位姿，用于计算“指向目标”的角度
+            current_pose = self.get_robot_pose()
+            # 计算朝向：如果能获取当前位姿，就计算指向目标的角度；否则默认不转向
+            target_yaw = 0.0
+            if current_pose is not None:
+                curr_x, curr_y, curr_yaw = current_pose
+                # 计算从当前点到目标点的向量夹角
+                target_yaw = math.atan2(pos[1] - curr_y, pos[0] - curr_x)
+            
+            ps.pose.orientation.z = math.sin(target_yaw / 2.0)
+            ps.pose.orientation.w = math.cos(target_yaw / 2.0)
+            self.get_logger().info(f"[NAV] 目标点: ({pos[0]:.2f}, {pos[1]:.2f}), 规划朝向: {target_yaw:.2f} rad")
 
         r, c = self.world_to_index(pos[0], pos[1])
         self.current_goal = (int(r), int(c))

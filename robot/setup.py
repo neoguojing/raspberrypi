@@ -34,6 +34,7 @@ setup(
             'manual_nav_commander = robot.manual_nav_commander:main',
             'explore_node = robot.explore_node:main',
             'continuous_explorer = robot.continuous_explorer:main',
+            'struct_explorer = robot.struct_explorer:main'
 
         ],
     },
