@@ -83,7 +83,7 @@ class Explorer(Node):
             ActionExplore(self)
         ])
 
-        self.create_timer(1.0, self.on_tick)
+        self.create_timer(3.0, self.on_tick)
 
         self.get_logger().info("🚀 Explorer node started")
 

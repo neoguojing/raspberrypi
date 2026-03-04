@@ -118,7 +118,7 @@ def generate_launch_description():
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # ORB
         "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "15",     # 增加闭环检测的鲁棒性
+        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
         "Kp/DetectorStrategy": "2",
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
