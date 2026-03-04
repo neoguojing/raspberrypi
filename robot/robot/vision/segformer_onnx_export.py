@@ -38,7 +38,7 @@ def export_segformer_to_onnx(
     output_path="./models/segformer_b2.onnx",
     opset=18,
     use_gpu=True,
-    dynamic_axes=True
+    dynamic_axes=False
 ):
     """
     将 HuggingFace SegFormer 模型导出为 ONNX

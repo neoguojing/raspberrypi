@@ -28,26 +28,32 @@ class SegFormerTRTDetector:
             is_ground = " [地面✅]" if int(cls_id) in self.ground_classes else ""
             print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
 
-    def _predict_probs(self, frame):
+    def _predict_probs(self, frame, fixed_input_shape=(512, 512)):
         # 3090 性能强，不再强制 resize 到模型的固定 input_shape
         # 而是直接将图像处理成 32 的倍数（SegFormer 要求）即可
         h_orig, w_orig = frame.shape[:2]
+        h_fixed, w_fixed = fixed_input_shape
+        
+        if (h_fixed != h_orig) or (w_fixed != w_orig):
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb = cv2.resize(rgb, (w_fixed, h_fixed), interpolation=cv2.INTER_LINEAR)
+        else:
+            # 1. 对齐到 32 的倍数
+            h_pad = (h_orig + 31) // 32 * 32
+            w_pad = (w_orig + 31) // 32 * 32
 
-        # 1. 对齐到 32 的倍数
-        h_pad = (h_orig + 31) // 32 * 32
-        w_pad = (w_orig + 31) // 32 * 32
-
-        # 2. 前处理
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        if (h_pad != h_orig) or (w_pad != w_orig):
-            rgb = cv2.resize(rgb, (w_pad, h_pad), interpolation=cv2.INTER_LINEAR)
+            # 2. 前处理
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if (h_pad != h_orig) or (w_pad != w_orig):
+                rgb = cv2.resize(rgb, (w_pad, h_pad), interpolation=cv2.INTER_LINEAR)
 
         x = (rgb.astype(np.float32) - [123.675, 116.28, 103.53]) / [58.395, 57.12, 57.375]
         x = np.ascontiguousarray(x.transpose(2, 0, 1)[None, ...])
 
         # 推理得到对应尺寸的 logits
+        t0 = time.perf_counter()
         logits = self.trt_engine.infer(x)[0] 
-        
+        print(f"[Timing] infer: {(time.perf_counter() - t0) * 1000:.2f} ms")
         # 核心 LUT 逻辑 (保持不变，性能极佳)
         pred_map_small = np.argmax(logits, axis=0).astype(np.uint8)
         ground_mask_small = self.lut[pred_map_small] 
@@ -82,8 +88,9 @@ class SegFormerTRTDetector:
 
     def _inference(self, frame):
         h_orig, w_orig = frame.shape[:2]
+        
         ground_logits_small, pred_map_small = self._predict_probs(frame)
-
+        
         # 1. 处理分类图
         pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
         self.print_detected_categories(pred_map) # 调试时开启
@@ -117,9 +124,15 @@ class SegFormerTRTDetector:
         return vis
 
     def get_ground_contact_points(self, frame, render=False):
+        t0 = time.perf_counter()
         mask = self._inference(frame)
+        print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
+        t1 = time.perf_counter()
         points = self._extract_boundary_points(mask)
+        print(f"[Timing] Boundary extraction: {(time.perf_counter() - t1) * 1000:.2f} ms")
+        t2 = time.perf_counter()
         vis = self.save_sample_image(frame, mask, points) if render else None
+        print(f"[Timing] Rendering: {(time.perf_counter() - t2) * 1000:.2f} ms")
         return points, vis
 
     def save_sample_image(self, frame, mask, points, folder="samples", max_count=10, interval_seconds=10):
@@ -167,10 +180,10 @@ if __name__ == "__main__":
         
         start_time = time.time()
         # 获取点位和可视化结果
-        points, vis = detector.get_ground_contact_points(frame, render=True)
+        points, vis = detector.get_ground_contact_points(frame, render=False)
         end_time = time.time()
 
-        print(f"⏱️ 推理耗时: {(end_time - start_time)*1000:.2f} ms")
+        print(f"⏱️ 推理总耗时: {(end_time - start_time)*1000:.2f} ms")
         
         # --- 4. 显示与保存 ---
         if vis is not None:      

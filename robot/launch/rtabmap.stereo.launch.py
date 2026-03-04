@@ -117,8 +117,8 @@ def generate_launch_description():
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # ORB
-        "Vis/MaxFeatures": "800",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
+        "Vis/MaxFeatures": "1200",  # 双目可以适当增加特征数量
+        "Vis/MinInliers": "30",     # 增加闭环检测的鲁棒性
         "Kp/DetectorStrategy": "2",
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
@@ -127,7 +127,7 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "3",
-        "Stereo/MaxDisparity": "500", # 根据相机基线和场景深度调整
+        "Stereo/MaxDisparity": "200", # 根据相机基线和场景深度调整
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
         "StereoBM/UniquenessRatio": "25",
 
@@ -139,10 +139,10 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
 
         # 回环后不整体平移地图
-        "RGBD/OptimizeMaxError": "8.0",
+        "RGBD/OptimizeMaxError": "15.0",
         "RGBD/OptimizeFromGraphEnd": "true",
-        "RGBD/LinearUpdate": "0.0",
-        "RGBD/AngularUpdate": "0.0",
+        "RGBD/LinearUpdate": "0.3",
+        "RGBD/AngularUpdate": "0.1",
         "RGBD/NeighborLinkRefining": "true",
         "RGBD/ProximityBySpace": "true",
         "RGBD/ProximityMaxGraphDepth": "50",
