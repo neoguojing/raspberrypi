@@ -28,39 +28,18 @@ class SegFormerTRTDetector:
             is_ground = " [地面✅]" if int(cls_id) in self.ground_classes else ""
             print(f"ID {cls_id:3} | {label:15} | 占比: {percentage:5.2f}% {is_ground}")
 
-    def _predict_probs(self, frame, fixed_input_shape=(512, 512)):
-        # 3090 性能强，不再强制 resize 到模型的固定 input_shape
-        # 而是直接将图像处理成 32 的倍数（SegFormer 要求）即可
-        h_orig, w_orig = frame.shape[:2]
-        h_fixed, w_fixed = fixed_input_shape
-        
-        if (h_fixed != h_orig) or (w_fixed != w_orig):
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            rgb = cv2.resize(rgb, (w_fixed, h_fixed), interpolation=cv2.INTER_LINEAR)
-        else:
-            # 1. 对齐到 32 的倍数
-            h_pad = (h_orig + 31) // 32 * 32
-            w_pad = (w_orig + 31) // 32 * 32
-
-            # 2. 前处理
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            if (h_pad != h_orig) or (w_pad != w_orig):
-                rgb = cv2.resize(rgb, (w_pad, h_pad), interpolation=cv2.INTER_LINEAR)
-
-        x = (rgb.astype(np.float32) - [123.675, 116.28, 103.53]) / [58.395, 57.12, 57.375]
-        x = np.ascontiguousarray(x.transpose(2, 0, 1)[None, ...])
-
-        # 推理得到对应尺寸的 logits
-        t0 = time.perf_counter()
-        logits = self.trt_engine.infer(x)[0] 
-        print(f"[Timing] infer: {(time.perf_counter() - t0) * 1000:.2f} ms")
-        # 核心 LUT 逻辑 (保持不变，性能极佳)
-        pred_map_small = np.argmax(logits, axis=0).astype(np.uint8)
-        ground_mask_small = self.lut[pred_map_small] 
-
-        # 缩放到原图 (如果逻辑上需要)
-        ground_mask = cv2.resize(ground_mask_small, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
-        return ground_mask, pred_map_small
+    # 输入统一为RGB
+    def _predict_probs(self, frame_rgb):
+        # frame_rgb: 已经是 RGB 格式的 (1232, 1640, 3) uint8 数组
+    
+        # 1. 零前处理推理 (6-8ms)
+        # 内部已经包含了所有的 Resize, Norm, Argmax 和插值放大
+        pred_map = self.trt_engine.infer(frame_rgb)[0]
+        # 3. 后处理：仅剩查表 (约 1ms)
+        # 此时 pred_map 已经是 (1232, 1640) 尺寸了
+        ground_mask = self.lut[pred_map.astype(np.uint8)]
+    
+        return ground_mask, pred_map
 
     def _extract_boundary_points(self, ground_mask, step_x=10):
         h, w = ground_mask.shape

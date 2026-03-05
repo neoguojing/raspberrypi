@@ -1,72 +1,81 @@
-import numpy as np
 import tensorrt as trt
 import pycuda.driver as cuda
-import pycuda.autoinit  # 自动初始化 CUDA 上下文
+import pycuda.autoinit
+import numpy as np
+
 
 class TRTEngine:
+
     def __init__(self, engine_path):
-        self.logger = trt.Logger(trt.Logger.WARNING)
+
+        logger = trt.Logger(trt.Logger.ERROR)
+
         with open(engine_path, "rb") as f:
-            self.engine = trt.Runtime(self.logger).deserialize_cuda_engine(f.read())
-        
+            runtime = trt.Runtime(logger)
+            self.engine = runtime.deserialize_cuda_engine(f.read())
+
         self.context = self.engine.create_execution_context()
+
         self.stream = cuda.Stream()
 
-        # 静态引擎：在初始化时确定所有 binding 的 shape 和 dtype
-        self.input_name = None
-        self.output_name = None
-        self.host_inputs = []
-        self.host_outputs = []
-        self.device_inputs = []
-        self.device_outputs = []
+        self.input_name = self.engine.get_tensor_name(0)
+        self.output_name = self.engine.get_tensor_name(1)
 
-        for i in range(self.engine.num_io_tensors):
-            name = self.engine.get_tensor_name(i)
-            dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-            shape = self.engine.get_tensor_shape(name)  # 静态 shape 直接从 engine 获取
-            size = int(np.prod(shape))
-            host_mem = cuda.pagelocked_empty(size, dtype)
-            device_mem = cuda.mem_alloc(host_mem.nbytes)
+        self.input_shape = tuple(self.engine.get_tensor_shape(self.input_name))
+        self.output_shape = tuple(self.engine.get_tensor_shape(self.output_name))
 
-            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
-                self.input_name = name
-                self.host_inputs.append(host_mem)
-                self.device_inputs.append(device_mem)
-            else:
-                self.output_name = name
-                self.host_outputs.append(host_mem)
-                self.device_outputs.append(device_mem)
+        self.input_dtype = np.uint8
+        self.output_dtype = np.int32
 
-        assert self.input_name is not None, "No input tensor found!"
-        assert self.output_name is not None, "No output tensor found!"
+        self.input_size = int(np.prod(self.input_shape))
+        self.output_size = int(np.prod(self.output_shape))
 
-    def infer(self, input_tensor: np.ndarray):
-        """
-        input_tensor: np.ndarray with fixed shape (e.g., (1, 3, 512, 512))
-        Returns: output np.ndarray
-        """
-        # 1. 检查输入 shape 是否匹配（静态引擎必须严格匹配）
-        expected_shape = tuple(self.engine.get_tensor_shape(self.input_name))
-        if input_tensor.shape != expected_shape:
-            raise ValueError(
-                f"Input shape {input_tensor.shape} does not match engine expected shape {expected_shape}"
-            )
+        # pinned memory
+        self.host_input = cuda.pagelocked_empty(self.input_size, self.input_dtype)
+        self.host_output = cuda.pagelocked_empty(self.output_size, self.output_dtype)
 
-        # 2. Host -> Device
-        np.copyto(self.host_inputs[0], input_tensor.ravel())
-        cuda.memcpy_htod_async(self.device_inputs[0], self.host_inputs[0], self.stream)
+        self.output_view = self.host_output.reshape(self.output_shape)
 
-        # 3. 设置 tensor 地址（静态引擎只需设一次，但每次 inference 前设也无妨）
-        self.context.set_tensor_address(self.input_name, int(self.device_inputs[0]))
-        self.context.set_tensor_address(self.output_name, int(self.device_outputs[0]))
+        # device memory
+        self.device_input = cuda.mem_alloc(self.host_input.nbytes)
+        self.device_output = cuda.mem_alloc(self.host_output.nbytes)
 
-        # 4. 执行推理
+        # bind
+        self.context.set_tensor_address(self.input_name, int(self.device_input))
+        self.context.set_tensor_address(self.output_name, int(self.device_output))
+
+    def infer(self, frame_uint8: np.ndarray):
+
+        # 1. 保证 contiguous
+        frame_uint8 = np.ascontiguousarray(frame_uint8)
+
+        # 2. dtype 检查
+        assert frame_uint8.dtype == self.input_dtype
+
+        # 3. shape 检查
+        if frame_uint8.ndim == 3:
+            assert frame_uint8.shape == self.input_shape[1:]
+        else:
+            assert frame_uint8.shape == self.input_shape
+
+        # 4. H2D
+        cuda.memcpy_htod_async(
+            self.device_input,
+            frame_uint8,
+            self.stream
+        )
+
+        # 5. inference
         self.context.execute_async_v3(self.stream.handle)
 
-        # 5. Device -> Host
-        cuda.memcpy_dtoh_async(self.host_outputs[0], self.device_outputs[0], self.stream)
+        # 6. D2H
+        cuda.memcpy_dtoh_async(
+            self.host_output,
+            self.device_output,
+            self.stream
+        )
+
+        # 7. sync
         self.stream.synchronize()
 
-        # 6. 重塑输出 shape
-        output_shape = tuple(self.engine.get_tensor_shape(self.output_name))
-        return self.host_outputs[0].reshape(output_shape)
+        return self.host_output

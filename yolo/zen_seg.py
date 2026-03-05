@@ -207,7 +207,7 @@ class ZenohSegScan:
         except Exception:
             return time.time()
     
-    # 输出统一为bgr
+    # 输出统一为rgb
     def decode_ros2_image(self, payload, default_shape=(480, 640, 3)):
         # 关键修复 1: 确保进入函数的是 bytes 类型，或者是支持切片的视图
         if hasattr(payload, 'to_bytes'):
@@ -219,6 +219,7 @@ class ZenohSegScan:
     
         stamp = time.time()
         frame = None
+        # frame统一为RGB
         def save_image(decode_type, max_files=50):
             # --- 3. 保存验证 ---
             if frame is None:
@@ -238,7 +239,7 @@ class ZenohSegScan:
                     pass
             # 3. 执行保存
             filename = f"{debug_dir}/frame_{int(time.time()*1000)}_{decode_type}.jpg"
-            cv2.imwrite(filename, frame)
+            cv2.imwrite(filename, frame[:, :, ::-1])
         # print(f"✅ 已保存验证图片: {filename}")
         
         # --- 2. 尝试 raw Image ---
@@ -255,7 +256,7 @@ class ZenohSegScan:
                 if len(raw_data) >= num_pixels:
                     frame = raw_data[-num_pixels:].reshape(default_shape)
                     # 默认为RGB
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                     stamp = self.get_accurate_stamp(payload)
                     # save_image('rgb')
                     return frame, stamp
@@ -272,13 +273,14 @@ class ZenohSegScan:
         if idx != -1:
             # 找到了 JPEG 开头，说明是压缩图像
             try:
-                stamp = self.get_accurate_stamp(payload)
                 # 解码 JPEG
                 jpeg_data = payload[idx:]
                 nparr = np.frombuffer(jpeg_data, np.uint8)
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                # save_image('compressed')
                 if frame is not None:
+                    frame = frame[:, :, ::-1]   # BGR -> RGB
+                    stamp = self.get_accurate_stamp(payload)
+                    # save_image('compressed')
                     return frame, stamp
             except Exception as e:
                 print(f"⚠ jpeg Image reshape 失败: {e}")
