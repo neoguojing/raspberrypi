@@ -443,6 +443,11 @@ class Explorer(Node):
             self.failed_goals[self.current_goal] = time.time()
         # 1. 停止 Nav2 任务
         self.cancel_goal()
+
+        # 关键修复：重置进度监控，给自救留出时间
+        self.last_pose = None 
+        self.last_progress_time = self.get_clock().now().nanoseconds / 1e9
+        
         # 2. 直接发布速度指令（阻塞式或定时器式）
         # 这里为了简单演示用循环，实际建议用定时器
         self.drive_manually_non_blocking(vx=-0.1, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
@@ -452,13 +457,18 @@ class Explorer(Node):
         """
         判断小车是否真的在移动
         """
-
         now = self.get_clock().now().nanoseconds / 1e9
+
+        # 修复：如果没有任务，或者任务刚刚开始（不到5秒），不判定为卡死
+        if not self.goal_handle or (now - self.goal_start_time < 5.0):
+            self.last_progress_time = now # 重置计时，防止误判
+            return True
+        
         # 1. 获取机器人当前的位姿 (x, y, yaw)
         current_pose = self.get_robot_pose()
         if current_pose is None:
             self.get_logger().error("无法获取位姿，放弃后退自救")
-            return
+            return True
         curr_x, curr_y, _ = current_pose
 
         if self.last_pose is None:
