@@ -116,23 +116,20 @@ def generate_launch_description():
 
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
-        "Vis/FeatureType": "1",       # SIFT
-        "Vis/MaxFeatures": "2000",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
+        "Vis/FeatureType": "2",       # ORB
+        "Vis/MaxFeatures": "1200",  # 双目可以适当增加特征数量
+        "Vis/MinInliers": "30",     # 增加闭环检测的鲁棒性
+        "Kp/DetectorStrategy": "2",
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
         "Optimizer/Slam2D": "true",
-
-        "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
-        "Kp/DetectorStrategy": "1", #detector + descriptor SIFT
-        "Kp/IncrementalDictionary": "false", #关闭在线词袋
         
         
         # 双目匹配参数
-        "Stereo/MinDisparity": "0",
-        "Stereo/MaxDisparity": "128", # 根据相机基线和场景深度调整
+        "Stereo/MinDisparity": "3",
+        "Stereo/MaxDisparity": "200", # 根据相机基线和场景深度调整
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
-        "StereoBM/UniquenessRatio": "20",
+        "StereoBM/UniquenessRatio": "25",
 
         "Odom/Strategy": "1", # 强制使用外部里程计（如果你已经有EKF了）
         "Odom/ResetCountdown": "0",  # 禁止 odom reset
@@ -142,10 +139,10 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
 
         # 回环后不整体平移地图
-        "RGBD/OptimizeMaxError": "3.0",
+        "RGBD/OptimizeMaxError": "8.0",
         "RGBD/OptimizeFromGraphEnd": "true",
-        "RGBD/LinearUpdate": "0.15",
-        "RGBD/AngularUpdate": "0.05",
+        "RGBD/LinearUpdate": "0.3",
+        "RGBD/AngularUpdate": "0.1",
         "RGBD/NeighborLinkRefining": "true",
         "RGBD/ProximityBySpace": "true",
         "RGBD/ProximityMaxGraphDepth": "50",

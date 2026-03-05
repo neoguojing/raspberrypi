@@ -63,6 +63,9 @@ def generate_launch_description():
                     ],
                 ),
                 # --- 视差图生成 (双目匹配) ---
+                # 时间戳校验
+                # 极线约束校验:特征在同一行
+                # 视差一致性校验
                 ComposableNode(
                     package='stereo_image_proc',
                     plugin='stereo_image_proc::DisparityNode',
