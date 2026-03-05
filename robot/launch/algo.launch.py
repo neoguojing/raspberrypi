@@ -180,7 +180,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         *declare_args,
-        image_proc_launch,
         efk_launch,
         orbslam3_mono,
         orbslam3_stereo,
@@ -192,4 +191,5 @@ def generate_launch_description():
         nv2_launch,
         nv2_stereo_launch,
         explore_launch,
+        image_proc_launch,
     ])

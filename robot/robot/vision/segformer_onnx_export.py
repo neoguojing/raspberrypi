@@ -13,11 +13,13 @@ class WrappedSegformer(nn.Module):
         self.register_buffer("std", torch.tensor([58.395, 57.12, 57.375]).view(1, 3, 1, 1))
         self.input_h, self.input_w = input_h, input_w
         self.infer_h, self.infer_w = infer_h, infer_w
+        
+        self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
 
     def forward(self, x):
         # --- 1. 前处理 (GPU 完成) ---
-        # x: 输入 (1, 1232, 1640, 3) uint8, 格式已经是 RGB
-        x = x.permute(0, 3, 1, 2).contiguous().float()
+        # x: 输入 (1, 1232, 1640, 3) float32, 格式已经是 RGB
+        x = x.permute(0, 3, 1, 2).contiguous()
         x = nn.functional.interpolate(x, size=(self.infer_h, self.infer_w), mode='bilinear',align_corners=False)
         x = (x - self.mean) / self.std
         # --- 2. 推理 ---
@@ -28,9 +30,10 @@ class WrappedSegformer(nn.Module):
         logits_full = nn.functional.interpolate(logits, size=(self.input_h, self.input_w), mode='bilinear',align_corners=False)
         
         # B. ArgMax 得到类别 (替代你的 np.argmax)
-        pred_map = torch.argmax(logits_full, dim=1).to(torch.int32)
-        
-        return pred_map # 直接返回 (1, 1232, 1640)
+        # pred_map = torch.argmax(logits_full, dim=1).to(torch.int32)
+        selected_logits = logits_full[:, self.ground_classes, :, :]  # (1, N, H, W)
+        ground_score = torch.max(selected_logits, dim=1, keepdim=True).values  # (1, 1, H, W)
+        return ground_score
     
 def make_onnx_filename(model_name_or_path: str, opset: int) -> str:
     """
@@ -89,7 +92,7 @@ def export_segformer_to_onnx(
     wrapped_model.eval()
 
     # 定义 dummy 入参: (1, 1232, 1640, 3) uint8
-    dummy_input = torch.randint(0, 255, (1, 1232, 1640, 3), device=device, dtype=torch.uint8)
+    dummy_input = torch.randint(0, 255, (1, 1232, 1640, 3), device=device, dtype=torch.float32)
     
     output_path = os.path.join(os.path.dirname(output_path), make_onnx_filename("segformer_b2", opset))
 
@@ -113,7 +116,7 @@ def export_segformer_to_onnx(
         opset_version=opset,
         do_constant_folding=True,
         input_names=['input_uint8'],
-        output_names=['output_mask'],
+        output_names=["logits", "pred_map"],  # ← 显式命名
         verbose=False,
         dynamic_axes={
             'input_uint8': {0: 'batch', 1: 'height', 2: 'width'},

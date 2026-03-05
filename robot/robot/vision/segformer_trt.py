@@ -30,16 +30,42 @@ class SegFormerTRTDetector:
 
     # 输入统一为RGB
     def _predict_probs(self, frame_rgb):
-        # frame_rgb: 已经是 RGB 格式的 (1232, 1640, 3) uint8 数组
-    
+        H, W = frame_rgb.shape[:2]
+        TARGET_H, TARGET_W = 1232, 1640
+
+        # 1. Resize only if needed
+        if H != TARGET_H or W != TARGET_W:
+            frame_processed = cv2.resize(frame_rgb, (TARGET_W, TARGET_H), interpolation=cv2.INTER_LINEAR)
+        else:
+            frame_processed = frame_rgb  # avoid copy if possible
+
+        # 2. Convert to float32 [0, 255]
+        if frame_processed.dtype != np.float32:
+            frame_float = frame_processed.astype(np.float32)
+        else:
+            frame_float = frame_processed
+
+        # 3. Add batch dim only if input is 3D
+        if frame_float.ndim == 3:
+            frame_input = np.expand_dims(frame_float, axis=0)  # (1, H, W, C)
+        elif frame_float.ndim == 4:
+            frame_input = frame_float
+        else:
+            raise ValueError(f"Unsupported input ndim: {frame_float.ndim}")
+
+        # 4. Safety check (optional but recommended during debug)
+        expected_shape = (1, TARGET_H, TARGET_W, 3)
+        if frame_input.shape != expected_shape:
+            raise ValueError(f"Input shape {frame_input.shape} does not match expected {expected_shape}")
+
         # 1. 零前处理推理 (6-8ms)
         # 内部已经包含了所有的 Resize, Norm, Argmax 和插值放大
-        pred_map = self.trt_engine.infer(frame_rgb)[0]
-        # 3. 后处理：仅剩查表 (约 1ms)
-        # 此时 pred_map 已经是 (1232, 1640) 尺寸了
-        ground_mask = self.lut[pred_map.astype(np.uint8)]
-    
-        return ground_mask, pred_map
+        print(f"🔍 [Debug] 输入推理的图像尺寸: {frame_input.shape} dtype: {frame_input.dtype}")
+        t0 = time.perf_counter()
+        ground_logits_combined = self.trt_engine.infer(frame_input)[0]
+        print(f"⏱️ 推理耗时: {(time.perf_counter() - t0) * 1000:.2f} ms")
+        
+        return ground_logits_combined
 
     def _extract_boundary_points(self, ground_mask, step_x=10):
         h, w = ground_mask.shape
@@ -68,11 +94,10 @@ class SegFormerTRTDetector:
     def _inference(self, frame):
         h_orig, w_orig = frame.shape[:2]
         
-        ground_logits_small, pred_map_small = self._predict_probs(frame)
-        
+        ground_logits_small = self._predict_probs(frame)
         # 1. 处理分类图
-        pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
-        self.print_detected_categories(pred_map) # 调试时开启
+        # pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+        # self.print_detected_categories(pred_map) # 调试时开启
 
         # 2. 处理地面概率 (Logits)
         ground_prob = cv2.resize(ground_logits_small, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
@@ -159,7 +184,7 @@ if __name__ == "__main__":
         
         start_time = time.time()
         # 获取点位和可视化结果
-        points, vis = detector.get_ground_contact_points(frame, render=False)
+        points, vis = detector.get_ground_contact_points(frame, render=True)
         end_time = time.time()
 
         print(f"⏱️ 推理总耗时: {(end_time - start_time)*1000:.2f} ms")

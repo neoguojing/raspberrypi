@@ -1,60 +1,58 @@
+import os
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.actions import IncludeLaunchDescription,DeclareLaunchArgument
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration,PythonExpression
 from launch.conditions import IfCondition
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
 
 def generate_launch_description():
-    # 1. 声明参数
-    sensor_mode_arg = DeclareLaunchArgument(
-        'sensor_mode',
-        default_value='stereo',
-        description='mono | stereo | laser'
+    # --- 1. 路径与参数定义 ---
+    pkg_path = get_package_share_directory("robot")
+    
+    sensor_mode = LaunchConfiguration('sensor_mode')
+    slam_backend = LaunchConfiguration('slam_backend')
+
+    sim_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'sim.launch.py')),
+        condition=IfCondition(
+            PythonExpression([
+                "'", sensor_mode, "' in ['laser', 'mono']"
+            ])
+        )
     )
 
-    sensor_mode = LaunchConfiguration('sensor_mode')
-
-    # 2. 定义条件判断：是否为双目模式
-    # 当 sensor_mode == 'stereo' 时，这个表达式返回 'True' (字符串)
-    is_stereo = PythonExpression(["'", sensor_mode, "' == 'stereo'"])
-
-    container = ComposableNodeContainer(
-        name='image_proc_container',
-        namespace='',
-        package='rclcpp_components',
-        executable='component_container',
-        composable_node_descriptions=[
-            # 第一个节点：单目或双目左目 (始终启动)
-            ComposableNode(
-                package='image_proc',
-                plugin='image_proc::RectifyNode',
-                name='rectify_node_left',
-                # 假设单目使用 'camera/image_raw'，双目左目也用同样的或自定义
-                remappings=[
-                    ('image_raw', 'left/image_raw'),
-                    ('camera_info', 'left/camera_info'),
-                    ('image_rect', 'left/image_rect')
-                ],
-            ),
-            
-            # 第二个节点：仅在 stereo 模式下启动
-            ComposableNode(
-                package='image_proc',
-                plugin='image_proc::RectifyNode',
-                name='rectify_node_right',
-                condition=IfCondition(is_stereo), # 核心控制逻辑
-                remappings=[
-                    ('image_raw', 'right/image_raw'),
-                    ('camera_info', 'right/camera_info'),
-                    ('image_rect', 'right/image_rect')
-                ],
-            ),
-        ],
-        output='screen',
+    sim_stereo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'sim.stereo.launch.py')),
+        condition=IfCondition(
+            PythonExpression([
+                "'", sensor_mode, "' == 'stereo'"
+            ])
+        )
+    )
+    
+    algo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'algo.launch.py')),
+        launch_arguments={
+            'use_sim_time': 'true',
+            'compressed': 'false',
+            'sensor_mode': sensor_mode,
+            'slam_backend': slam_backend
+        }.items()
     )
 
     return LaunchDescription([
-        sensor_mode_arg,
-        container
+        DeclareLaunchArgument(
+            'slam_backend',
+            default_value='rtabmap',
+            description='orbslam3 | rtabmap | slam_toolbox'
+        ),
+        DeclareLaunchArgument(
+            'sensor_mode',
+            default_value='stereo',
+            description='mono | stereo | laser'
+        ),
+        sim_launch,
+        sim_stereo_launch,
+        algo_launch
     ])

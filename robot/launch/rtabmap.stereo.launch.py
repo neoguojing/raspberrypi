@@ -117,15 +117,15 @@ def generate_launch_description():
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "1",       # SIFT
-        "Vis/MaxFeatures": "2000",  # 双目可以适当增加特征数量
+        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
         "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
         "Optimizer/Slam2D": "true",
 
-        "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
+        # "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
         "Kp/DetectorStrategy": "1", #detector + descriptor SIFT
-        "Kp/IncrementalDictionary": "false", #关闭在线词袋
+        "Kp/IncrementalDictionary": "true", #关闭在线词袋
         
         
         # 双目匹配参数
