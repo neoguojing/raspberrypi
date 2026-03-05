@@ -34,7 +34,14 @@ def generate_launch_description():
     ]
 
     common_args = {'use_sim_time': use_sim_time}.items()
-
+    # 图像去畸变
+    image_proc_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'image_proc.launch.py')),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'sensor_mode': sensor_mode
+        }.items()
+    )
 
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
@@ -173,6 +180,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         *declare_args,
+        image_proc_launch,
         efk_launch,
         orbslam3_mono,
         orbslam3_stereo,
