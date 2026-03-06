@@ -58,8 +58,10 @@ def generate_launch_description():
         "subscribe_stereo": False,
         "subscribe_scan": True,
         "subscribe_odom_info": False,  # EKF / wheel odom
-        "subscribe_imu": False,
+        "subscribe_imu": True,
         "subscribe_scan_cloud": False,
+        "wait_imu_to_init": False,
+
 
         "Mem/UseOdomFeatures": "false",
         "Vis/FeatureType": "0",
@@ -149,7 +151,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('localization', default_value='false'),
         DeclareLaunchArgument('subscribe_scan', default_value='true'),
-        DeclareLaunchArgument('subscribe_imu', default_value='false'),
+        DeclareLaunchArgument('subscribe_imu', default_value='true'),
         DeclareLaunchArgument('depth', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
 
@@ -169,6 +171,8 @@ def generate_launch_description():
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
         DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
+        DeclareLaunchArgument('imu_topic', default_value='/imu/data_raw'),
+
 
         republish_rgb,
         rtabmap_slam,

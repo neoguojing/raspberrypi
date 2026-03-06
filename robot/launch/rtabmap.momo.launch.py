@@ -60,6 +60,7 @@ def generate_launch_description():
         "subscribe_scan": LaunchConfiguration('subscribe_scan'),
         "subscribe_odom_info": False,  # EKF / wheel odom
         "subscribe_imu": LaunchConfiguration('subscribe_imu'),
+        "wait_imu_to_init": False,
 
         # 地图参数
         "Grid/Sensor": "0",           # 0=Laser Scan, 1=Depth, 2=Both
@@ -181,7 +182,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('localization', default_value='false'),
         DeclareLaunchArgument('subscribe_scan', default_value='true'),
-        DeclareLaunchArgument('subscribe_imu', default_value='false'),
+        DeclareLaunchArgument('subscribe_imu', default_value='true'),
         DeclareLaunchArgument('depth', default_value='false'),
         DeclareLaunchArgument('compressed', default_value='false'),
 
