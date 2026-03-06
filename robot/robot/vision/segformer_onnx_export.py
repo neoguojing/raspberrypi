@@ -1,8 +1,9 @@
-import torch
 import argparse
-from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
 import os
+
+import torch
 import torch.nn as nn
+from transformers import SegformerForSemanticSegmentation
 
 class WrappedSegformer(nn.Module):
     def __init__(self, base_model, input_h=1232, input_w=1640, infer_h=512, infer_w=512):
@@ -15,6 +16,11 @@ class WrappedSegformer(nn.Module):
         self.infer_h, self.infer_w = infer_h, infer_w
         
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
+
+        all_classes = set(range(base_model.config.num_labels))
+        non_ground_classes = sorted(all_classes.difference(self.ground_classes))
+        self.register_buffer("ground_idx", torch.tensor(self.ground_classes, dtype=torch.long))
+        self.register_buffer("non_ground_idx", torch.tensor(non_ground_classes, dtype=torch.long))
 
     def forward(self, x):
         # --- 1. 前处理 (GPU 完成) ---
@@ -31,9 +37,12 @@ class WrappedSegformer(nn.Module):
         
         # B. ArgMax 得到类别 (替代你的 np.argmax)
         # pred_map = torch.argmax(logits_full, dim=1).to(torch.int32)
-        selected_logits = logits_full[:, self.ground_classes, :, :]  # (1, N, H, W)
-        ground_score = torch.max(selected_logits, dim=1, keepdim=True).values  # (1, 1, H, W)
-        return ground_score
+        ground_max = logits_full.index_select(1, self.ground_idx).amax(dim=1, keepdim=True)
+        non_ground_max = logits_full.index_select(1, self.non_ground_idx).amax(dim=1, keepdim=True)
+
+        # 输出“地面对非地面的优势分数”，阈值 0 等价于「最终类别是否属于 ground_classes」
+        ground_margin = ground_max - non_ground_max
+        return ground_margin
     
 def make_onnx_filename(model_name_or_path: str, opset: int) -> str:
     """
@@ -94,7 +103,8 @@ def export_segformer_to_onnx(
     # 定义 dummy 入参: (1, 1232, 1640, 3) uint8
     dummy_input = torch.randint(0, 255, (1, 1232, 1640, 3), device=device, dtype=torch.float32)
     
-    output_path = os.path.join(os.path.dirname(output_path), make_onnx_filename("segformer_b2", opset))
+    output_dir = os.path.dirname(output_path) or "."
+    output_path = os.path.join(output_dir, make_onnx_filename("segformer_b2", opset))
 
     # 2. 获取输入尺寸（默认模型大小）
     # processor = SegformerImageProcessor.from_pretrained(model_name_or_path)
@@ -116,11 +126,11 @@ def export_segformer_to_onnx(
         opset_version=opset,
         do_constant_folding=True,
         input_names=['input_uint8'],
-        output_names=["logits", "pred_map"],  # ← 显式命名
+        output_names=["ground_margin"],
         verbose=False,
         dynamic_axes={
             'input_uint8': {0: 'batch', 1: 'height', 2: 'width'},
-            'output_mask': {0: 'batch', 1: 'height', 2: 'width'}
+            'ground_margin': {0: 'batch', 2: 'height', 3: 'width'}
         }if dynamic_axes else None
     )
 
