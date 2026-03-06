@@ -1,21 +1,22 @@
-import numpy as np
-import cv2
 import os
 import time
+
+import cv2
+import numpy as np
+
 from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
-    def __init__(self, engine_path="models/segformer_b2.engine", alpha=0.7, conf_threshold=0.25):
+    def __init__(self, engine_path="models/segformer_b2.engine", alpha=0.7, conf_threshold=0.0, debug=False):
         self.id2label = {}
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
         self.alpha = alpha
         self.conf_threshold = conf_threshold
         self.ema_ground_prob = None
+        self.debug = debug
         self.trt_engine = TRTEngine(engine_path)
 
-        # 提前准备好 LUT，避免在推理循环中重复创建
-        self.lut = np.zeros(256, dtype=np.uint8)
-        self.lut[self.ground_classes] = 255  # 地面类设为 255 (白色)
+        self.kernel = np.ones((5, 5), np.uint8)
 
     def print_detected_categories(self, pred_map):
         unique_ids = np.unique(pred_map)
@@ -60,12 +61,13 @@ class SegFormerTRTDetector:
 
         # 1. 零前处理推理 (6-8ms)
         # 内部已经包含了所有的 Resize, Norm, Argmax 和插值放大
-        print(f"🔍 [Debug] 输入推理的图像尺寸: {frame_input.shape} dtype: {frame_input.dtype}")
         t0 = time.perf_counter()
-        ground_logits_combined = self.trt_engine.infer(frame_input)[0]
-        print(f"⏱️ 推理耗时: {(time.perf_counter() - t0) * 1000:.2f} ms")
-        
-        return ground_logits_combined
+        ground_margin = self.trt_engine.infer(frame_input)[0, 0]
+        if self.debug:
+            print(f"🔍 [Debug] 输入推理的图像尺寸: {frame_input.shape} dtype: {frame_input.dtype}")
+            print(f"⏱️ 推理耗时: {(time.perf_counter() - t0) * 1000:.2f} ms")
+
+        return ground_margin
 
     def _extract_boundary_points(self, ground_mask, step_x=10):
         h, w = ground_mask.shape
@@ -94,27 +96,23 @@ class SegFormerTRTDetector:
     def _inference(self, frame):
         h_orig, w_orig = frame.shape[:2]
         
-        ground_logits_small = self._predict_probs(frame)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        ground_margin_small = self._predict_probs(frame_rgb)
         # 1. 处理分类图
         # pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
         # self.print_detected_categories(pred_map) # 调试时开启
 
         # 2. 处理地面概率 (Logits)
-        ground_prob = cv2.resize(ground_logits_small, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+        ground_margin = cv2.resize(ground_margin_small, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
 
         # 3. EMA 
         if self.ema_ground_prob is None:
-            self.ema_ground_prob = ground_prob
+            self.ema_ground_prob = ground_margin
         else:
-            self.ema_ground_prob = self.alpha * self.ema_ground_prob + (1 - self.alpha) * ground_prob
+            self.ema_ground_prob = self.alpha * self.ema_ground_prob + (1 - self.alpha) * ground_margin
 
-        # 4. 生成 Mask (根据 Logit 阈值，通常 SegFormer Logit 阈值需根据实验调整)
-        # 如果模型输出了 Softmax，阈值用 0.25；如果是原始 Logit，阈值可能是 0 左右
         _, ground_mask = cv2.threshold(self.ema_ground_prob, self.conf_threshold, 255, cv2.THRESH_BINARY)
-        
-        # 形态学操作
-        kernel = np.ones((5, 5), np.uint8)
-        ground_mask = cv2.morphologyEx(ground_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+        ground_mask = cv2.morphologyEx(ground_mask.astype(np.uint8), cv2.MORPH_CLOSE, self.kernel)
         
         # 转回 0/1 格式供后续提取点位使用
         return (ground_mask > 0).astype(np.uint8)
@@ -130,13 +128,16 @@ class SegFormerTRTDetector:
     def get_ground_contact_points(self, frame, render=False):
         t0 = time.perf_counter()
         mask = self._inference(frame)
-        print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
+        if self.debug:
+            print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
         t1 = time.perf_counter()
         points = self._extract_boundary_points(mask)
-        print(f"[Timing] Boundary extraction: {(time.perf_counter() - t1) * 1000:.2f} ms")
+        if self.debug:
+            print(f"[Timing] Boundary extraction: {(time.perf_counter() - t1) * 1000:.2f} ms")
         t2 = time.perf_counter()
         vis = self.save_sample_image(frame, mask, points) if render else None
-        print(f"[Timing] Rendering: {(time.perf_counter() - t2) * 1000:.2f} ms")
+        if self.debug:
+            print(f"[Timing] Rendering: {(time.perf_counter() - t2) * 1000:.2f} ms")
         return points, vis
 
     def save_sample_image(self, frame, mask, points, folder="samples", max_count=10, interval_seconds=10):
@@ -175,7 +176,7 @@ if __name__ == "__main__":
         print(f"❌ 找不到测试图片: {IMAGE_PATH}")
     else:
         # 初始化（单图验证时 alpha 设为 0，因为不需要时间平滑）
-        detector = SegFormerTRTDetector(ENGINE_PATH, alpha=0.0, conf_threshold=0.5)
+        detector = SegFormerTRTDetector(ENGINE_PATH, alpha=0.0, conf_threshold=0.0, debug=True)
         detector.id2label = ADE_LABELS
 
         # --- 3. 执行验证 ---
