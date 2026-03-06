@@ -117,23 +117,24 @@ def generate_launch_description():
 
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
-        "Vis/FeatureType": "1",       # SIFT
-        "Vis/MaxFeatures": "2000",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "45",     # 增加闭环检测的鲁棒性
+        "Vis/FeatureType": "2",       # 1 SIFT 2 ORB
+        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
+        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
 
         "Optimizer/Slam2D": "true",
         "Optimizer/Robust": "true",       # 开启鲁棒核函数，自动忽略离群的回环约束
+        "Optimizer/Strategy": "1",     # 0=, 1=G2O, 2=GTSAM（更稳定但稍慢）
 
         # "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
-        "Kp/DetectorStrategy": "1", #detector + descriptor SIFT
+        "Kp/DetectorStrategy": "2", #detector + descriptor SIFT  2 ORB
         "Kp/IncrementalDictionary": "true", #关闭在线词袋
         
         
         # 双目匹配参数
         "Stereo/MinDisparity": "0",
-        "Stereo/MaxDisparity": "128", # 根据相机基线和场景深度调整
+        "Stereo/MaxDisparity": "192", # 根据相机基线和场景深度调整
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
         "StereoBM/UniquenessRatio": "20",
 
@@ -151,7 +152,7 @@ def generate_launch_description():
         "RGBD/AngularUpdate": "0.1",
         "RGBD/NeighborLinkRefining": "true",
         "RGBD/ProximityBySpace": "true",
-        "RGBD/ProximityMaxGraphDepth": "0", # 设为 0 表示不限制深度，充分利用 PC 内存搜索全局
+        "RGBD/ProximityMaxGraphDepth": "20", # 设为 0 表示不限制深度，充分利用 PC 内存搜索全局
         "RGBD/ProximityPathMaxNeighbors": "10",
 
         # 限制 map 更新频率
