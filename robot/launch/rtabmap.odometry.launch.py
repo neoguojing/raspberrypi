@@ -94,9 +94,25 @@ def generate_launch_description():
             'use_sim_time': use_sim_time,
             'frame_id': frame_id,
             'odom_frame_id': odom_frame_id,
-            'publish_tf': False,
-            'Reg/Force3DoF': True,
-            'Icp/MaxCorrespondenceDistance': 0.15,
+            'publish_tf': 'false',
+            # 策略与算法
+            "Icp/Strategy": "1",               # 0=点到点, 1=点到面 (推荐)
+            "Icp/PointToPlane": "true",        # 配合 Strategy 1
+            "Icp/Iterations": "100",           # 高算力支持多次迭代以求极致精度
+            "Icp/VoxelSize": "0.05",           # 下采样去噪，5cm 足够
+            "Icp/MaxCorrespondenceDistance": "0.15", # 匹配搜索半径
+            
+            # 运动补偿
+            "Odom/GuessMotion": "true",        # 开启运动预测，显著降低丢帧概率
+            "Odom/Strategy": "0",              # 0=Frame-to-Map (通常更稳), 1=Frame-to-Frame
+            
+            # 鲁棒性
+            "Icp/CorrespondenceRatio": "0.15", # 至少 15% 的点匹配上才算成功
+            "Icp/OutlierRatio": "0.85",        # 剔除离群点的比例
+            
+            # 硬件优化
+            "Odom/ScanKeyFrameThr": "0.9",     # 当新帧与关键帧重叠度低于 90% 时更新参考帧
+            "Reg/Force3DoF": "true",           # Ackermann 机器人强制 2D 匹配 (锁定 Z/Roll/Pitch)
         }],
         remappings=[
             ('scan', scan_topic),
