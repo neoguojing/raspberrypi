@@ -24,8 +24,9 @@ class WrappedSegformer(nn.Module):
 
     def forward(self, x):
         # --- 1. 前处理 (GPU 完成) ---
-        # x: 输入 (1, 1232, 1640, 3) float32, 格式已经是 RGB
-        x = x.permute(0, 3, 1, 2).contiguous()
+        # x: 输入 NHWC RGB, shape=(N,H,W,3), 数值范围 [0,255]
+        # 为统一导出/运行时格式，内部统一转为 float32 再归一化
+        x = x.to(torch.float32).permute(0, 3, 1, 2).contiguous()
         x = nn.functional.interpolate(x, size=(self.infer_h, self.infer_w), mode='bilinear',align_corners=False)
         x = (x - self.mean) / self.std
         # --- 2. 推理 ---
@@ -100,8 +101,8 @@ def export_segformer_to_onnx(
     wrapped_model = WrappedSegformer(model).to(device)
     wrapped_model.eval()
 
-    # 定义 dummy 入参: (1, 1232, 1640, 3) uint8
-    dummy_input = torch.randint(0, 255, (1, 1232, 1640, 3), device=device, dtype=torch.float32)
+    # 定义统一 dummy 入参: NHWC RGB float32, 范围 [0,255]
+    dummy_input = torch.zeros((1, 1232, 1640, 3), device=device, dtype=torch.float32)
     
     output_dir = os.path.dirname(output_path) or "."
     output_path = os.path.join(output_dir, make_onnx_filename("segformer_b2", opset))
@@ -125,11 +126,11 @@ def export_segformer_to_onnx(
         export_params=True,
         opset_version=opset,
         do_constant_folding=True,
-        input_names=['input_uint8'],
+        input_names=['input_rgb'],
         output_names=["ground_margin"],
         verbose=False,
         dynamic_axes={
-            'input_uint8': {0: 'batch', 1: 'height', 2: 'width'},
+            'input_rgb': {0: 'batch', 1: 'height', 2: 'width'},
             'ground_margin': {0: 'batch', 2: 'height', 3: 'width'}
         }if dynamic_axes else None
     )
