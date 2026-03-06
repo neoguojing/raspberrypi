@@ -6,6 +6,8 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 
+# https://github.com/magicleap/SuperGluePretrainedNetwork/tree/master/models/weights
+
 def generate_launch_description():
     # --- 环境变量设置：确保 Python 能找到 RTAB-Map 的 CNN 脚本 ---
     # 通常脚本位于 rtabmap 源码或安装路径的特定目录下
@@ -119,8 +121,8 @@ def generate_launch_description():
         DeclareLaunchArgument('subscribe_imu', default_value='true'),
 
         # 权重文件路径 (务必修改为真实路径)
-        DeclareLaunchArgument('superpoint_model', default_value='/home/user/weights/superpoint.pt'),
-        DeclareLaunchArgument('superglue_script', default_value='/home/user/rtabmap/corelib/src/python/SuperGlue.py'),
+        DeclareLaunchArgument('superpoint_model', default_value='/home/user/models/superpoint_v1.pth'),
+        DeclareLaunchArgument('superglue_script', default_value='/home/user/rtabmap/corelib/src/python/SuperGlue.py rtabmap_superglue.py'),
 
         # Topic 设置
         DeclareLaunchArgument('left_image_topic', default_value='/camera/left/image_rect'),
