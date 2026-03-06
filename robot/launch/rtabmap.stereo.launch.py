@@ -117,11 +117,13 @@ def generate_launch_description():
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "1",       # SIFT
-        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
+        "Vis/MaxFeatures": "2000",  # 双目可以适当增加特征数量
+        "Vis/MinInliers": "45",     # 增加闭环检测的鲁棒性
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
+
         "Optimizer/Slam2D": "true",
+        "Optimizer/Robust": "true",       # 开启鲁棒核函数，自动忽略离群的回环约束
 
         # "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
         "Kp/DetectorStrategy": "1", #detector + descriptor SIFT
@@ -142,16 +144,17 @@ def generate_launch_description():
         "Mem/InitWMWithAllNodes": "false",
 
         # 回环后不整体平移地图
-        "RGBD/OptimizeMaxError": "3.0",
+        "RGBD/OptimizeMaxError": "1.0",
         "RGBD/OptimizeFromGraphEnd": "true",
-        "RGBD/LinearUpdate": "0.15",
-        "RGBD/AngularUpdate": "0.05",
+        "RGBD/LinearUpdate": "0.3",
+        "RGBD/AngularUpdate": "0.1",
         "RGBD/NeighborLinkRefining": "true",
         "RGBD/ProximityBySpace": "true",
-        "RGBD/ProximityMaxGraphDepth": "50",
+        "RGBD/ProximityMaxGraphDepth": "0", # 设为 0 表示不限制深度，充分利用 PC 内存搜索全局
+        "RGBD/ProximityPathMaxNeighbors": "10",
 
         # 限制 map 更新频率
-        "Rtabmap/DetectionRate": "1",
+        "Rtabmap/DetectionRate": "2",
         "Rtabmap/TimeThr": "0",
     }
 
