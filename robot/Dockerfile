@@ -15,7 +15,6 @@ RUN apt-get update && \
     libcap-dev \
     python3-lgpio \
     v4l-utils \
-
     meson \
     ninja-build \
     
@@ -155,8 +154,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     zenoh-bridge-ros2dds || true \
     #用于支持rtabmap的压缩图片订阅
-    ros-jazzy-image-transport-plugins && \ 
-    ros-jazzy-stereo-image-proc && \
+    ros-jazzy-image-transport-plugins \ 
+    ros-jazzy-stereo-image-proc \
     ros-jazzy-image-proc && \
     rm -rf /var/lib/apt/lists/*
 
