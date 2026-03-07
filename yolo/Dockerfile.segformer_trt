@@ -21,7 +21,9 @@ RUN apt-get update && apt-get install -y \
 # 注意：该镜像已自带 tensorrt, numpy, cuda-python
 RUN pip install --no-cache-dir \
     eclipse-zenoh \
-    opencv-python-headless
+    opencv-python-headless \
+    'numpy<2'\
+    && rm -rf /root/.cache/pip
 
 # =========================================================
 # 工作目录与代码部署

@@ -157,7 +157,7 @@ RUN apt-get update && \
     #用于支持rtabmap的压缩图片订阅
     ros-jazzy-image-transport-plugins && \ 
     ros-jazzy-stereo-image-proc && \
-    ros-jazzyt-image-proc && \
+    ros-jazzy-image-proc && \
     rm -rf /var/lib/apt/lists/*
 
 RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir eclipse-zenoh
