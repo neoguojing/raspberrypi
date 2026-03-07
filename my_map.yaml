@@ -1,7 +1,7 @@
 image: my_map.png
 mode: trinary
 resolution: 0.050
-origin: [-40.097, -6.115, 0]
+origin: [-1.601, -12.834, 0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.196

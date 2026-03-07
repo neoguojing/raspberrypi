@@ -118,14 +118,14 @@ def generate_launch_description():
         # 视觉特征与闭环
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # 1 SIFT 2 ORB
-        "Vis/MaxFeatures": "1000",  # 双目可以适当增加特征数量
+        "Vis/MaxFeatures": "1500",  # 双目可以适当增加特征数量
         "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
 
         "Optimizer/Slam2D": "true",
         "Optimizer/Robust": "true",       # 开启鲁棒核函数，自动忽略离群的回环约束
-        "Optimizer/Strategy": "1",     # 0=, 1=G2O, 2=GTSAM（更稳定但稍慢）
+        "Optimizer/Strategy": "2",     # 0=, 1=G2O, 2=GTSAM（更稳定但稍慢）
 
         # "Kp/DictionaryPath": "/home/ros_user/ORB_SLAM3/Vocabulary/ORBvoc.txt",   #外挂词袋
         "Kp/DetectorStrategy": "2", #detector + descriptor SIFT  2 ORB

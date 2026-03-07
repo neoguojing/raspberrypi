@@ -40,9 +40,6 @@ class Explorer(Node):
         self.last_progress_time = 0.0
         self.stuck_threshold_dist = 0.05  # 5厘米
         self.stuck_threshold_time = 10.0   # 10秒
-        # 【新增】自救后的冷却时间（秒），防止刚救完又误判
-        self.recovery_cooldown_time = 15.0 
-        self.last_recovery_time = 0.0 # 记录上次自救的时间
 
         # ---- 状态 ----
         self.map = None
@@ -371,9 +368,7 @@ class Explorer(Node):
 
     def execute_hard_recovery(self):
         self.get_logger().error("🚨 检测到物理卡死！启动强制底层脱困...")
-        
-        self.last_recovery_time = time.time()
-        self.get_logger().info(f"🛡️ 进入自救冷却期 {self.recovery_cooldown_time} 秒")
+
         # 3. 记录该区域为失败区域，短时间内不再尝试
         if self.current_goal:
             self.failed_goals[self.current_goal] = time.time()
@@ -394,14 +389,6 @@ class Explorer(Node):
         判断小车是否真的在移动
         """
         now = self.get_clock().now().nanoseconds / 1e9
-        
-        current_time_sec = time.time() # 用于简单的秒级比较
-        # --- [修复点 1] 检查冷却期 ---
-        if current_time_sec - self.last_recovery_time < self.recovery_cooldown_time:
-            # 如果刚自救过，直接认为“正常”，跳过卡死检测
-            # 顺便重置进度计时器，防止冷却期结束后瞬间误判
-            self.last_progress_time = now 
-            return True 
 
         # 修复：如果没有任务，或者任务刚刚开始（不到5秒），不判定为卡死
         if not self.goal_handle or (now - self.goal_start_time < 5.0):
