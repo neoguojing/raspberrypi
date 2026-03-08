@@ -41,7 +41,7 @@ def generate_launch_description():
                         'approx_sync': True,             # 开启近似同步，容忍左右目微小时间差        
                     }],
                     remappings=[
-                        ('image_raw', '/camera/image_raw'),
+                        ('image', '/camera/image_raw'),
                         ('camera_info', '/camera/camera_info'),
                         ('image_rect', '/camera/image_rect')
                     ],
@@ -57,7 +57,7 @@ def generate_launch_description():
                         'approx_sync': True,             # 开启近似同步，容忍左右目微小时间差        
                     }],
                     remappings=[
-                        ('image_raw', '/camera/right/image_raw'),
+                        ('image', '/camera/right/image_raw'),
                         ('camera_info', '/camera/right/camera_info'),
                         ('image_rect', '/camera/right/image_rect')
                     ],
@@ -74,14 +74,24 @@ def generate_launch_description():
                     # DisparityNode 通常也需要 queue_size 来同步左右目图像
                     parameters=[{
                         'queue_size': queue_size,
-                        'approx_sync': True,             # 开启近似同步，容忍左右目微小时间差        
+                        'approx_sync': True,             # 开启近似同步
+                        'use_system_default_qos': False, # 建议显式关闭，使用自定义 QoS 以防传感器数据丢失
+                        # 可选：调整视差计算参数
+                        # 'stereo_algorithm': 1,          # 0: BM, 1: SGBM (通常 SGBM 效果更好但更慢)
+                        # 'prefilter_size': 9,
+                        # 'correlation_window_size': 9,
                     }],
                     remappings=[
-                        ('/camera/image_rect', '/camera/image_rect'),
-                        ('/camera/right/image_rect', '/camera/right/image_rect'),
-                        ('/camera/camera_info', '/camera/camera_info'),
-                        ('/camera/right/camera_info', '/camera/right/camera_info'),
-                        ('disparity', 'disparity')
+                        # 【关键修正】将全局话题映射到节点内部的相对话题名
+                        # DisparityNode 默认监听 "left/image_rect" 和 "right/image_rect"
+                        ('left/image_rect', '/camera/image_rect'),           # 左目：节点内名字 -> 全局实际话题
+                        ('right/image_rect', '/camera/right/image_rect'),    # 右目：节点内名字 -> 全局实际话题
+                        
+                        ('left/camera_info', '/camera/camera_info'),         # 左目内参
+                        ('right/camera_info', '/camera/right/camera_info'),  # 右目内参
+                        
+                        # 输出话题重映射 (可选，保持默认 'disparity' 也可以)
+                        ('disparity', '/stereo/disparity'),                  # 输出到全局话题 /stereo/disparity
                     ],
                 )
             ],
