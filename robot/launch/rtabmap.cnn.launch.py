@@ -125,13 +125,13 @@ def generate_launch_description():
         DeclareLaunchArgument('superglue_script', default_value='/home/user/rtabmap/corelib/src/python/SuperGlue.py rtabmap_superglue.py'),
 
         # Topic 设置
-        DeclareLaunchArgument('left_image_topic', default_value='/camera/left/image_rect'),
-        DeclareLaunchArgument('right_image_topic', default_value='/camera/right/image_rect'),
+        DeclareLaunchArgument('left_image_topic', default_value='/camera/left/image_raw'),
+        DeclareLaunchArgument('right_image_topic', default_value='/camera/right/image_raw'),
         DeclareLaunchArgument('left_camera_info_topic', default_value='/camera/left/camera_info'),
         DeclareLaunchArgument('right_camera_info_topic', default_value='/camera/right/camera_info'),
         
-        DeclareLaunchArgument('rgb_topic', default_value='/camera/rgb/image_rect'),
-        DeclareLaunchArgument('depth_topic', default_value='/camera/depth/image_rect'),
+        DeclareLaunchArgument('rgb_topic', default_value='/camera/rgb/image_raw'),
+        DeclareLaunchArgument('depth_topic', default_value='/camera/depth/image_raw'),
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/rgb/camera_info'),
 
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),

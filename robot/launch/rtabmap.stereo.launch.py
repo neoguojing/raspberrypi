@@ -227,8 +227,8 @@ def generate_launch_description():
         DeclareLaunchArgument('publish_tf_map', default_value='true'),
 
         # 双目 Topic 设置 (根据你的相机驱动修改)
-        DeclareLaunchArgument('left_image_topic', default_value='/camera/image_rect'),
-        DeclareLaunchArgument('right_image_topic', default_value='/camera/right/image_rect'),
+        DeclareLaunchArgument('left_image_topic', default_value='/camera/image_raw'),
+        DeclareLaunchArgument('right_image_topic', default_value='/camera/right/image_raw'),
         DeclareLaunchArgument('left_camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('right_camera_info_topic', default_value='/camera/right/camera_info'),
         

@@ -197,7 +197,7 @@ def generate_launch_description():
         # -------------------
         # Topic 设置
         # -------------------
-        DeclareLaunchArgument('rgb_topic', default_value='/camera/image_rect'),
+        DeclareLaunchArgument('rgb_topic', default_value='/camera/image_raw'),
         DeclareLaunchArgument('camera_info_topic', default_value='/camera/camera_info'),
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),

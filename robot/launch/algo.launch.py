@@ -191,5 +191,5 @@ def generate_launch_description():
         nv2_launch,
         nv2_stereo_launch,
         explore_launch,
-        image_proc_launch,
+        # image_proc_launch,
     ])
