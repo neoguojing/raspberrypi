@@ -172,7 +172,7 @@ def generate_launch_description():
             ("scan", LaunchConfiguration('scan_topic'))
         ],
         arguments=[
-            '--delete_db_on_start',
+            # '--delete_db_on_start',
             '--ros-args',
             '--log-level', 'warn'
         ],
@@ -197,7 +197,7 @@ def generate_launch_description():
             ("scan", LaunchConfiguration('scan_topic'))
         ],
         arguments=[
-            '--delete_db_on_start',
+            # '--delete_db_on_start',
             '--ros-args',
             '--log-level', 'warn'
         ],

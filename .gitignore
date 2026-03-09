@@ -185,3 +185,4 @@ cython_debug/
 photo.jpg
 rtabmap_mono_test/metadata.yaml
 rtabmap_mono_test/rtabmap_mono_test_0.mcap
+rtabmap_stereo.db

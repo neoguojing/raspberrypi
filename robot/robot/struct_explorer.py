@@ -381,7 +381,7 @@ class Explorer(Node):
 
         # 2. 直接发布速度指令（阻塞式或定时器式）
         # 这里为了简单演示用循环，实际建议用定时器
-        self.drive_manually_non_blocking(vx=-0.1, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
+        self.drive_manually_non_blocking(vx=-0.1,wz=0.5, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
         
 
     def check_motion_status(self):
@@ -426,9 +426,14 @@ class Explorer(Node):
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
         # 如果已有定时器正在运行，先清理
-        if self.recovery_timer:
+        if self.recovery_timer is not None and not self.recovery_timer.is_canceled():
+            self.get_logger().warn("⚠️ 自救正在进行中，忽略新的运动请求")
             return
 
+        if wz != 0.0:
+            import random 
+            wz = random.choice([wz, -wz])
+            
         start_time = self.get_clock().now()
         end_time = start_time + Duration(seconds=duration)
         
@@ -440,9 +445,10 @@ class Explorer(Node):
                 self.cmd_vel_pub.publish(msg)
             else:
                 self.cmd_vel_pub.publish(Twist()) # 停止
-                self.recovery_timer.cancel()
-                self.destroy_timer(self.recovery_timer)
-                self.recovery_timer = None
+                if self.recovery_timer:
+                    self.recovery_timer.cancel()
+                    self.destroy_timer(self.recovery_timer)
+                    self.recovery_timer = None
                 self.get_logger().info("✅ 自救完成")
                 self.reset_state() # 统一重置
                 
@@ -538,6 +544,7 @@ class Explorer(Node):
             self.get_logger().error("❌ 导航中止（可能撞墙或规划失败）")
             if self.current_goal:
                 self.failed_goals[self.current_goal] = time.time()
+            self.execute_hard_recovery()
 
         elif status == GoalStatus.STATUS_CANCELED:
             # 💡 重要：抢占导致的任务取消不计入失败
@@ -721,6 +728,8 @@ class Sequence(BTNode):
 ##################################### condition #################################################
 class ConditionIsStuck(BTNode):
     def tick(self):
+        if self.ctx.recovery_timer:
+            return NodeStatus.FAILURE
         # 询问躯体：是否满足物理卡死阈值；通过一定时间内的位移判断
         return NodeStatus.SUCCESS if not self.ctx.check_motion_status() else NodeStatus.FAILURE
 

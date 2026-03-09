@@ -71,6 +71,7 @@ def generate_launch_description():
         "publish_tf": LaunchConfiguration('publish_tf_map'),
         "approx_sync": True,  # 双目通常需要近似同步
         "queue_size": 30,
+        "database_path": "/home/ros_user/ros2_ws/rtabmap_stereo.db", # 双目模式使用独立数据库，避免与单目模式冲突
 
         # --- 核心切换：开启双目订阅 ---
         "subscribe_rgb": False,        # 双目模式下关闭普通 RGB 订阅

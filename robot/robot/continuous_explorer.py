@@ -451,8 +451,8 @@ class Explorer(Node):
         
         # 2. 直接发布速度指令（阻塞式或定时器式）
         # 这里为了简单演示用循环，实际建议用定时器
-        self.drive_manually_non_blocking(vx=-0.1, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
-        
+        self.drive_manually_non_blocking(vx=-0.1, wz=0.5, duration=5.0) # 后退 2 秒，速度 -0.1 m/s
+
 
     def check_motion_status(self):
         """
@@ -499,6 +499,10 @@ class Explorer(Node):
         if self.recovery_timer:
             return
 
+        if wz != 0.0:
+            import random 
+            wz = random.choice([wz, -wz])
+            
         start_time = self.get_clock().now()
         end_time = start_time + Duration(seconds=duration)
         
