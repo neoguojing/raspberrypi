@@ -152,7 +152,8 @@ class Explorer(Node):
             # 1. 检查物理停滞 (Stuck)
             moving = self.check_motion_status()
             # 2. 检查总耗时超时 (你的原逻辑: 60s)
-            is_timeout = (time.time() - self.goal_start_time > 60.0)
+            now = self.get_clock().now().nanoseconds / 1e9
+            is_timeout = (now - self.goal_start_time > 60.0)
 
             if not moving or is_timeout:
                 reason = "停滞" if not moving else "超时"
@@ -525,7 +526,8 @@ class Explorer(Node):
             return
         self.state = RobotState.NAVIGATING
 
-        self.goal_start_time = time.time() # 记录开始时间
+        self.goal_start_time = self.get_clock().now().nanoseconds / 1e9
+        self.last_progress_time = self.goal_start_time # 同时也刷新移动计时
         # # 1. 获取当前位姿，用于计算“指向目标”的角度
         # current_pose = self.get_robot_pose()
         

@@ -37,7 +37,7 @@ class Explorer(Node):
 
         # 监控进度用的状态变量
         self.last_pose = None
-        self.last_progress_time = 0.0
+        self.last_progress_time = self.get_clock().now().nanoseconds / 1e9
         self.stuck_threshold_dist = 0.05  # 5厘米
         self.stuck_threshold_time = 10.0   # 10秒
 
@@ -474,7 +474,8 @@ class Explorer(Node):
     def send_goal(self, pos, need_yaw= False):
         self.get_logger().info(f"[NAV] send goal {pos}")
 
-        self.goal_start_time = time.time() # 记录开始时间
+        self.goal_start_time = self.get_clock().now().nanoseconds / 1e9
+        self.last_progress_time = self.goal_start_time # 同时也刷新移动计时
 
         ps = PoseStamped()
         ps.header.frame_id = 'map'
@@ -731,9 +732,10 @@ class ConditionIsRecovering(BTNode):
 class ConditionIsExploreTimeout(BTNode):
     def tick(self):
         # 询问躯体：是否执行超时
+        now = self.ctx.get_clock().now().nanoseconds / 1e9
         return NodeStatus.SUCCESS if (
             self.ctx.goal_start_time  and 
-            (time.time() - self.ctx.goal_start_time > 60.0)
+            (now - self.ctx.goal_start_time > 60.0)
         ) else NodeStatus.FAILURE
         
 class ConditionIsExploring(BTNode):
