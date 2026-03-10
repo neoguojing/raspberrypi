@@ -43,6 +43,18 @@ def generate_launch_description():
         }.items()
     )
 
+    visual_odm_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.odometry.launch.py')),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+        }.items(),
+        condition=IfCondition(
+            PythonExpression([
+                "'", sensor_mode, "' != 'stereo'"
+            ])
+        )
+    )
+
     # 包含 efk 节点
     efk_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'ekf.launch.py')),
@@ -181,6 +193,7 @@ def generate_launch_description():
     return LaunchDescription([
         *declare_args,
         efk_launch,
+        visual_odm_launch,
         orbslam3_mono,
         orbslam3_stereo,
         seg_launch,
