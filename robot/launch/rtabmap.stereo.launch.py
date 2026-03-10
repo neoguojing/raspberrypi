@@ -86,9 +86,9 @@ def generate_launch_description():
         "Grid/RayTracing": "true",  
         "Grid/FromDepth": "true", # 如果有激光雷达，设为 false；若想用双目点云建图，设为 true
         "Grid/MinDepth": "0.3",  # 过滤掉 0.1 米以内的所有数据，直接无视盲区噪点
-        "Grid/MaxDepth": "3.0",  # 远距离太虚的数据也不要
+        "Grid/MaxDepth": "5.0",  # 远距离太虚的数据也不要
         "Grid/RangeMin": "0.3",
-        "Grid/RangeMax": "3.0",  # 不要看太远，减少点云密度
+        "Grid/RangeMax": "5.0",  # 不要看太远，减少点云密度
         "Grid/CellSize": "0.05",
         "Grid/MinGroundHeight": "-0.3",
         "Grid/MaxGroundHeight": "0.2", # 调整地面高度阈值，适应不同机器人底盘高度
@@ -98,7 +98,7 @@ def generate_launch_description():
         "Grid/MaxGroundAngle": "30.0",
         "Grid/NormalsSegmentation": "false", # 关闭法线分割，节省计算
         "Grid/ClusterRadius": "0.1",   # 较小的聚类半径
-        "Grid/MinClusterSize": "200",    # 忽略掉孤立的小簇点（降噪的同时提速）
+        "Grid/MinClusterSize": "50",    # 忽略掉孤立的小簇点（降噪的同时提速）
         "Grid/FlatObstacleDetected": "false", # 针对平整地面障碍的特殊检测方案
         "Grid/GroundIsObstacle": "false",
         # 4. 清理无效障碍（超重要）
@@ -120,7 +120,7 @@ def generate_launch_description():
         "Vis/EstimationType": "0",    # 1=Stereo (双目特征估计)
         "Vis/FeatureType": "2",       # 1 SIFT 2 ORB
         "Vis/MaxFeatures": "1500",  # 双目可以适当增加特征数量
-        "Vis/MinInliers": "20",     # 增加闭环检测的鲁棒性
+        "Vis/MinInliers": "15",     # 增加闭环检测的鲁棒性
         "Reg/Strategy": "0",          # 0=Visual, 1=ICP, 2=Visual+ICP
         "Reg/Force3DoF": "true",
 
@@ -135,7 +135,7 @@ def generate_launch_description():
         
         # 双目匹配参数
         "Stereo/MinDisparity": "0",
-        "Stereo/MaxDisparity": "192", # 根据相机基线和场景深度调整
+        "Stereo/MaxDisparity": "256", # 根据相机基线和场景深度调整
         "Stereo/OpticalFlow": "false", # false 则使用特征匹配，true 则使用光流
         "StereoBM/UniquenessRatio": "20",
 

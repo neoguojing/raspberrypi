@@ -425,33 +425,44 @@ class Explorer(Node):
     # ================= Navigation =================
 
     def drive_manually_non_blocking(self, vx, wz=0.0, duration=1.5):
-        # 如果已有定时器正在运行，先清理
-        if self.recovery_timer is not None and not self.recovery_timer.is_canceled():
-            self.get_logger().warn("⚠️ 自救正在进行中，忽略新的运动请求")
-            return
+        """
+        极简 S 型撤退：左打死后退 -> 右打死后退 -> 停止
+        """
+        import random
+        if self.recovery_timer:
+            return # 已经在跑了，别烦我
 
-        if wz != 0.0:
-            import random 
-            wz = random.choice([wz, -wz])
-            
+        self.cancel_goal() # 停掉 Nav2 任务
+        
+        # 局部变量控制
         start_time = self.get_clock().now()
-        end_time = start_time + Duration(seconds=duration)
+        side = 1.0 if random.random() > 0.5 else -1.0 # 随机选个方向开始
         
         def timer_callback():
-            if self.get_clock().now() < end_time:
-                msg = Twist()
+            elapsed = (self.get_clock().now() - start_time).nanoseconds / 1e9
+            msg = Twist()
+            
+            if elapsed < duration:
+                # 第一段：打死方向后退
                 msg.linear.x = vx
-                msg.angular.z = wz
-                self.cmd_vel_pub.publish(msg)
+                msg.angular.z = wz * side
+            elif elapsed < duration * 2:
+                # 第二段：反向打死后退
+                msg.linear.x = vx
+                msg.angular.z = -wz * side
             else:
-                self.cmd_vel_pub.publish(Twist()) # 停止
-                if self.recovery_timer:
-                    self.recovery_timer.cancel()
-                    self.destroy_timer(self.recovery_timer)
-                    self.recovery_timer = None
-                self.get_logger().info("✅ 自救完成")
-                self.reset_state() # 统一重置
-                
+                # 结束：清理现场
+                self.cmd_vel_pub.publish(Twist()) 
+                self.recovery_timer.cancel()
+                self.destroy_timer(self.recovery_timer)
+                self.recovery_timer = None
+                self.get_logger().info("✅ 自救序列结束")
+                self.reset_state() # 重置导航句柄，让逻辑重回找点
+                return
+
+            self.cmd_vel_pub.publish(msg)
+
+        # 10Hz 频率执行
         self.recovery_timer = self.create_timer(0.1, timer_callback)
 
     def do_explore(self):
