@@ -41,7 +41,8 @@ services:
   # ======================================================
   yolo:
     # image: guojingneo/yolo_zenoh:pi5
-    image: guojingneo/seg_zenoh:pi5
+    # image: guojingneo/seg_zenoh:pi5
+    image: guojingneo/tensor_engine:pi5
     container_name: yolo_zenoh
     network_mode: host
     restart: unless-stopped

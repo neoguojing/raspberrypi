@@ -49,7 +49,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'sensor_mode',
-            default_value='stereo',
+            default_value='laser',
             description='mono | stereo | laser'
         ),
         sim_launch,

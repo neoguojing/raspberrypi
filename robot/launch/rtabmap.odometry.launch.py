@@ -12,7 +12,7 @@ def generate_launch_description():
     # Launch args
     # -------------------
     use_sim_time = LaunchConfiguration('use_sim_time')
-    odom_mode = LaunchConfiguration('odom_mode')  # stereo | rgbd | icp
+    sensor_mode = LaunchConfiguration('sensor_mode')  # stereo | rgbd | icp
 
     frame_id = LaunchConfiguration('frame_id')
     odom_frame_id = LaunchConfiguration('odom_frame_id')
@@ -36,7 +36,7 @@ def generate_launch_description():
         package='rtabmap_odom',
         executable='stereo_odometry',
         name='stereo_odometry',
-        condition=IfCondition(PythonExpression([odom_mode, " == 'stereo'"])),
+        condition=IfCondition(PythonExpression(["'", sensor_mode, "' == 'stereo'"])),
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
@@ -62,7 +62,7 @@ def generate_launch_description():
         package='rtabmap_odom',
         executable='rgbd_odometry',
         name='rgbd_odometry',
-        condition=IfCondition(PythonExpression([odom_mode, " == 'rgbd'"])),
+        condition=IfCondition(PythonExpression(["'", sensor_mode, "' == 'rgbd'"])),
 
         output='screen',
         parameters=[{
@@ -87,14 +87,14 @@ def generate_launch_description():
         package='rtabmap_odom',
         executable='icp_odometry',
         name='rtabmap_odometry',
-        condition=IfCondition(PythonExpression([odom_mode, " == 'icp'"])),
+        condition=IfCondition(PythonExpression(["'", sensor_mode, "' == 'laser'"])),
 
         output='screen',
         parameters=[{
             'use_sim_time': use_sim_time,
             'frame_id': frame_id,
             'odom_frame_id': odom_frame_id,
-            'publish_tf': 'false',
+            'publish_tf': False,
             # 策略与算法
             "Icp/Strategy": "1",               # 0=点到点, 1=点到面 (推荐)
             "Icp/PointToPlane": "true",        # 配合 Strategy 1
@@ -123,7 +123,7 @@ def generate_launch_description():
     return LaunchDescription([
 
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('odom_mode', default_value='icp'),
+        DeclareLaunchArgument('sensor_mode', default_value='laser'),  # stereo | rgbd | icp
 
         DeclareLaunchArgument('frame_id', default_value='base_footprint'),
         DeclareLaunchArgument('odom_frame_id', default_value='odom'),

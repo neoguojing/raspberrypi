@@ -10,8 +10,7 @@ import struct
 import os
 import glob
 import threading
-# from robot.robot.vision.detector import SegDetector # 假设你的 SegDetector 已经改造为 ONNX
-from robot.robot.vision.segformer import SegFormerDetector 
+
 import queue
 
 class ZenohSegScan:
@@ -39,10 +38,6 @@ class ZenohSegScan:
         # 加载相机内参
         self.load_sensor_config(config_path)
 
-        # 初始化检测器
-        # self.detector = SegDetector(conf=0.05)
-        self.detector = SegFormerDetector()
-        
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
         config = zenoh.Config()
@@ -112,17 +107,28 @@ class ZenohSegScan:
 
     # ---------------- Inference Thread ----------------
     def inference_loop(self):
+        # 初始化检测器
+        # self.detector = SegDetector(conf=0.05)
+        # from robot.robot.vision.segformer import SegFormerDetector 
+        # self.detector = SegFormerDetector()
+        
+        from robot.robot.vision.segformer_trt import SegFormerTRTDetector 
+        self.detector = SegFormerTRTDetector(debug=True)
         while True:
             try:
                 with self.latest_sample_lock:
                     sample = self.latest_sample
                     self.latest_sample = None  # optional, 防止重复处理
-
+                    
+                if sample is None:
+                    time.sleep(0.01)
+                    continue
+                
                 payload_bytes = sample.payload.to_bytes()
                 frame, stamp = self.decode_ros2_image(payload_bytes, default_shape=(self.height, self.width, 3))
                 if frame is None:
                     return                # 推理
-                uv_points, _ = self.detector.get_ground_contact_points(frame, render=False)
+                uv_points, _ = self.detector.get_ground_contact_points(frame, render=True)
                 # 入队推理结果
                 if self.inference_queue.full():
                     try:
@@ -134,7 +140,7 @@ class ZenohSegScan:
                 time.sleep(0.001)
             except Exception as e:
                 print(f"Inference 错误: {e}")
-                time.sleep(0.001)
+                time.sleep(0.1)
 
     def processing_loop(self):
         """Zenoh 订阅回调"""

@@ -7,7 +7,7 @@ import numpy as np
 from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
-    def __init__(self, engine_path="models/segformer_b2.engine", alpha=0.7, conf_threshold=0.0, debug=False):
+    def __init__(self, engine_path="models/segformer_b2_torch2.9.0_cu126_opset18.engine", alpha=0.7, conf_threshold=0.5, debug=False):
         self.id2label = {}
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
         self.alpha = alpha
@@ -79,17 +79,21 @@ class SegFormerTRTDetector:
         
         # 情况 A: 寻找跳变点 (0 -> 1)
         diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
-        ys, xs = np.where(diff == -1)
+        ys, xs = np.where(diff == 1)  # 从地面(1)跳变到非地面(0)
+        
         for y, x in zip(ys, xs):
+            # ✅ 关键修正：边界点应在地面结束行的下一行 (y+1)
             if y + 1 < res_y[x]:
                 res_y[x] = y + 1
         
-        # 情况 B: 纠正“全列皆地面”的情况
-        # 如果第一行(y=0)就是地面，且该列还没找到跳变点，说明地面一直延伸到地平线
-        top_row = sampled[0, :]
+        # 处理“全列都是地面”的情况：没有跳变点，说明地面一直延伸到顶部
+        # 此时应设为一个合理的地平线高度，比如 h * 0.3
         for x in range(sampled_w):
-            if top_row[x] == 1 and res_y[x] == h - 1:
-                res_y[x] = 0  # 或者设为一个合理的地平线高度，如 h*0.3
+            if res_y[x] == h - 1:  # 未找到跳变点
+                # 检查是否整列都是地面
+                if np.all(sampled[:, x] == 1):
+                    res_y[x] = max(0, int(h * 0.3))  # 地平线假设在 30% 高度
+                # 否则保留为 h-1（底部）
         
         return [(float(x * step_x), float(res_y[x])) for x in range(sampled_w)]
 
@@ -111,11 +115,23 @@ class SegFormerTRTDetector:
         else:
             self.ema_ground_prob = self.alpha * self.ema_ground_prob + (1 - self.alpha) * ground_margin
 
-        _, ground_mask = cv2.threshold(self.ema_ground_prob, self.conf_threshold, 255, cv2.THRESH_BINARY)
-        ground_mask = cv2.morphologyEx(ground_mask.astype(np.uint8), cv2.MORPH_CLOSE, self.kernel)
+        # ✅ 关键修复：正确处理阈值和归一化
+        # 不需要归一化！直接使用原始值域
+        # 因为 ground_margin = ground_max - non_ground_max ∈ [-1, 1]
+        # 我们应该在[-1,1]范围内设置阈值
+        
+        # 将用户设置的阈值从[0,1]转换为[-1,1]
+        # 例如：conf_threshold=0.5 → 0.5 * 2 - 1 = 0.0
+        threshold_value = 2 * self.conf_threshold - 1
+        
+        # 生成地面掩码 (1=地面, 0=非地面)
+        ground_mask = (self.ema_ground_prob >= threshold_value).astype(np.uint8)
+        
+        # 闭运算处理
+        ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, self.kernel)
         
         # 转回 0/1 格式供后续提取点位使用
-        return (ground_mask > 0).astype(np.uint8)
+        return ground_mask
     
     def render(self, frame, mask, points):
         vis = frame.copy()
@@ -147,6 +163,7 @@ class SegFormerTRTDetector:
             self.saved_images_count = 0
         current_time = time.time()
         if current_time - self.last_save_time >= interval_seconds:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             visual_frame = self.render(frame, mask, points)
             self.last_save_time = current_time
             save_index = (self.saved_images_count % max_count) + 1
@@ -176,7 +193,7 @@ if __name__ == "__main__":
         print(f"❌ 找不到测试图片: {IMAGE_PATH}")
     else:
         # 初始化（单图验证时 alpha 设为 0，因为不需要时间平滑）
-        detector = SegFormerTRTDetector(ENGINE_PATH, alpha=0.0, conf_threshold=0.0, debug=True)
+        detector = SegFormerTRTDetector(alpha=0.0, conf_threshold=0.0, debug=True)
         detector.id2label = ADE_LABELS
 
         # --- 3. 执行验证 ---

@@ -47,6 +47,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(pkg_path, 'launch', 'rtabmap.odometry.launch.py')),
         launch_arguments={
             'use_sim_time': use_sim_time,
+            'sensor_mode': sensor_mode
         }.items(),
         condition=IfCondition(
             PythonExpression([
@@ -204,5 +205,5 @@ def generate_launch_description():
         nv2_launch,
         nv2_stereo_launch,
         explore_launch,
-        # image_proc_launch,
+        image_proc_launch,
     ])
