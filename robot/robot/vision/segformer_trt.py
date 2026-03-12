@@ -62,14 +62,14 @@ class SegFormerTRTDetector:
         # 1. 零前处理推理 (6-8ms)
         # 内部已经包含了所有的 Resize, Norm, Argmax 和插值放大
         t0 = time.perf_counter()
-        ground_margin = self.trt_engine.infer(frame_input)[0, 0]
+        pred_map = self.trt_engine.infer(frame_input)
         if self.debug:
             print(f"🔍 [Debug] 输入推理的图像尺寸: {frame_input.shape} dtype: {frame_input.dtype}")
             print(f"⏱️ 推理耗时: {(time.perf_counter() - t0) * 1000:.2f} ms")
 
-        return ground_margin
+        return pred_map
 
-    def _extract_boundary_points(self, ground_mask, step_x=10):
+    def _extract_boundary_points(self, ground_mask, step_x=1):
         h, w = ground_mask.shape
         sampled = ground_mask[:, ::step_x]
         sampled_w = sampled.shape[1]
@@ -79,7 +79,7 @@ class SegFormerTRTDetector:
         
         # 情况 A: 寻找跳变点 (0 -> 1)
         diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
-        ys, xs = np.where(diff == 1)  # 从地面(1)跳变到非地面(0)
+        ys, xs = np.where(diff == -1)  # 从地面(1)跳变到非地面(0)
         
         for y, x in zip(ys, xs):
             # ✅ 关键修正：边界点应在地面结束行的下一行 (y+1)
@@ -101,37 +101,42 @@ class SegFormerTRTDetector:
         h_orig, w_orig = frame.shape[:2]
         
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        ground_margin_small = self._predict_probs(frame_rgb)
-        # 1. 处理分类图
-        # pred_map = cv2.resize(pred_map_small.astype(np.uint8), (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
-        # self.print_detected_categories(pred_map) # 调试时开启
-
-        # 2. 处理地面概率 (Logits)
-        ground_margin = cv2.resize(ground_margin_small, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
-
-        # 3. EMA 
-        if self.ema_ground_prob is None:
-            self.ema_ground_prob = ground_margin
+        pred_map_small = self._predict_probs(frame_rgb)  # TRT输出尺寸（如512x512或1232x1640）
+    
+        # 🔍 调试：打印尺寸
+        if self.debug:
+            print(f"🔍 pred_map_small shape: {pred_map_small.shape}, dtype: {pred_map_small.dtype}")
+            print(f"🔍 唯一类别: {np.unique(pred_map_small)}")
+        
+        # 🔧 关键修复：如果存在 Batch 维度 (ndim==3)，去掉它
+        if pred_map_small.ndim == 3 and pred_map_small.shape[0] == 1:
+            pred_map_small = pred_map_small[0]  # 变为 (1232, 1640)
+        
+        # 再次确认形状
+        current_h, current_w = pred_map_small.shape
+        
+        # 1. Resize 到原图尺寸（如果需要）
+        if current_h != h_orig or current_w != w_orig:
+            # cv2.resize 输入必须是 (H, W)，目标尺寸是 (width, height)
+            # pred_map = cv2.resize(pred_map_small, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+            pred_map = pred_map_small
         else:
-            self.ema_ground_prob = self.alpha * self.ema_ground_prob + (1 - self.alpha) * ground_margin
-
-        # ✅ 关键修复：正确处理阈值和归一化
-        # 不需要归一化！直接使用原始值域
-        # 因为 ground_margin = ground_max - non_ground_max ∈ [-1, 1]
-        # 我们应该在[-1,1]范围内设置阈值
+            pred_map = pred_map_small
         
-        # 将用户设置的阈值从[0,1]转换为[-1,1]
-        # 例如：conf_threshold=0.5 → 0.5 * 2 - 1 = 0.0
-        threshold_value = 2 * self.conf_threshold - 1
+        # 2. 打印检测到的类别（调试）
+        if self.debug:
+            self.print_detected_categories(pred_map)
         
-        # 生成地面掩码 (1=地面, 0=非地面)
-        ground_mask = (self.ema_ground_prob >= threshold_value).astype(np.uint8)
+        # 3. 根据 ground_classes 生成地面 mask
+        # 确保 ground_mask 也是 2D
+        ground_mask = np.zeros_like(pred_map, dtype=np.uint8)
+        for cls_id in self.ground_classes:
+            ground_mask[pred_map == cls_id] = 1
         
-        # 闭运算处理
+        # 4. 闭运算处理
         ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, self.kernel)
         
-        # 转回 0/1 格式供后续提取点位使用
-        return ground_mask
+        return ground_mask,(h_orig, w_orig), (current_h, current_w)
     
     def render(self, frame, mask, points):
         vis = frame.copy()
@@ -143,18 +148,25 @@ class SegFormerTRTDetector:
 
     def get_ground_contact_points(self, frame, render=False):
         t0 = time.perf_counter()
-        mask = self._inference(frame)
+        mask, (h_orig, w_orig), (h_low, w_low)  = self._inference(frame)
+        # 计算缩放比例
+        scale_x = w_orig / w_low
+        scale_y = h_orig / h_low
         if self.debug:
             print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
         t1 = time.perf_counter()
         points = self._extract_boundary_points(mask)
+        # 将坐标缩放回原图
+        points_orig = [(x * scale_x, y * scale_y) for x, y in points]
         if self.debug:
             print(f"[Timing] Boundary extraction: {(time.perf_counter() - t1) * 1000:.2f} ms")
         t2 = time.perf_counter()
-        vis = self.save_sample_image(frame, mask, points) if render else None
+        if render:
+            mask_full = cv2.resize(mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+            vis = self.save_sample_image(frame, mask_full, points_orig)
         if self.debug:
             print(f"[Timing] Rendering: {(time.perf_counter() - t2) * 1000:.2f} ms")
-        return points, vis
+        return points_orig, vis
 
     def save_sample_image(self, frame, mask, points, folder="samples", max_count=10, interval_seconds=10):
         if not hasattr(self, "last_save_time"):

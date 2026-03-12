@@ -253,9 +253,13 @@ onnx:
 	python3 -m robot.robot.vision.segformer_onnx_export
 
 trt:
-	trtexec \
-		--onnx=models/segformer_b2_torch2.9.0_cu126_opset18.onnx \
-		--saveEngine=models/segformer_b2_torch2.9.0_cu126_opset18.engine \
-		--fp16 \
-		--workspace=4096
+	docker run --gpus all \
+    --rm \
+    -v /win/raspberrypi:/workspace \
+    -w /workspace \
+    guojingneo/tensor_engine:pi5 \
+    trtexec --onnx=models/segformer_b2_torch2.9.0_cu126_opset18.onnx \
+            --saveEngine=models/segformer_b2_torch2.9.0_cu126_opset18.engine \
+            --fp16 \
+            --workspace=4096
 

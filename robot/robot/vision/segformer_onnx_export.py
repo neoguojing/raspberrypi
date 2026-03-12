@@ -34,17 +34,21 @@ class WrappedSegformer(nn.Module):
         # --- 3. 后处理 (GPU 完成) ---
         # A. 将 128x128 放大回原图 1640x1232 (替代你的最后一个 cv2.resize)
         # 这样 D2H 回传的就是原图大小的掩码
-        logits_full = nn.functional.interpolate(logits, size=(self.input_h, self.input_w), mode='bilinear',align_corners=False)
+        # logits_full = nn.functional.interpolate(logits, size=(self.input_h, self.input_w), mode='bilinear',align_corners=False)
         
-        # B. ArgMax 得到类别 (替代你的 np.argmax)
-        # pred_map = torch.argmax(logits_full, dim=1).to(torch.int32)
-        ground_max = logits_full.index_select(1, self.ground_idx).amax(dim=1, keepdim=True)
-        non_ground_max = logits_full.index_select(1, self.non_ground_idx).amax(dim=1, keepdim=True)
+        # # B. ArgMax 得到类别 (替代你的 np.argmax)
+        # # pred_map = torch.argmax(logits_full, dim=1).to(torch.int32)
+        # ground_max = logits_full.index_select(1, self.ground_idx).amax(dim=1, keepdim=True)
+        # non_ground_max = logits_full.index_select(1, self.non_ground_idx).amax(dim=1, keepdim=True)
 
-        # 输出“地面对非地面的优势分数”，阈值 0 等价于「最终类别是否属于 ground_classes」
-        ground_margin = ground_max - non_ground_max
-        return ground_margin
+        # # 输出“地面对非地面的优势分数”，阈值 0 等价于「最终类别是否属于 ground_classes」
+        # ground_margin = ground_max - non_ground_max
+        # return ground_margin
     
+        # 直接输出类别图（最可靠）
+        pred_map = torch.argmax(logits, dim=1).to(torch.int32)  # (N, H, W) 
+        return pred_map
+
 def make_onnx_filename(model_name_or_path: str, opset: int) -> str:
     """
     根据模型名、opset、设备和环境自动生成 ONNX 文件名。
@@ -127,11 +131,11 @@ def export_segformer_to_onnx(
         opset_version=opset,
         do_constant_folding=True,
         input_names=['input_rgb'],
-        output_names=["ground_margin"],
+        output_names=["pred_map"],
         verbose=False,
         dynamic_axes={
             'input_rgb': {0: 'batch', 1: 'height', 2: 'width'},
-            'ground_margin': {0: 'batch', 2: 'height', 3: 'width'}
+            'pred_map': {0: 'batch', 1: 'height', 2: 'width'}
         }if dynamic_axes else None
     )
 
