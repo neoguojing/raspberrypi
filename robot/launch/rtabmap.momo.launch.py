@@ -148,7 +148,9 @@ def generate_launch_description():
             ("rgb/camera_info", LaunchConfiguration('camera_info_topic')),
             ("odom", LaunchConfiguration('odom_topic')),
             ("map", LaunchConfiguration('map_topic')),
-            ("scan", LaunchConfiguration('scan_topic'))
+            ("scan", LaunchConfiguration('scan_topic')),
+            ("imu", LaunchConfiguration('imu_topic'))
+
         ],
     )
 
@@ -202,6 +204,8 @@ def generate_launch_description():
         DeclareLaunchArgument('odom_topic', default_value='/ekf/odom'),
         DeclareLaunchArgument('map_topic', default_value='/map'),
         DeclareLaunchArgument('scan_topic', default_value='/seg/scan'),
+        DeclareLaunchArgument('imu_topic', default_value='/imu/data_raw'),
+
 
         republish_rgb,
         rtabmap_slam,

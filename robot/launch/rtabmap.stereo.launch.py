@@ -178,7 +178,9 @@ def generate_launch_description():
             
             ("odom", LaunchConfiguration('odom_topic')),
             ("map", LaunchConfiguration('map_topic')),
-            ("scan", LaunchConfiguration('scan_topic'))
+            ("scan", LaunchConfiguration('scan_topic')),
+            ("imu", LaunchConfiguration('imu_topic'))
+
         ],
         arguments=[
             '--delete_db_on_start',

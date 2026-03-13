@@ -26,8 +26,8 @@ class ZenohSegScan:
         self.camera_pitch = math.radians(8.5)
         
         # 激光雷达模拟参数
-        self.angle_min = -math.radians(40)  # -60°
-        self.angle_max = math.radians(40)   # 60°
+        self.angle_min = -math.radians(40)  # -40°
+        self.angle_max = math.radians(40)   # 40°
         self.angle_increment = math.radians(0.5)
         self.num_readings = int(round((self.angle_max - self.angle_min) / self.angle_increment)) + 1
         self.range_min = self.camera_height / math.tan(self.camera_pitch)
