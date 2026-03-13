@@ -151,12 +151,13 @@ def test_inverse_consistency():
 
     for i, res in enumerate(results):
         X, Y = test_points[i]
+        current_uv = uvpoints[i] 
         Xp, Yp = res
         err = math.hypot(X - Xp, Y - Yp)
 
         print(
             f"GT=({X:.2f},{Y:.2f}) → "
-            f"uv={uv} → "
+            f"uv={current_uv} → "
             f"({Xp:.3f},{Yp:.3f}) | "
             f"err={err*100:.2f} cm"
         )

@@ -250,7 +250,7 @@ tf:
 
 .PHONY: onnx trt
 onnx:
-	python3 -m robot.robot.vision.segformer_onnx_export
+	pip install onnxscript && python3 -m robot.robot.vision.segformer_onnx_export
 
 trt:
 	docker run --gpus all \

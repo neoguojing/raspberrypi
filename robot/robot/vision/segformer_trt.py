@@ -7,7 +7,7 @@ import numpy as np
 from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
-    def __init__(self, engine_path="models/segformer_b2_torch2.9.0_cu126_opset18.engine", alpha=0.7, conf_threshold=0.5, debug=False):
+    def __init__(self, engine_path="models/segformer_b2_torch2.9.0_cu126_opset18.engine", alpha=0.6, conf_threshold=0.2, debug=False):
         self.id2label = {}
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
         self.alpha = alpha
@@ -16,7 +16,7 @@ class SegFormerTRTDetector:
         self.debug = debug
         self.trt_engine = TRTEngine(engine_path)
 
-        self.kernel = np.ones((5, 5), np.uint8)
+        self.kernel = np.ones((3, 3), np.uint8)
 
     def print_detected_categories(self, pred_map):
         unique_ids = np.unique(pred_map)
@@ -62,80 +62,114 @@ class SegFormerTRTDetector:
         # 1. 零前处理推理 (6-8ms)
         # 内部已经包含了所有的 Resize, Norm, Argmax 和插值放大
         t0 = time.perf_counter()
-        pred_map = self.trt_engine.infer(frame_input)
+        logits_small = self.trt_engine.infer(frame_input)
         if self.debug:
             print(f"🔍 [Debug] 输入推理的图像尺寸: {frame_input.shape} dtype: {frame_input.dtype}")
             print(f"⏱️ 推理耗时: {(time.perf_counter() - t0) * 1000:.2f} ms")
 
-        return pred_map
+        return logits_small
 
     def _extract_boundary_points(self, ground_mask, step_x=1):
+        """
+        从图像底部向上扫描，寻找地面（1）到障碍物（0）的第一个转换点。
+        """
         h, w = ground_mask.shape
+        # 按步长采样列
         sampled = ground_mask[:, ::step_x]
+        
+        # 获取采样后的宽度
         sampled_w = sampled.shape[1]
         
-        # 初始化为底部
-        res_y = np.full(sampled_w, h - 1, dtype=np.float32)
-        
-        # 情况 A: 寻找跳变点 (0 -> 1)
-        diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
-        ys, xs = np.where(diff == -1)  # 从地面(1)跳变到非地面(0)
-        
-        for y, x in zip(ys, xs):
-            # ✅ 关键修正：边界点应在地面结束行的下一行 (y+1)
-            if y + 1 < res_y[x]:
-                res_y[x] = y + 1
-        
-        # 处理“全列都是地面”的情况：没有跳变点，说明地面一直延伸到顶部
-        # 此时应设为一个合理的地平线高度，比如 h * 0.3
-        for x in range(sampled_w):
-            if res_y[x] == h - 1:  # 未找到跳变点
-                # 检查是否整列都是地面
-                if np.all(sampled[:, x] == 1):
-                    res_y[x] = max(0, int(h * 0.3))  # 地平线假设在 30% 高度
-                # 否则保留为 h-1（底部）
-        
-        return [(float(x * step_x), float(res_y[x])) for x in range(sampled_w)]
+        # 预设所有点都在顶部（表示整列都是地面，无障碍）
+        # 或者预设在底部（表示整列都是障碍），取决于你的业务逻辑
+        # 这里预设为 0，如果没有发现障碍，则认为路径延伸到无穷远
+        boundary_y = np.zeros(sampled_w)
 
+        # 核心逻辑：
+        # 我们寻找从下往上第一个 1 -> 0 的跳变
+        # 也就是在原矩阵中，上方是 0，下方是 1 的位置
+        # diff = sampled[上方] - sampled[下方]
+        diff = sampled[:-1, :].astype(np.int16) - sampled[1:, :].astype(np.int16)
+        
+        # diff == -1 表示：上面是 0 (障碍), 下面是 1 (地面) -> 这正是接触线！
+        ys, xs = np.where(diff == -1)
+
+        # 我们需要每一列中最靠下（Y值最大）的跳变点
+        # 先初始化一个较小值
+        res_y = np.full(sampled_w, 0) 
+        
+        # 因为 np.where 是按行优先扫描的（从上往下），
+        # 所以对于每一列，最后一次更新的 y 必然是该列最靠下的交界点
+        for y, x in zip(ys, xs):
+            res_y[x] = y + 1 # +1 是为了指向地面的上边缘
+
+        # 处理特殊情况：如果某一列完全没有跳变
+        # 情况 A: 全是地面 -> res_y[x] 保持为 0
+        # 情况 B: 全是障碍 -> 我们需要检测底部第一个像素是不是 0
+        bottom_row = sampled[-1, :]
+        for x in range(sampled_w):
+            if bottom_row[x] == 0: # 底部就是障碍物
+                res_y[x] = h - 1
+
+        contact_pixels = [
+            (float(x * step_x), float(res_y[x]))
+            for x in range(sampled_w)
+        ]
+        return contact_pixels
+    
     def _inference(self, frame):
         h_orig, w_orig = frame.shape[:2]
         
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pred_map_small = self._predict_probs(frame_rgb)  # TRT输出尺寸（如512x512或1232x1640）
-    
+        logits_small = self._predict_probs(frame_rgb)  # TRT输出尺寸（如512x512或1232x1640）
+        
+        if logits_small.ndim == 4:
+            if logits_small.shape[1] > 100: # 假设 Channel 在第二维 (NCHW)
+                logits_small = logits_small[0] # (C, H, W)
+            elif logits_small.shape[-1] > 100: # 假设 Channel 在最后一维 (NHWC) - 较少见用于分割头
+                logits_small = np.transpose(logits_small[0], (2, 0, 1)) # (H, W, C) -> (C, H, W)
+            else:
+                raise ValueError(f"Unexpected logits shape: {logits_small.shape}")
+        else:
+            raise ValueError(f"Logits must be 4D, got {logits_small.ndim}D")
+
+        num_classes, current_h, current_w = logits_small.shape
+
         # 🔍 调试：打印尺寸
         if self.debug:
-            print(f"🔍 pred_map_small shape: {pred_map_small.shape}, dtype: {pred_map_small.dtype}")
-            print(f"🔍 唯一类别: {np.unique(pred_map_small)}")
-        
-        # 🔧 关键修复：如果存在 Batch 维度 (ndim==3)，去掉它
-        if pred_map_small.ndim == 3 and pred_map_small.shape[0] == 1:
-            pred_map_small = pred_map_small[0]  # 变为 (1232, 1640)
-        
-        # 再次确认形状
-        current_h, current_w = pred_map_small.shape
-        
-        # 1. Resize 到原图尺寸（如果需要）
-        if current_h != h_orig or current_w != w_orig:
-            # cv2.resize 输入必须是 (H, W)，目标尺寸是 (width, height)
-            # pred_map = cv2.resize(pred_map_small, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
-            pred_map = pred_map_small
+            print(f"🔍 logits_small shape: {logits_small.shape}, dtype: {logits_small.dtype}")
+    
+        # 3. 提取地面相关类别的最大概率值
+        # 结果是一个 [H, W] 的矩阵，每个像素值代表“该点属于地面”的信心得分
+        ground_prob = logits_small[self.ground_classes].max(axis=0)
+
+        # 4. 指数移动平均 (EMA) 平滑处理
+        # 作用：过滤掉由于单帧噪点、动态模糊或快速阴影漂移引起的“检测空洞”
+        if self.ema_ground_prob is None:
+            self.ema_ground_prob = ground_prob
         else:
-            pred_map = pred_map_small
-        
-        # 2. 打印检测到的类别（调试）
-        if self.debug:
-            self.print_detected_categories(pred_map)
-        
-        # 3. 根据 ground_classes 生成地面 mask
-        # 确保 ground_mask 也是 2D
-        ground_mask = np.zeros_like(pred_map, dtype=np.uint8)
-        for cls_id in self.ground_classes:
-            ground_mask[pred_map == cls_id] = 1
-        
-        # 4. 闭运算处理
-        ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, self.kernel)
-        
+            # 这里的平滑发生在概率空间，比在 Mask (0/1) 空间平滑更加细腻
+            self.ema_ground_prob = (
+                self.alpha * self.ema_ground_prob
+                + (1 - self.alpha) * ground_prob
+            )
+
+        # ✅ 新增：对平滑后的概率图进行高斯模糊（空间平滑）
+        # 目的：消除局部噪声引起的概率抖动，防止虚假边界
+        blurred_ground_prob = cv2.GaussianBlur(
+            self.ema_ground_prob.astype(np.float32),
+            ksize=(5, 5),      # 核大小，可调（奇数）
+            sigmaX=0.8         # X方向标准差，控制模糊强度
+        )
+    
+        # 5. 二值化：只有当平滑后的地面概率超过阈值时，才判定为地面
+        ground_mask = (blurred_ground_prob > self.conf_threshold).astype(np.uint8)
+
+        # 6. 形态学闭运算 (Closing)
+        # 作用：填充地面掩码中细小的黑色空洞（如地砖缝隙、细小阴影），同时保持边缘位置准确
+        kernel = np.ones((7, 7), np.uint8)
+        ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, kernel)
+
         return ground_mask,(h_orig, w_orig), (current_h, current_w)
     
     def render(self, frame, mask, points):
@@ -156,6 +190,7 @@ class SegFormerTRTDetector:
             print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
         t1 = time.perf_counter()
         points = self._extract_boundary_points(mask)
+        # points = self._smooth_boundary_points(points)
         # 将坐标缩放回原图
         points_orig = [(x * scale_x, y * scale_y) for x, y in points]
         if self.debug:
