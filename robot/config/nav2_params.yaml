@@ -10,7 +10,7 @@ bt_navigator:
 
     odom_topic: /ekf/odom
 
-    bt_loop_duration: 10
+    bt_loop_duration: 100
     filter_duration: 0.5
     default_server_timeout: 20
     wait_for_service_timeout: 1000
@@ -39,7 +39,8 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.3
+    failure_tolerance: 1.0
+    current_goal_checker: "general_goal_checker" 
     progress_checker_plugins: ["progress_checker"]
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
@@ -49,112 +50,72 @@ controller_server:
 
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      required_movement_radius: 0.05
+      movement_time_allowance: 20.0
       
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
-      
+      xy_goal_tolerance: 0.50
+      yaw_goal_tolerance: 1.57
+    
     FollowPath:
-      plugin: "nav2_mppi_controller::MPPIController"
-      time_steps: 56
-      model_dt: 0.05  # 匹配20Hz控制频率 (1/20 = 0.05)
-      batch_size: 2000
-      ax_max: 3.0
-      ax_min: -3.0
-      ay_max: 3.0
-      az_max: 3.5
-      vx_std: 0.2
-      vy_std: 0.0
-      wz_std: 0.2
-      vx_max: 0.5
-      vx_min: -0.35
-      vy_max: 0.0
-      wz_max: 0.8
-      iteration_count: 1
-      prune_distance: 1.7
-      transform_tolerance: 0.5  # 增加变换容错性
-      temperature: 0.3
-      gamma: 0.015
-      motion_model: "Ackermann"
-      visualize: true
-      regenerate_noises: true
-      
-      AckermannConstraints:
-        min_turning_r: 0.4
-        
-      TrajectoryVisualizer:
-        trajectory_step: 5
-        time_step: 3
-        
-      critics: [
-        "ConstraintCritic", "CostCritic", "GoalCritic",
-        "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic",
-        "PathAngleCritic", "PreferForwardCritic"
-      ]
-      
-      ConstraintCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 4.0
-        
-      GoalCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 5.0
-        threshold_to_consider: 1.4
-        
-      GoalAngleCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 3.0
-        threshold_to_consider: 0.5
-        
-      PreferForwardCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 1.0
-        threshold_to_consider: 0.8
-        
-      CostCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 3.81
-        near_collision_cost: 253
-        critical_cost: 300.0
-        consider_footprint: true
-        collision_cost: 1000000.0
-        near_goal_distance: 1.0
-        trajectory_point_step: 2
-        
-      PathAlignCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 14.0
-        max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 4
-        threshold_to_consider: 0.5
-        offset_from_furthest: 20
-        use_path_orientations: false
-        
-      PathFollowCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 5.0
-        offset_from_furthest: 5
-        threshold_to_consider: 1.4
-        
-      PathAngleCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 2.0
-        offset_from_furthest: 4
-        threshold_to_consider: 0.5
-        max_angle_to_furthest: 1.0
-        mode: 0
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      max_linear_vel: 0.2
+      min_linear_vel: -0.1
+      max_angular_vel: 0.6
+      min_angular_vel: -0.6
+      max_linear_accel: 0.8
+      max_linear_decel: -0.8
+      max_angular_accel: 1.2
+      max_angular_decel: -1.2
+      lookahead_dist: 0.8
+      min_lookahead_dist: 0.3
+      max_lookahead_dist: 0.9
+      lookahead_time: 0.8
+      rotate_to_heading_angular_vel: 1.8
+      use_velocity_scaled_lookahead_dist: true
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+      use_regulated_linear_velocity_scaling: false
+      use_fixed_curvature_lookahead: false
+      curvature_lookahead_dist: 0.25
+      use_cost_regulated_linear_velocity_scaling: false
+      cost_scaling_dist: 0.3
+      cost_scaling_gain: 1.0
+      regulated_linear_scaling_min_radius: 0.5
+      regulated_linear_scaling_min_speed: 0.25
+      use_rotate_to_heading: false
+      allow_reversing: false
+      rotate_to_heading_min_angle: 0.785
+      min_distance_to_obstacle: 0.0
+      stateful: true
+      use_dynamic_window: false
+      transform_tolerance: 0.1
+  
+  # Velocity Smoother (速度平滑器):
+# 核心功能：对最终下发的 cmd_vel 进行加速度和减速度平滑，防止点击抖动或机械损坏。
+# 总结：它是**“油门/刹车缓冲器”**。
+velocity_smoother:
+  ros__parameters:
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    # --- 速度极限限制 [线速度x, 线速度y, 角速度yaw] ---
+    # 对于微型 N20 小车，0.2 m/s 是保证 SLAM 稳定的黄金速度
+    max_velocity: [0.2, 0.0, 0.6]  # 最大速度：前进 0.2m/s，阿克曼车 y 轴必为 0，最大转向 0.6rad/s
+    min_velocity: [-0.1, 0.0, -0.6] # 最小速度：支持 0.1m/s 的缓慢倒车，转向对称
+    
+    # --- 加速度限制 (防止电机打滑或电流激增) ---
+    # 将加速度限制在 0.5，可以解决你之前提到的“起步太快”和“S型震荡”问题
+    max_accel: [0.8, 0.0, 1.2]      # 线加速度：0.5m/s²；角加速度：1.0rad/s² (保证转向平稳)
+    max_decel: [-0.8, 0.0, -1.2]    # 线减速度：-0.5m/s²；角减速度：-1.0rad/s² (防止急刹车导致惯性甩尾)
+    odom_topic: "/ekf/odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
 
 # local_costmap 是机器人的近视镜。 它不关心远方，只通过 Voxel Layer 盯着周围 3 米，通过 Inflation Layer 划出警戒线，
 # 为 Controller 的实时避障提供一份带有危险分数（Cost）的小地图。
@@ -164,7 +125,7 @@ local_costmap:
       # 机器人物理轮廓：[x, y] 坐标点序列，用于精确碰撞检测
       footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       
-      update_frequency: 25.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
+      update_frequency: 20.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
       publish_frequency: 2.0   # 向 RViz 等工具发布可视化地图的频率
       global_frame: odom       # 局部地图参考系：必须用 odom 以保证局部运动的平滑性
       robot_base_frame: base_footprint
@@ -184,7 +145,7 @@ local_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
         cost_scaling_factor: 12.0    # 成本衰减因子：值越小，障碍物周围的高成本区扩散越远
-        inflation_radius: 0.15      # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
+        inflation_radius: 0.18     # 膨胀半径：机器人中心距离障碍物在此范围内会有避障成本
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -197,11 +158,12 @@ local_costmap:
           topic: /seg/scan
           sensor_frame: base_footprint
           inf_is_valid: true
-          max_obstacle_height: 0.3
+          min_obstacle_height: 0.15
+          max_obstacle_height: 0.8
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
           marking: true             # 如果射线上有击中点，则标记障碍物
           data_type: "LaserScan"
-          raytrace_max_range: 4.5   # 激光清理的最大范围
+          raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           expected_update_rate: 1.0
@@ -230,7 +192,7 @@ global_costmap:
       robot_base_frame: base_footprint
 
       resolution: 0.05
-      track_unknown_space: false # If false, treats unknown space as free space, else as unknown space.
+      track_unknown_space: true # If false, treats unknown space as free space, else as unknown space.
       unknown_cost_value: 255 
 
       # 插件配置：静态地图层 + 膨胀层
@@ -239,17 +201,19 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
+        combination_method: 1
         observation_sources: rtabmap_obstacles
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           topic: /seg/scan
           sensor_frame: base_footprint
           inf_is_valid: true
-          max_obstacle_height: 1.2
+          min_obstacle_height: 0.15
+          max_obstacle_height: 0.8
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
           marking: true             # 如果射线上有击中点，则标记障碍物
           data_type: "LaserScan"
-          raytrace_max_range: 4.5   # 激光清理的最大范围
+          raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
           observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
 
@@ -259,6 +223,7 @@ global_costmap:
         map_subscribe_transient_local: true # 确保能够接收到 late-joiner 类型的地图消息
         enabled: true
         subscribe_to_updates: true
+        combination_method: 1
         map_topic: /map
 
       # --- 膨胀层：全局规划需要更大的余量，确保生成的路径远离墙壁 ---
@@ -266,7 +231,7 @@ global_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
         cost_scaling_factor: 12.0
-        inflation_radius: 0.12
+        inflation_radius: 0.18
         inflate_unknown: false
         inflate_around_unknown: false
 
@@ -278,15 +243,45 @@ global_costmap:
 planner_server:
   ros__parameters:
     allow_partial_planning: true
-    expected_planner_frequency: 2.0
+    expected_planner_frequency: 1.0
     planner_plugins: ["GridBased"]
     costmap_update_timeout: 2.0
     introspection_mode: "contents"
+    # GridBased:
+    #   plugin: "nav2_navfn_planner::NavfnPlanner"
+    #   tolerance: 0.6
+    #   use_astar: false #开启A* 快且稳定
+    #   allow_unknown: true
+    
     GridBased:
-      plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.6
-      use_astar: true #开启A* 快且稳定
+      # ⭐ 替换为 Smac Hybrid-A*
+      plugin: "nav2_smac_planner::SmacPlannerHybrid"
+      
+      # 基础参数
+      tolerance: 0.3                     # 到达目标的容忍距离（米）
       allow_unknown: true
+      max_iterations: 1000000            # 防止无限搜索
+      max_on_approach_iterations: 1000   # 接近目标后最多迭代次数
+      
+      # ⭐⭐⭐ 关键：设置最小转弯半径（必须与 controller 一致）
+      minimum_turning_radius: 0.2        # 单位：米（例如 20cm）
+      
+      # ⭐ 运动模型：选择适合你的车辆
+      motion_model_for_search: "REEDS_SHEPP"  # 支持前进+倒车
+      # 或 "DUBIN"（仅前进，计算更快）
+      
+      # 角度离散化（360° / bins = 每档角度）
+      angle_quantization_bins: 144        # 5° 一档（72 = 360/5）
+      
+      # 路径平滑（可选，但推荐开启）
+      smooth_path: true
+      smoother:
+        max_iterations: 200
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
+        do_refinement: true
+        refinement_num: 2
 
 # Collision Monitor (碰撞监测器):
 # 核心功能：直接监听雷达数据，如果检测到障碍物即将进入机器人足迹（Footprint），立即跳过导航逻辑强制刹车。
@@ -300,27 +295,59 @@ collision_monitor:
     cmd_vel_out_topic: "cmd_vel"
     state_topic: "collision_monitor_state"
     transform_tolerance: 1.5
-    source_timeout: 5.0
+    source_timeout: 30.0
     base_shift_correction: false
     stop_pub_timeout: 2.0
     # Polygons represent zone around the robot for "stop", "slowdown" and "limit" action types,
     # and robot footprint for "approach" action type.
-    polygons: ["FootprintApproach"]
+    # polygons: ["FootprintApproach"]
+    # FootprintApproach:
+    #   type: "polygon"
+    #   action_type: "approach"
+    #   footprint_topic: "local_costmap/published_footprint"
+    #   time_before_collision: 0.5
+    #   simulation_time_step: 0.1
+    #   min_points: 12
+    #   visualize: false
+    #   enabled: true
+    polygons: ["PolygonStop", "PolygonSlow", "FootprintApproach"]
+    
+    # 1. 紧急刹车：只要障碍物离车中心 15cm 立即停车
+    PolygonStop:
+      type: "circle"
+      radius: 0.10       # 适配 9.7cm 轴距，留出约 5cm 缓冲
+      action_type: "stop"
+      min_points: 4
+      visualize: false
+      enabled: true
+
+    # 2. 预警减速：前方 40cm 有东西时，速度降为原来的 40%
+    PolygonSlow:
+      type: "polygon"
+      # 点定义：[前/后, 左/右]
+      points: "[[0.4, 0.2], [0.4, -0.2], [-0.2, -0.2], [-0.2, 0.2]]"
+      action_type: "slowdown"
+      slowdown_ratio: 0.4
+      min_points: 4
+      visualize: false
+      enabled: true
+
+    # 3. 动态轨迹预测：最推荐开启，防止阿克曼转弯撞墙
     FootprintApproach:
       type: "polygon"
       action_type: "approach"
-      footprint_topic: "local_costmap/published_footprint"
-      time_before_collision: 0.5
-      simulation_time_step: 0.1
-      min_points: 12
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.0   # 预测未来 1 秒的路径
+      simulation_time_step: 0.05
+      min_points: 6
       visualize: false
       enabled: true
     observation_sources: ["scan"]
     scan:
       type: "scan"
       topic: "/seg/scan" # ← YOLO-Seg 输出
-      min_height: 0.0
-      max_height: 2.0
+      min_height: 0.15
+      max_height: 0.8
       source_timeout: 4.0
       enabled: true
 
@@ -337,20 +364,16 @@ behavior_server:
     behavior_plugins:
       # ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
       ["spin", "backup", "wait"]
+      # ["backup", "wait"]
     spin:
       plugin: "nav2_behaviors::Spin"
       max_rotational_vel: 1.2
       min_rotational_vel: 0.6
     backup:
       plugin: "nav2_behaviors::BackUp"
-      acceleration_limit: 2.5
-      deceleration_limit: -2.5
-      minimum_speed: 0.10
-    # drive_on_heading:
-    #   plugin: "nav2_behaviors::DriveOnHeading"
-    #   acceleration_limit: 2.5
-    #   deceleration_limit: -2.5
-    #   minimum_speed: 0.10
+      acceleration_limit: 1.0
+      deceleration_limit: -1.0
+      minimum_speed: 0.02
     wait:
       plugin: "nav2_behaviors::Wait"
     # assisted_teleop:
@@ -477,22 +500,6 @@ route_server:
       plugin: "nav2_route::DistanceScorer"
     CostmapScorer:
       plugin: "nav2_route::CostmapScorer"
-# Velocity Smoother (速度平滑器):
-# 核心功能：对最终下发的 cmd_vel 进行加速度和减速度平滑，防止点击抖动或机械损坏。
-# 总结：它是**“油门/刹车缓冲器”**。
-velocity_smoother:
-  ros__parameters:
-    smoothing_frequency: 20.0
-    scale_velocities: false
-    feedback: "OPEN_LOOP"
-    max_velocity: [0.6, 0.0, 2.0]
-    min_velocity: [-0.5, 0.0, -2.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: "/ekf/odom"
-    odom_duration: 0.1
-    deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
 
 # Docking Server (自动对接):
 # 核心功能：控制机器人精准地倒车或前进进入充电座（Dock）。
