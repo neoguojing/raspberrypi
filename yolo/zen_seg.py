@@ -66,7 +66,7 @@ class ZenohSegScan:
         self.latest_sample = None
 
         self.last_valid_scan = np.full(self.num_readings, self.range_max)
-        self.scan_alpha = 0.2
+        self.scan_alpha = 0.5
         
 
         self.inference_queue = queue.Queue(maxsize=1)
@@ -182,12 +182,12 @@ class ZenohSegScan:
                                 np.minimum.at(scan_ranges, idx_shift[mask_in], dist[mask_in])
 
                 # 6. EMA 平滑
-                # if self.last_valid_scan is not None:
-                #     current_valid = np.isfinite(scan_ranges)
-                #     previous_valid = np.isfinite(self.last_valid_scan)
-                #     blend_mask = current_valid & previous_valid
-                #     scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
-                #                             (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
+                if self.last_valid_scan is not None:
+                    current_valid = np.isfinite(scan_ranges)
+                    previous_valid = np.isfinite(self.last_valid_scan)
+                    blend_mask = current_valid & previous_valid
+                    scan_ranges[blend_mask] = (self.scan_alpha * scan_ranges[blend_mask] + 
+                                            (1 - self.scan_alpha) * self.last_valid_scan[blend_mask])
 
                 # 7. 发布
                 self.last_valid_scan = scan_ranges.copy()

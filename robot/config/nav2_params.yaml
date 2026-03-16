@@ -34,7 +34,7 @@ bt_navigator:
 # 功能： 实时避障并死死贴住全局路径，每秒给电机发 20 次指令（cmd_vel）。
 controller_server:
   ros__parameters:
-    controller_frequency: 20.0 
+    controller_frequency: 10.0 
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
@@ -125,7 +125,7 @@ local_costmap:
       # 机器人物理轮廓：[x, y] 坐标点序列，用于精确碰撞检测
       footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       
-      update_frequency: 20.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
+      update_frequency: 10.0    # 代价地图更新频率（Hz），频率越高避障越灵敏
       publish_frequency: 2.0   # 向 RViz 等工具发布可视化地图的频率
       global_frame: odom       # 局部地图参考系：必须用 odom 以保证局部运动的平滑性
       robot_base_frame: base_footprint
