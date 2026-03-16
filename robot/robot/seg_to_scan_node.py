@@ -96,8 +96,19 @@ class ZenohToLaserScan(Node):
 
             # 转换 ranges 列表 (处理 JSON 序列化后的数值)
             # scan_msg.ranges = [float(r) for r in data['ranges']]
-            scan_msg.ranges = [float(r) if scan_msg.range_max > r else float('inf') for r in data['ranges']]
-            # scan_local.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max for r in data['ranges']]
+            # processed_ranges = []
+            # for r in data['ranges']:
+            #     if r is None:  # 处理 JSON 中的 null
+            #         processed_ranges.append(float('inf'))
+            #     elif r > scan_msg.range_max: # 显式处理超量程
+            #         processed_ranges.append(float('inf'))
+            #     elif r < scan_msg.range_min: # 处理过近的无效数据
+            #         processed_ranges.append(float('nan')) # 或者设为 inf 取决于你想不想清空近处
+            #     else:
+            #         processed_ranges.append(float(r))
+
+            # scan_msg.ranges = processed_ranges
+            scan_msg.ranges = [float(r) if scan_msg.range_max > r else scan_msg.range_max+1.0 for r in data['ranges']]
             
             # 发布到 ROS 2
             # self.publisher_.publish(scan_msg)

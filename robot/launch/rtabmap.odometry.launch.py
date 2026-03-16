@@ -118,6 +118,11 @@ def generate_launch_description():
             ('scan', scan_topic),
             ('odom', '/visual_odom'),
         ],
+        arguments=[
+            '--delete_db_on_start',
+            '--ros-args',
+            '--log-level', 'warn'
+        ],
     )
 
     return LaunchDescription([

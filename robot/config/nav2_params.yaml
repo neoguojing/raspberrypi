@@ -165,7 +165,7 @@ local_costmap:
           data_type: "LaserScan"
           raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           expected_update_rate: 1.0
 
       always_send_full_costmap: true
@@ -215,7 +215,7 @@ global_costmap:
           data_type: "LaserScan"
           raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
 
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:

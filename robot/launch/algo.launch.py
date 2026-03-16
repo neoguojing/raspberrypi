@@ -194,7 +194,7 @@ def generate_launch_description():
     return LaunchDescription([
         *declare_args,
         efk_launch,
-        # visual_odm_launch,
+        visual_odm_launch,
         orbslam3_mono,
         orbslam3_stereo,
         seg_launch,
