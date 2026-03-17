@@ -159,6 +159,7 @@ local_costmap:
         z_voxels: 20
         max_obstacle_height: 0.8    # 考虑的最大障碍物高度
         mark_threshold: 8           # 当列中有多少个体素被占用时，标记为障碍物
+        combination_method: 0
         
         observation_sources: rtabmap_obstacles
         rtabmap_obstacles:

@@ -67,12 +67,12 @@ controller_server:
       min_angular_vel: -0.6
       max_linear_accel: 0.8
       max_linear_decel: -0.8
-      max_angular_accel: 1.2
-      max_angular_decel: -1.2
-      lookahead_dist: 0.8
-      min_lookahead_dist: 0.3
-      max_lookahead_dist: 0.9
-      lookahead_time: 0.8
+      max_angular_accel: 1.0
+      max_angular_decel: -1.0
+      lookahead_dist: 0.2
+      min_lookahead_dist: 1.0
+      max_lookahead_dist: 2.0
+      lookahead_time: 1.5
       rotate_to_heading_angular_vel: 1.8
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.05
@@ -85,8 +85,8 @@ controller_server:
       use_cost_regulated_linear_velocity_scaling: false
       cost_scaling_dist: 0.3
       cost_scaling_gain: 1.0
-      regulated_linear_scaling_min_radius: 0.5
-      regulated_linear_scaling_min_speed: 0.25
+      regulated_linear_scaling_min_radius: 0.25
+      regulated_linear_scaling_min_speed: 0.1
       use_rotate_to_heading: false
       allow_reversing: false
       rotate_to_heading_min_angle: 0.785
@@ -110,8 +110,8 @@ velocity_smoother:
     
     # --- 加速度限制 (防止电机打滑或电流激增) ---
     # 将加速度限制在 0.5，可以解决你之前提到的“起步太快”和“S型震荡”问题
-    max_accel: [0.8, 0.0, 1.2]      # 线加速度：0.5m/s²；角加速度：1.0rad/s² (保证转向平稳)
-    max_decel: [-0.8, 0.0, -1.2]    # 线减速度：-0.5m/s²；角减速度：-1.0rad/s² (防止急刹车导致惯性甩尾)
+    max_accel: [0.8, 0.0, 1.0]      # 线加速度：0.5m/s²；角加速度：1.0rad/s² (保证转向平稳)
+    max_decel: [-0.8, 0.0, -1.0]    # 线减速度：-0.5m/s²；角减速度：-1.0rad/s² (防止急刹车导致惯性甩尾)
     odom_topic: "/ekf/odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
@@ -152,6 +152,7 @@ local_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
+        combination_method: 0
         observation_sources: scan
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
@@ -165,7 +166,7 @@ local_costmap:
           data_type: "LaserScan"
           raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
           expected_update_rate: 1.0
 
       always_send_full_costmap: true
@@ -215,7 +216,7 @@ global_costmap:
           data_type: "LaserScan"
           raytrace_max_range: 4.0   # 激光清理的最大范围
           obstacle_max_range: 3.0   # 激光标记障碍物的最大范围
-          observation_persistence: 0.3 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
+          observation_persistence: 0.0 # 观测数据的持久化时间（秒），有助于处理闪烁的障碍物
 
       # --- 静态层：直接从 RTAB-Map 或 Map_server 接收 /map 话题 ---
       static_layer:
@@ -277,7 +278,7 @@ planner_server:
       smooth_path: true
       smoother:
         max_iterations: 200
-        w_smooth: 0.3
+        w_smooth: 0.5
         w_data: 0.2
         tolerance: 1.0e-10
         do_refinement: true

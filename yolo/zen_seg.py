@@ -66,7 +66,7 @@ class ZenohSegScan:
         self.latest_sample = None
 
         self.last_valid_scan = np.full(self.num_readings, self.range_max)
-        self.scan_alpha = 0.5
+        self.scan_alpha = 0.3
         
 
         self.inference_queue = queue.Queue(maxsize=1)

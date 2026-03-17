@@ -7,7 +7,7 @@ import numpy as np
 from robot.robot.vision.trt_engine import TRTEngine
 
 class SegFormerTRTDetector:
-    def __init__(self, engine_path="models/segformer_b2_torch2.9.0_cu126_opset18.engine", alpha=0.6, conf_threshold=0.2, debug=False):
+    def __init__(self, engine_path="models/segformer_b2_torch2.9.0_cu126_opset18.engine", alpha=0.6, conf_threshold=0.25, debug=False):
         self.id2label = {}
         self.ground_classes = [3, 6, 11, 13, 21, 26, 27, 28, 46, 52, 54, 60, 91, 94, 109, 131, 147]
         self.alpha = alpha
@@ -69,7 +69,7 @@ class SegFormerTRTDetector:
 
         return logits_small
 
-    def _extract_boundary_points(self, ground_mask, step_x=1):
+    def _extract_boundary_points(self, ground_mask, step_x=8):
         """
         从图像底部向上扫描，寻找地面（1）到障碍物（0）的第一个转换点。
         """
@@ -158,7 +158,7 @@ class SegFormerTRTDetector:
         # 目的：消除局部噪声引起的概率抖动，防止虚假边界
         blurred_ground_prob = cv2.GaussianBlur(
             self.ema_ground_prob.astype(np.float32),
-            ksize=(5, 5),      # 核大小，可调（奇数）
+            ksize=(3, 3),      # 核大小，可调（奇数）
             sigmaX=0.8         # X方向标准差，控制模糊强度
         )
     
@@ -167,7 +167,7 @@ class SegFormerTRTDetector:
 
         # 6. 形态学闭运算 (Closing)
         # 作用：填充地面掩码中细小的黑色空洞（如地砖缝隙、细小阴影），同时保持边缘位置准确
-        kernel = np.ones((7, 7), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         ground_mask = cv2.morphologyEx(ground_mask, cv2.MORPH_CLOSE, kernel)
 
         return ground_mask,(h_orig, w_orig), (current_h, current_w)
@@ -184,20 +184,21 @@ class SegFormerTRTDetector:
         t0 = time.perf_counter()
         mask, (h_orig, w_orig), (h_low, w_low)  = self._inference(frame)
         # 计算缩放比例
-        scale_x = w_orig / w_low
-        scale_y = h_orig / h_low
+        # scale_x = w_orig / w_low
+        # scale_y = h_orig / h_low
         if self.debug:
             print(f"[Timing] Inference: {(time.perf_counter() - t0) * 1000:.2f} ms")
         t1 = time.perf_counter()
-        points = self._extract_boundary_points(mask)
-        # points = self._smooth_boundary_points(points)
+
+        mask_full = cv2.resize(mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+
+        points_orig = self._extract_boundary_points(mask_full)
         # 将坐标缩放回原图
-        points_orig = [(x * scale_x, y * scale_y) for x, y in points]
+        # points_orig = [(x * scale_x, y * scale_y) for x, y in points]
         if self.debug:
             print(f"[Timing] Boundary extraction: {(time.perf_counter() - t1) * 1000:.2f} ms")
         t2 = time.perf_counter()
         if render:
-            mask_full = cv2.resize(mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
             vis = self.save_sample_image(frame, mask_full, points_orig)
         if self.debug:
             print(f"[Timing] Rendering: {(time.perf_counter() - t2) * 1000:.2f} ms")
