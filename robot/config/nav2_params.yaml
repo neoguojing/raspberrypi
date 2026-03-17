@@ -159,7 +159,7 @@ local_costmap:
           topic: /seg/scan
           sensor_frame: base_footprint
           inf_is_valid: true
-          min_obstacle_height: 0.15
+          min_obstacle_height: 0.05
           max_obstacle_height: 0.8
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
           marking: true             # 如果射线上有击中点，则标记障碍物
@@ -180,8 +180,8 @@ global_costmap:
       footprint: "[[0.105, 0.045],[0.105,-0.045],[-0.105,-0.045],[-0.105, 0.045]]"
       
       # 地图尺寸：如果 rolling_window 为 false，系统会自动根据 static_layer 加载的大小调整
-      width: 1000
-      height: 1000
+      # width: 1000
+      # height: 1000
       # origin_x: -20.0
       # origin_y: -20.0
       
@@ -209,7 +209,7 @@ global_costmap:
           topic: /seg/scan
           sensor_frame: base_footprint
           inf_is_valid: true
-          min_obstacle_height: 0.15
+          min_obstacle_height: 0.05
           max_obstacle_height: 0.8
           clearing: true            # 如果射线通过，则清除该区域的旧障碍物信息
           marking: true             # 如果射线上有击中点，则标记障碍物

@@ -303,7 +303,7 @@ class Explorer(Node):
             proximity_penalty = 0.0
             if dist < 1.0:
                 # 距离越近，惩罚越重（阶梯式或固定值）
-                proximity_penalty = 10.0 * (1.0 - dist) 
+                proximity_penalty = 1000.0 * (1.0 - dist) 
                 # self.get_logger().debug(f"目标太近({dist:.2f}m)，已施加避让惩罚")
             
             # 2️⃣ 方向代价 (等效距离)
