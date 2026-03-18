@@ -10,20 +10,13 @@ import struct
 import os
 import glob
 import threading
-
 import queue
 
 class ZenohSegScan:
-    def __init__(self, config_path='config.json'):
+    def __init__(self, config_path='robot/config/imx219.json',static_tf_config_path="robot/config/robot_config.json"):
         
         self.frame_count = 0
         self.skip_n = 3 # 每 3 帧处理 1 帧
-        
-        # --- 1. 参数设置 (模拟 ROS 2 Parameter) ---
-        self.camera_x_offset = 0.1
-        self.camera_y_offset = 0.0
-        self.camera_height = 0.071
-        self.camera_pitch = math.radians(8.5)
         
         # 激光雷达模拟参数
         self.angle_min = -math.radians(40)  # -40°
@@ -37,6 +30,8 @@ class ZenohSegScan:
 
         # 加载相机内参
         self.load_sensor_config(config_path)
+        # 加载tf参数
+        self.load_static_tf_config(static_tf_config_path)
 
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
@@ -90,6 +85,17 @@ class ZenohSegScan:
         self.cy = self.K[1, 2]
         self.width = config['width']
         self.height = config['height']
+
+    def load_static_tf_config(self, path):
+        with open(path, 'r') as f:
+            config = json.load(f)
+        print(f"tf config:{config}")
+        
+        tf_config = config["tf_frames"]
+        # --- 1. 参数设置 (模拟 ROS 2 Parameter) ---
+        self.camera_x_offset = tf_config['camera_link']['offset']['x']
+        self.camera_height = tf_config['camera_link']['offset']['z'] + tf_config['base_link']['offset']['z']
+        self.camera_pitch = abs(tf_config['camera_link']['offset']['pitch'])
 
     def on_image_data(self, sample):
         """回调函数现在极快：只负责存下最新的数据包"""
