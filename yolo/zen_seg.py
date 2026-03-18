@@ -18,6 +18,11 @@ class ZenohSegScan:
         self.frame_count = 0
         self.skip_n = 3 # 每 3 帧处理 1 帧
         
+        # 加载相机内参
+        self.load_sensor_config(config_path)
+        # 加载tf参数
+        self.load_static_tf_config(static_tf_config_path)
+        
         # 激光雷达模拟参数
         self.angle_min = -math.radians(40)  # -40°
         self.angle_max = math.radians(40)   # 40°
@@ -28,10 +33,7 @@ class ZenohSegScan:
         # 物理模拟：假设激光光斑有 1.5 倍角分辨率的宽度，产生重叠
         self.beam_overlap_indices = 2
 
-        # 加载相机内参
-        self.load_sensor_config(config_path)
-        # 加载tf参数
-        self.load_static_tf_config(static_tf_config_path)
+        
 
         # --- 2. Zenoh 初始化 ---
         print("🔗 正在连接到 Zenoh 网络...")
@@ -96,7 +98,7 @@ class ZenohSegScan:
         self.camera_x_offset = tf_config['camera_link']['offset']['x']
         self.camera_height = tf_config['camera_link']['offset']['z'] + tf_config['base_link']['offset']['z']
         self.camera_pitch = abs(tf_config['camera_link']['offset']['pitch'])
-
+        print(f"tf config:{self.camera_height =:.3f}, {self.camera_pitch=:.3f} rad")
     def on_image_data(self, sample):
         """回调函数现在极快：只负责存下最新的数据包"""
         try:

@@ -152,8 +152,9 @@ local_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
-        combination_method: 0
+        combination_method: 1
         observation_sources: scan
+        footprint_clearing_enabled: true
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           topic: /seg/scan
@@ -204,6 +205,7 @@ global_costmap:
         enabled: true
         combination_method: 1
         observation_sources: rtabmap_obstacles
+        footprint_clearing_enabled: true
         scan:
           # topic: /seg/scan/local          # 接收 YOLO-Seg 过滤后的激光数据（只看想避开的物体）
           topic: /seg/scan
