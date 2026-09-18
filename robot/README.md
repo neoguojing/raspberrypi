@@ -3,7 +3,7 @@
 本目录是机器人侧（ROS2）的核心工程，包含底盘控制、相机/IMU、SLAM、定位融合、导航与仿真相关能力。
 
 ## 项目视频（保留 2 个位置）
-[![点击观看视频]](https://www.youtube.com/watch?v=_Bd1_1d7YS8)
+[![https://img.youtube.com/vi/_Bd1_1d7YS8/maxresdefault.jpg](https://www.youtube.com/watch?v=_Bd1_1d7YS8)
 ---
 
 ## 1. 目录结构
