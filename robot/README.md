@@ -2,6 +2,8 @@
 
 本目录是机器人侧（ROS2）的核心工程，包含底盘控制、相机/IMU、SLAM、定位融合、导航与仿真相关能力。
 
+> **架构说明**：关于树莓派机器人端、算力端、Zenoh/DDS 通信、运行矩阵、关键参数和逐项验收，请优先阅读 [Robot 子系统架构与部署说明](ARCHITECTURE.md)。该文档同时标记了当前 launch 未默认启动的 TF/IMU 节点与外部 Zenoh 基础设施要求。
+
 ## 项目视频（保留 2 个位置）
 [![点击观看视频](https://img.youtube.com/vi/_Bd1_1d7YS8/maxresdefault.jpg)](https://www.youtube.com/watch?v=_Bd1_1d7YS8)
 ---
